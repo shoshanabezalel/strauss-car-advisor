@@ -1,0 +1,213 @@
+import { z } from "zod";
+
+/**
+ * Zod schemas for everything in data/. Group names are plain strings validated
+ * against rules.groupOrder (see validateConfig) so that the data — not the code —
+ * defines which groups exist.
+ */
+
+const rate = z.number().min(0).max(1);
+const money = z.number().nonnegative();
+const note = z.string().optional();
+
+// Drive codes follow rules.valueOfUse.driveField: 0 petrol, 1 hybrid, 2 plug-in, 3 electric.
+export const DRIVES = ["petrol", "hybrid", "plugin", "electric"] as const;
+export const DriveSchema = z.enum(DRIVES);
+export type Drive = z.infer<typeof DriveSchema>;
+
+export const GroupSchema = z.string().min(1);
+export type Group = z.infer<typeof GroupSchema>;
+
+// ---------- rules ----------
+
+const BracketsSchema = z
+  .array(z.tuple([z.number().positive().nullable(), rate]))
+  .min(1)
+  .superRefine((brackets, ctx) => {
+    brackets.forEach(([cap], i) => {
+      const isLast = i === brackets.length - 1;
+      if (isLast && cap !== null) {
+        ctx.addIssue({ code: "custom", message: "last bracket cap must be null (open-ended)", path: [i, 0] });
+      }
+      if (!isLast && cap === null) {
+        ctx.addIssue({ code: "custom", message: "only the last bracket may have a null cap", path: [i, 0] });
+      }
+      const prev = i > 0 ? brackets[i - 1][0] : null;
+      if (cap !== null && prev !== null && cap <= prev) {
+        ctx.addIssue({ code: "custom", message: "bracket caps must be strictly ascending", path: [i, 0] });
+      }
+    });
+  });
+
+const TwoTierSchema = z
+  .object({ threshold: money, ceiling: money, lowRate: rate, highRate: rate })
+  .refine((t) => t.threshold < t.ceiling, { message: "threshold must be below ceiling" });
+
+export const RulesSchema = z
+  .object({
+    version: z.string().min(1),
+    note,
+    budgets: z.record(GroupSchema, money),
+    groupOrder: z.array(GroupSchema).min(1),
+    chooseFrom: z.literal("own_group_or_lower"),
+    electric: z.object({
+      netBonus: money,
+      method: z.literal("gross_up"),
+      note,
+    }),
+    familyTrack: z.object({
+      minChildren: z.number().int().positive(),
+      childMaxAge: z.number().int().positive(),
+      cars: z.array(z.string().min(1)).min(1),
+      priceSource: z.literal("catalogue"),
+      gapSplitEmployee: rate,
+      note,
+    }),
+    waiver: z.object({
+      allowedBy: z.literal("occupation"),
+      maintenanceIsTaxable: z.boolean(),
+      maintenanceIsPensionable: z.boolean(),
+    }),
+    unusedBudget: z.literal("not_paid"),
+    netMethod: z.object({
+      basis: z.literal("monthly"),
+      taxYear: z.number().int(),
+      creditPointValue: money,
+      brackets: BracketsSchema,
+      nationalInsurance: TwoTierSchema,
+      health: TwoTierSchema,
+      pensionCredit: z.object({
+        rate,
+        maxContributionRate: rate,
+        incomeCeiling: money,
+        note,
+      }),
+      contributionsBase: z.literal("gross"),
+      contributionsNote: note,
+      participation: z.object({
+        treatment: z.literal("net_deduction"),
+        reducesValueOfUse: z.boolean(),
+        note,
+      }),
+      rounding: z.object({
+        during: z.literal("none"),
+        display: z.literal("shekel"),
+        note,
+      }),
+      note,
+    }),
+    valueOfUse: z.object({
+      source: z.string(),
+      key: z.array(z.string().min(1)).length(5),
+      driveField: z.record(z.string(), z.string().min(1)).refine(
+        (m) => {
+          const keys = Object.keys(m).sort();
+          return keys.length === DRIVES.length && keys.every((k, i) => k === String(i));
+        },
+        { message: `driveField keys must be exactly 0..${DRIVES.length - 1}` },
+      ),
+    }),
+  })
+  .superRefine((r, ctx) => {
+    for (const g of r.groupOrder) {
+      if (!(g in r.budgets)) {
+        ctx.addIssue({ code: "custom", message: `missing budget for group "${g}"`, path: ["budgets", g] });
+      }
+    }
+    for (const g of Object.keys(r.budgets)) {
+      if (!r.groupOrder.includes(g)) {
+        ctx.addIssue({ code: "custom", message: `budget for group "${g}" not in groupOrder`, path: ["budgets", g] });
+      }
+    }
+  });
+export type Rules = z.infer<typeof RulesSchema>;
+
+// ---------- catalog ----------
+
+const code5 = z.string().regex(/^\d{5}$/, "must be a 5-digit string (keep leading zeros)");
+
+export const CarSchema = z.object({
+  id: z.string().min(1),
+  group: GroupSchema,
+  make: z.string().min(1),
+  makeCode: code5,
+  model: z.string().min(1),
+  modelCode: code5,
+  modelDescription: z.string(),
+  vehicleTypeCode: z.string().regex(/^\d+$/),
+  regYear: z.number().int().min(2000).max(2100),
+  drive: DriveSchema,
+  listPrice: money,
+  valueOfUse: money,
+  monthlyCost: money,
+  defaultParticipation: money,
+});
+export type Car = z.infer<typeof CarSchema>;
+
+export const CatalogSchema = z.object({ source: z.string(), cars: z.array(CarSchema).min(1) });
+export type Catalog = z.infer<typeof CatalogSchema>;
+
+// ---------- occupations ----------
+
+export const OccupationSchema = z.object({
+  name: z.string().min(1),
+  group: GroupSchema,
+  carMandatory: z.boolean(),
+  waiverAllowed: z.boolean(),
+  maintenance: money,
+});
+export type Occupation = z.infer<typeof OccupationSchema>;
+
+export const OccupationsSchema = z.object({ source: z.string(), occupations: z.array(OccupationSchema).min(1) });
+export type Occupations = z.infer<typeof OccupationsSchema>;
+
+// ---------- situations & sample employees ----------
+
+export const SituationSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("car"), carId: z.string().min(1), participation: money }),
+  z.object({ kind: z.literal("waiver") }), // maintenance derived from occupation
+]);
+export type Situation = z.infer<typeof SituationSchema>;
+
+export const SampleEmployeeSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  nationalId: z.string().regex(/^\d{9}$/),
+  question: z.string(),
+  profile: z.object({
+    occupation: z.string().min(1),
+    group: GroupSchema,
+    baseSalary: money,
+    commissions: money,
+    bonus: money,
+    pensionPct: rate, // fraction (6% → 0.06)
+    studyFundPct: rate,
+    creditPoints: z.number().nonnegative(),
+    childrenUnder23: z.number().int().nonnegative(),
+    current: SituationSchema,
+  }),
+  alternative: SituationSchema,
+  // Reference data only: the product decision for new-car participation is still open (TECH-DESIGN §10).
+  alternativeParticipationSource: z.literal("catalog_default (reference data)").optional(),
+  expected: z.object({
+    eligible: z.boolean(),
+    reason: z.string(),
+    netToday: z.number(),
+    netAlt: z.number(),
+    diff: z.number(),
+    taxToday: z.number(),
+    taxAlt: z.number(),
+    niHealthToday: z.number(),
+    niHealthAlt: z.number(),
+    electricGross: z.number(),
+    familyGapEmployee: z.number(),
+    why: z.string(),
+  }),
+});
+export type SampleEmployee = z.infer<typeof SampleEmployeeSchema>;
+
+export const SampleEmployeesSchema = z.object({
+  source: z.string(),
+  employees: z.array(SampleEmployeeSchema).min(1),
+});
+export type SampleEmployees = z.infer<typeof SampleEmployeesSchema>;

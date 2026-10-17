@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "scripts/supabase-mcp.mjs",
+        "--project-ref=zjinvunzsxuiycivdmit",
+        "--features=database,docs,development,debugging"
+      ]
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@0.0.83"]
+    }
+  }
+}
