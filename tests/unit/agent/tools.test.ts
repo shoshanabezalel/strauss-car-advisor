@@ -206,7 +206,7 @@ describe("value-of-use tools", () => {
 
 describe("askRepresentative tool", () => {
   it("queues the question and returns an open id", async () => {
-    const out = await tools().askRepresentative({ question: "מה ההשתתפות העצמית ל-ATTO 3?", field: "participation" });
+    const out = await tools().askRepresentative({ question: "מה ההשתתפות העצמית ל-ATTO 3?", field: "participation", carId: car("ATTO 3").id });
     expect(out).toEqual({ questionId: expect.any(String), status: "open" });
     expect(deps.repQueue.questions).toHaveLength(1);
     expect(deps.repQueue.questions[0]).toMatchObject({ field: "participation", questionId: out.questionId });

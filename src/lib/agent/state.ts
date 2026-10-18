@@ -1,10 +1,12 @@
 import type { EmployeeProfile } from "@/lib/engine";
-import type { ProfileField, ProfileSource } from "./schemas";
+import type { ProfileField, ProfileSource, RepField } from "./schemas";
 
 /** Per-conversation state the tools read and update. The engine stays pure: tools replace `profile`, never mutate it. */
 export interface AgentState {
   profile: EmployeeProfile;
   sources: Partial<Record<ProfileField, ProfileSource>>;
+  /** Participation confirmed by the representative for cars other than the current one (car id → ₪). */
+  repParticipation?: Record<string, number>;
 }
 
 export function createAgentState(profile: EmployeeProfile = {}): AgentState {
@@ -13,11 +15,12 @@ export function createAgentState(profile: EmployeeProfile = {}): AgentState {
 
 export interface RepQuestionInput {
   question: string;
-  field: string;
+  field: RepField;
+  carId?: string;
   context?: Record<string, unknown>;
 }
 
-/** Where representative questions go. Memory for tests and evals; the DB-backed queue comes with the rep screen. */
+/** Where representative questions go. Memory for tests and evals; Supabase in the app (supabase-store.ts). */
 export interface RepQueue {
   ask(q: RepQuestionInput): Promise<{ questionId: string; status: "open" }>;
 }

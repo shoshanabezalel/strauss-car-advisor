@@ -27,7 +27,8 @@ describe("deriveNotices", () => {
   });
 
   it("no notice when participation is stated", async () => {
-    const output = await tools.compareOptions({ options: [{ kind: "car", carId: car("ATTO 3").id, participation: 300, participationSource: "rep" }] });
+    // M5: the model may not set participationSource; a stated participation is the employee's
+    const output = await tools.compareOptions({ options: [{ kind: "car", carId: car("ATTO 3").id, participation: 300 }] });
     expect(deriveNotices([{ toolName: "compareOptions", output }])).toEqual([]);
   });
 

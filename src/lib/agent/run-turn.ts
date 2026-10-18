@@ -37,7 +37,7 @@ export const BLOCKED_REPLY =
 const MAX_ATTEMPTS = 2;
 
 /** Names whose digits are not numbers ("ATTO 3", "MG4"): catalog makes/models and occupations. */
-function knownNames(config: Config): string[] {
+export function knownNames(config: Config): string[] {
   return [
     ...config.catalog.cars.flatMap((c) => [c.make, c.model, c.modelDescription]),
     ...config.occupations.occupations.map((o) => o.name),

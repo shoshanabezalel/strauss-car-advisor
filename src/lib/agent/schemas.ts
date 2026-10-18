@@ -237,9 +237,33 @@ export const CompareOptionsOutput = z.object({
 
 // ---------- askRepresentative ----------
 
-export const AskRepresentativeInput = z.object({
-  question: z.string().trim().min(1),
-  field: z.string().trim().min(1),
-  context: z.record(z.string(), z.unknown()).optional(),
-});
+/**
+ * What a representative can answer as data (M5). Each field maps to one tool path, so an answer is applied by
+ * updateProfile / compareOptions and never reaches the employee as free text.
+ * - participation: the participation in a specific catalog car (`carId`), usually the requested one
+ * - current: the employee's current car (+ participation) or waiver, e.g. a car that is not in the catalog
+ * - group / occupation: picked from the rules / occupations lists
+ */
+export const REP_FIELDS = ["participation", "current", "group", "occupation"] as const;
+export const RepFieldSchema = z.enum(REP_FIELDS);
+export type RepField = z.infer<typeof RepFieldSchema>;
+
+export const AskRepresentativeInput = z
+  .object({
+    question: z.string().trim().min(1),
+    field: RepFieldSchema,
+    /** Required for participation: the catalog car the question is about. */
+    carId: z.string().trim().min(1).optional(),
+    context: z.record(z.string(), z.unknown()).optional(),
+  })
+  .refine((q) => q.field !== "participation" || q.carId !== undefined, { message: "participation needs carId", path: ["carId"] });
 export const AskRepresentativeOutput = z.object({ questionId: z.string().min(1), status: z.literal("open") });
+
+/** A representative's answer: typed per field. Range checks that depend on the car live in the rep-answer service. */
+export const RepAnswerSchema = z.discriminatedUnion("field", [
+  z.object({ field: z.literal("participation"), carId: z.string().min(1), value: money }),
+  z.object({ field: z.literal("current"), situation: SituationSchema }),
+  z.object({ field: z.literal("group"), value: z.string().trim().min(1) }),
+  z.object({ field: z.literal("occupation"), value: z.string().trim().min(1) }),
+]);
+export type RepAnswer = z.infer<typeof RepAnswerSchema>;

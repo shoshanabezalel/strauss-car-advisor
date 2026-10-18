@@ -1,6 +1,6 @@
 import { tool, type ToolSet } from "ai";
 import type { z } from "zod";
-import type { Config } from "@/lib/config";
+import type { Config, Situation } from "@/lib/config";
 import { allowedCars, checkEligibility, compareOptions, missingProfileFields, type EmployeeProfile, type OptionResult } from "@/lib/engine";
 import { displayDiff, roundShekel } from "@/lib/format/money";
 import { getValueOfUse, searchValueOfUse, type VouSource } from "@/lib/vou";
@@ -38,6 +38,14 @@ export interface ToolHandlers {
   askRepresentative: Handler<typeof S.AskRepresentativeInput, typeof S.AskRepresentativeOutput>;
 }
 
+/**
+ * Who is calling the tools. `agent` = the LLM: it may not claim a representative's confirmation (source "rep",
+ * or any participationSource). `rep` = the representative-answer service (src/lib/chat/rep-answer.ts).
+ */
+export type ToolOrigin = "agent" | "rep";
+
+export class ToolInputError extends Error {}
+
 const PERCENT_FIELDS = new Set<S.ProfileField>(["pensionPct", "studyFundPct"]);
 
 /** The table's amounts, rounded for display only (the engine's values stay unrounded beside them). */
@@ -54,9 +62,16 @@ function amounts(r: OptionResult) {
 }
 
 /** Plain handlers: Zod-parse the input, call the engine / lookup, Zod-parse the output. No calculation here. */
-export function createToolHandlers(deps: AgentDeps): ToolHandlers {
+export function createToolHandlers(deps: AgentDeps, { origin = "agent" }: { origin?: ToolOrigin } = {}): ToolHandlers {
   const { config, vouSource, state, repQueue } = deps;
   const { rules } = config;
+
+  /** A car option without participation takes the representative's confirmed value, else the engine's catalog default. */
+  const withParticipation = (s: Situation): Situation => {
+    if (s.kind !== "car" || s.participation !== undefined) return s;
+    const confirmed = state.repParticipation?.[s.carId];
+    return confirmed === undefined ? s : { ...s, participation: confirmed, participationSource: "rep" };
+  };
 
   return {
     async getCatalog(input) {
@@ -81,6 +96,12 @@ export function createToolHandlers(deps: AgentDeps): ToolHandlers {
 
     async updateProfile(input) {
       const { updates } = S.UpdateProfileInput.parse(input);
+      if (origin === "agent" && updates.some((u) => u.source === "rep")) {
+        throw new ToolInputError('source "rep" is reserved for representative answers');
+      }
+      if (origin === "agent" && updates.some((u) => u.field === "current" && u.value.kind === "car" && u.value.participationSource !== undefined)) {
+        throw new ToolInputError("participationSource is set by the tool, not by the caller");
+      }
 
       const errors: { field: S.ProfileField; error: "unknown_group" | "unknown_occupation" | "unknown_car"; options?: string[] }[] = [];
       for (const u of updates) {
@@ -122,7 +143,11 @@ export function createToolHandlers(deps: AgentDeps): ToolHandlers {
     },
 
     async compareOptions(input) {
-      const { options } = S.CompareOptionsInput.parse(input);
+      const parsed = S.CompareOptionsInput.parse(input);
+      if (origin === "agent" && parsed.options.some((o) => o.kind === "car" && o.participationSource !== undefined)) {
+        throw new ToolInputError("participationSource is set by the tool, not by the caller");
+      }
+      const options = parsed.options.map(withParticipation);
       const { today, options: results } = compareOptions(state.profile, options, config);
       const todayNet = today.breakdown?.net;
       const net = (r: OptionResult) => (r.breakdown ? roundShekel(r.breakdown.net) : undefined);
@@ -137,7 +162,11 @@ export function createToolHandlers(deps: AgentDeps): ToolHandlers {
     },
 
     async askRepresentative(input) {
-      return S.AskRepresentativeOutput.parse(await repQueue.ask(S.AskRepresentativeInput.parse(input)));
+      const q = S.AskRepresentativeInput.parse(input);
+      if (q.carId !== undefined && !config.catalog.cars.some((c) => c.id === q.carId)) {
+        throw new ToolInputError(`unknown car ${q.carId}: use an id from getCatalog`);
+      }
+      return S.AskRepresentativeOutput.parse(await repQueue.ask(q));
     },
   };
 }
@@ -150,8 +179,10 @@ const DESCRIPTIONS: Record<ToolName, string> = {
   getValueOfUse: "Tax-authority value-of-use by make and model codes. Partial keys may return mustConfirm or ambiguous.",
   searchValueOfUse: "Find value-of-use candidates by car name. Never returns a single picked value.",
   updateProfile: "Save data the employee stated. Percent fields as the employee said them (six for six percent). Returns missing fields.",
-  compareOptions: "Net today vs each requested option. Quote numbers only from display; omit participation for a new car.",
-  askRepresentative: "Send a question to the car representative for company data the employee cannot know.",
+  compareOptions:
+    "Net today vs each requested option. Quote numbers only from display. Omit participation for a new car: the tool applies the representative's answer or the catalog default.",
+  askRepresentative:
+    'Send a question to the car representative for company data the employee cannot know. field "participation" needs the carId; "current" for an unknown current car or one not in the catalog.',
 };
 
 const INPUTS: Record<ToolName, z.ZodType> = {
