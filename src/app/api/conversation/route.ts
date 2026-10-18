@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { toComparisonView } from "@/lib/chat/comparison-view";
+import { toRepQuestionStatuses, type ConversationResponse } from "@/lib/chat/conversation-response";
 import { toVisibleHistory } from "@/lib/chat/history";
 import { agentModeHeader, chatDeps } from "@/lib/chat/server";
 
 /**
- * GET /api/conversation?c=<uuid> → what the employee screen shows after a reload.
+ * GET /api/conversation?c=<uuid> → what the employee screen shows after a reload or a Realtime ping.
  * TODO(M7): anyone holding the id can read it (no auth in the demo, TECH-DESIGN §10).
  */
 export async function GET(request: Request) {
@@ -16,13 +17,13 @@ export async function GET(request: Request) {
   const snap = await store.load(id.data);
   if (!snap) return Response.json({ error: "not_found" }, { status: 404, headers });
 
-  return Response.json(
-    {
-      conversationId: snap.id,
-      status: snap.status,
-      messages: toVisibleHistory(snap.messages),
-      comparison: snap.comparison ? toComparisonView(snap.comparison, config) : null,
-    },
-    { headers },
-  );
+  const body: ConversationResponse = {
+    conversationId: snap.id,
+    status: snap.status,
+    messages: toVisibleHistory(snap.messages),
+    comparison: snap.comparison ? toComparisonView(snap.comparison, config) : null,
+    // Status only: the answer reaches the employee through the tools (reply + comparison), never as raw input.
+    repQuestions: toRepQuestionStatuses(snap),
+  };
+  return Response.json(body, { headers });
 }

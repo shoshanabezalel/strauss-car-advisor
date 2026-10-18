@@ -12,6 +12,7 @@ export interface ComparisonRow {
   /** Hebrew: "make model" or the waiver label. */
   label: string;
   kind: "car" | "waiver";
+  carId?: string;
   carGroup?: string;
   drive?: Drive;
   track: Track;
@@ -53,6 +54,7 @@ function toRow(r: Row, key: string, isToday: boolean, config: Config): Compariso
     isToday,
     label,
     kind: r.situation.kind,
+    carId: s.kind === "car" ? s.carId : undefined,
     carGroup: car?.group,
     drive: car?.drive,
     track: r.eligibility.track,

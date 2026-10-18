@@ -15,9 +15,14 @@ export default function Home() {
         נטענו {catalog.cars.length} רכבים · {occupations.occupations.length} עיסוקים ·{" "}
         {employees.employees.length} עובדים
       </p>
-      <Button asChild size="lg">
-        <Link href="/employee">להתחלת שיחה</Link>
-      </Button>
+      <div className="flex flex-wrap justify-center gap-3">
+        <Button asChild size="lg">
+          <Link href="/employee">להתחלת שיחה</Link>
+        </Button>
+        <Button asChild size="lg" variant="outline">
+          <Link href="/rep">מסך נציג/ת הרכב</Link>
+        </Button>
+      </div>
     </main>
   );
 }

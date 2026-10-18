@@ -49,6 +49,11 @@ function Participation({ row }: { row: ComparisonRow }) {
     <span className="inline-flex flex-wrap items-center gap-1">
       {formatShekel(row.amounts.participation)}
       {row.needsConfirmation && <Badge variant="outline">טרם אושרה</Badge>}
+      {row.participationSource === "rep" && (
+        <Badge variant="secondary" data-testid="participation-rep">
+          אושרה ע״י נציג/ת
+        </Badge>
+      )}
     </span>
   );
 }

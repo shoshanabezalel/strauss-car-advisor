@@ -28,6 +28,13 @@ export default defineConfig({
         reuseExistingServer: false,
         timeout: 180_000,
         // Scripted model (no LLM network access needed); rows tagged for cleanup by global-teardown.
-        env: { AGENT_MODEL: "mock", AGENT_MOCK_DELAY_MS: "400", CONVERSATION_SOURCE: "e2e", NEXT_DIST_DIR: ".next-e2e" },
+        // Polling fallback off, so the rep → employee update can only arrive through Realtime.
+        env: {
+          AGENT_MODEL: "mock",
+          AGENT_MOCK_DELAY_MS: "400",
+          CONVERSATION_SOURCE: "e2e",
+          NEXT_DIST_DIR: ".next-e2e",
+          NEXT_PUBLIC_REALTIME_POLL: "off",
+        },
       },
 });

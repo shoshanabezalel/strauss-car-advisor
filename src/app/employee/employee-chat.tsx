@@ -2,7 +2,7 @@
 
 import { Check, LoaderCircle, Send, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,12 +11,16 @@ import { Textarea } from "@/components/ui/textarea";
 import type { AgentEvent, ToolName } from "@/lib/agent";
 import type { DemoPrompt } from "@/lib/agent/mock-model";
 import type { ComparisonView } from "@/lib/chat/comparison-view";
+import type { ConversationResponse, RepQuestionStatusView } from "@/lib/chat/conversation-response";
 import type { ChatEvent } from "@/lib/chat/handle-turn";
 import type { VisibleMessage } from "@/lib/chat/history";
 import { createNdjsonParser } from "@/lib/chat/ndjson";
+import { conversationTopic } from "@/lib/realtime/topics";
+import { usePing } from "@/lib/realtime/use-ping";
 import { Comparison } from "./comparison";
 import { STATUS_LABELS, TOOL_LABELS } from "./labels";
-import { Notices } from "./notices";
+import { Notices, type Resolved } from "./notices";
+import { RepStatus } from "./rep-status";
 
 interface Props {
   mock: boolean;
@@ -40,35 +44,67 @@ export function EmployeeChat({ mock, demoPrompts, carLabels }: Props) {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [repQuestions, setRepQuestions] = useState<RepQuestionStatusView[]>([]);
   const [loading, setLoading] = useState(Boolean(params.get("c")));
   const endRef = useRef<HTMLDivElement>(null);
   const pending = progress !== null;
+  // A ping during a running turn is applied after the turn, so the stream and the refetch don't race.
+  const busy = useRef(false);
+  const refetchAfterTurn = useRef(false);
 
-  // Reload: restore the conversation from the DB.
+  /** Restore the screen from the DB: after a reload, a Realtime ping, or a turn that opened a rep question. */
+  const load = useCallback(
+    (id: string, { initial = false } = {}) =>
+      fetch(`/api/conversation?c=${encodeURIComponent(id)}`, { cache: "no-store" })
+        .then(async (res) => {
+          if (!res.ok) {
+            if (initial) {
+              setError("לא מצאתי את השיחה הזו. אפשר להתחיל שיחה חדשה.");
+              setConversationId(undefined);
+            }
+            return;
+          }
+          const data = (await res.json()) as ConversationResponse;
+          if (busy.current) {
+            refetchAfterTurn.current = true;
+            return;
+          }
+          setMessages(data.messages);
+          setComparison(data.comparison);
+          setRepQuestions(data.repQuestions);
+        })
+        .catch(() => {
+          if (initial) setError(GENERIC_ERROR);
+        })
+        .finally(() => {
+          if (initial) setLoading(false);
+        }),
+    [],
+  );
+
   useEffect(() => {
     const c = params.get("c");
-    if (!c) return;
-    let cancelled = false;
-    fetch(`/api/conversation?c=${encodeURIComponent(c)}`)
-      .then(async (res) => {
-        if (cancelled) return;
-        if (!res.ok) {
-          setError("לא מצאתי את השיחה הזו. אפשר להתחיל שיחה חדשה.");
-          setConversationId(undefined);
-          return;
-        }
-        const data = (await res.json()) as { messages: VisibleMessage[]; comparison: ComparisonView | null };
-        setMessages(data.messages);
-        setComparison(data.comparison);
-      })
-      .catch(() => !cancelled && setError(GENERIC_ERROR))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-    // Only on first load; later turns update state from the stream.
+    if (c) void load(c, { initial: true });
+    // Only on first load; later updates come from the stream and Realtime pings.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const realtime = usePing(conversationId ? conversationTopic(conversationId) : undefined, () => {
+    if (!conversationId) return;
+    if (busy.current) refetchAfterTurn.current = true;
+    else void load(conversationId);
+  });
+
+  // Old notices show as resolved once the representative answered / the participation was confirmed.
+  const resolved = useMemo<Resolved>(
+    () => ({
+      questions: new Set(repQuestions.filter((q) => q.status === "answered").map((q) => q.id)),
+      cars: new Set(
+        (comparison?.rows ?? []).filter((r) => !r.isToday && r.participationSource === "rep" && r.carId).map((r) => r.carId!),
+      ),
+    }),
+    [repQuestions, comparison],
+  );
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -113,6 +149,9 @@ export function EmployeeChat({ mock, demoPrompts, carLabels }: Props) {
     setDraft("");
     setMessages((m) => [...m, { role: "user", text: trimmed }]);
     setProgress({ tools: [] });
+    busy.current = true;
+    let id = conversationId;
+    let opened = false;
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -120,7 +159,11 @@ export function EmployeeChat({ mock, demoPrompts, carLabels }: Props) {
         body: JSON.stringify({ conversationId, text: trimmed }),
       });
       if (!res.ok || !res.body) throw new Error(`chat ${res.status}`);
-      const parser = createNdjsonParser<ChatEvent>(onEvent);
+      const parser = createNdjsonParser<ChatEvent>((e) => {
+        if (e.type === "conversation") id = e.conversationId;
+        if (e.type === "result" && e.notices.some((n) => n.kind === "rep_question_open")) opened = true;
+        onEvent(e);
+      });
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
       for (;;) {
         const { done, value } = await reader.read();
@@ -131,12 +174,17 @@ export function EmployeeChat({ mock, demoPrompts, carLabels }: Props) {
     } catch {
       setError(GENERIC_ERROR);
     } finally {
+      busy.current = false;
       setProgress(null);
+      if (id && (opened || refetchAfterTurn.current)) {
+        refetchAfterTurn.current = false;
+        void load(id);
+      }
     }
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6" data-realtime={conversationId ? realtime : undefined}>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-semibold">יועץ הרכב</h1>
@@ -149,6 +197,8 @@ export function EmployeeChat({ mock, demoPrompts, carLabels }: Props) {
         )}
       </header>
 
+      <RepStatus questions={repQuestions} carLabels={carLabels} />
+
       <Card>
         <CardContent className="flex flex-col gap-4">
           <div className="flex max-h-[60vh] min-h-40 flex-col gap-3 overflow-y-auto" aria-live="polite" data-testid="chat-log">
@@ -159,7 +209,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels }: Props) {
               </p>
             )}
             {messages.map((m, i) => (
-              <Bubble key={i} message={m} carLabels={carLabels} />
+              <Bubble key={i} message={m} carLabels={carLabels} resolved={resolved} />
             ))}
             {progress && <ProgressView progress={progress} />}
             <div ref={endRef} />
@@ -214,7 +264,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels }: Props) {
   );
 }
 
-function Bubble({ message: m, carLabels }: { message: VisibleMessage; carLabels: Record<string, string> }) {
+function Bubble({ message: m, carLabels, resolved }: { message: VisibleMessage; carLabels: Record<string, string>; resolved: Resolved }) {
   if (m.role === "user") {
     return (
       <div className="max-w-[85%] self-start rounded-2xl bg-primary px-3 py-2 text-sm whitespace-pre-line text-primary-foreground" data-testid="msg-user">
@@ -227,7 +277,7 @@ function Bubble({ message: m, carLabels }: { message: VisibleMessage; carLabels:
       <div className="rounded-2xl bg-muted px-3 py-2 text-sm whitespace-pre-line" data-testid="msg-assistant">
         {m.text}
       </div>
-      <Notices notices={m.notices ?? []} carLabels={carLabels} />
+      <Notices notices={m.notices ?? []} carLabels={carLabels} resolved={resolved} />
     </div>
   );
 }
