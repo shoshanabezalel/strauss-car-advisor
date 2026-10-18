@@ -14,7 +14,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "data:convert": "tsx scripts/xlsx-to-json.ts",
     "check:db": "tsx scripts/check-db.ts",
-    "import:vou": "tsx scripts/import-vou.ts"
+    "import:vou": "tsx scripts/import-vou.ts",
+    "db:clean-e2e": "tsx scripts/clean-e2e.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.99",
