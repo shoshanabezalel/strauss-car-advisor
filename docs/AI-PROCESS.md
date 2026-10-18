@@ -94,3 +94,36 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   - **Phrasing:** the diff is written as עלייה / ירידה + the absolute value, never with a minus sign. `display.direction`
     gives the sign as a word, and the eval checks it. The minus-sign check ignores Hebrew prefixes like "ל-5,078".
   - Actions bumped to checkout/setup-node v5 (Node 20 deprecation).
+### M4 — End-to-end skeleton: employee screen + chat API (18/10/2026)
+- **How:** plan mode → approval with additions:
+  - responsive cards on phones + a mobile e2e run
+  - random UUID conversation ids
+  - `/api/conversation` exposure and `/api/chat` rate limiting logged for M7
+  - `maxDuration = 60`
+  - e2e rows tagged so they can be cleaned up (migration `0002_conversation_source`, applied via Supabase MCP;
+    `list_tables`, `get_advisors security` (no lints), `check:db` green)
+- **Mock model:** NetFree blocks Gemini on this machine, so `AGENT_MODEL=mock` runs a scripted model over the real
+  tools, engine and number-guard. The script only picks tool calls; replies quote the tools' `display` values.
+- **Tests first:** 46 new unit tests + throwing stubs; **60 red** (45 new; 15 existing compareOptions/run-turn/notices
+  tests, because `display` now requires the table amounts). One new test ("no event carries model text") passed for the
+  wrong reason, since no events existed yet. Then display → events → mock → chat service → routes → UI until green.
+- **Verification:**
+  - `npm test` (263), `typecheck`, `lint`.
+  - `npm run test:e2e` (8, ~50 s): E-001 desktop + phone, reload, missing / rep notices, UUID checks.
+  - Manual E-001 run via Playwright MCP: table 11,032 → 11,693, עלייה 661, EV 440, participation notice; reload
+    restored it.
+  - Supabase `execute_sql`: one `app` conversation with messages, profile and comparison; no `e2e` rows left.
+- **What went wrong:**
+  - Next 16 allows one `next dev` per project (lockfile), so e2e on its own port would fail next to a running dev
+    server. Fixed with `distDir` from `NEXT_DIST_DIR` (`.next-e2e` for e2e).
+  - First e2e run: 4 tests timed out at 5 s while the cold dev server compiled `/api/chat`. The mobile test passed, so
+    streaming was fine. Raised the expect timeout to 15 s.
+  - The mock answers instantly, so "progress is visible" would be flaky. Added `AGENT_MOCK_DELAY_MS` (400 in e2e).
+  - The planned lucide icon names `CircleHelp` / `ShieldQuestion` no longer exist in lucide-react 1.x. Caught by
+    checking the type declarations before typecheck.
+  - `serverEnv()` would reject empty lines copied from `.env.example` (`AGENT_MODEL=`). Empty values now count as unset.
+- **Decisions:**
+  - Custom NDJSON instead of the AI SDK UI stream, so text can't leak before the guard.
+  - Table amounts rounded server side in `display`; the UI only formats them (`Intl`, `signDisplay: "never"` for the diff).
+  - The live evals skip themselves in mock mode.
+  - M4 ticked on the mock run. A live-model browser run waits for an open network, like the M3 evals.

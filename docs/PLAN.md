@@ -19,4 +19,4 @@ Plan mode → approval → tests first → implement until green → manual chec
 Fri–Sat 23–24/10: no work. Buffer: Mon–Tue.
 
 ## Status
-- [x] M0 (17/10) · [x] M1 (18/10) · [x] M2 (18/10) · [ ] M3 (code + unit tests done 18/10; live evals blocked by network) · [ ] M4 · [ ] M5 · [ ] M6 · [ ] M7 · [ ] M8
+- [x] M0 (17/10) · [x] M1 (18/10) · [x] M2 (18/10) · [ ] M3 (code + unit tests done 18/10; live evals blocked by network) · [x] M4 (18/10; E-001 in the browser with the mock model, live model pending network) · [ ] M5 · [ ] M6 · [ ] M7 · [ ] M8

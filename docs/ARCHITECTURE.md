@@ -19,7 +19,7 @@
        │ POST /api/chat   │ Realtime              │ POST /api/rep/answer
        ▼                  │                       ▼               │
 ┌──────────── Next.js API (server) ─────────────────────────────────────┐
-│  Agent (AI SDK streamText, tools)                                      │
+│  Agent (AI SDK generateText + tools; NDJSON progress, guarded reply)  │
 │   ├─ tools/getCatalog       ─┐                                         │
 │   ├─ tools/checkEligibility  ├─► lib/engine  (pure, deterministic)     │
 │   ├─ tools/getValueOfUse     │    ├─ eligibility.ts                    │
@@ -36,7 +36,7 @@
 ```
 
 ## Main flows
-1. **Chat**: employee sends a message → API loads conversation + profile from DB → LLM with tools → tools update profile / compute → streamed reply + persisted.
+1. **Chat**: employee sends a message → `POST /api/chat` loads conversation + profile from DB → LLM with tools → tools update profile / compute → number-guard → persisted. The response is an NDJSON stream: tool/status progress while the model works, then the reply, notices and comparison **once, after the guard** (reply text never streams). `AGENT_MODEL=mock` swaps in a scripted model for local dev; everything else is the same.
 2. **Comparison**: `compareOptions` returns full JSON → frontend renders the table from the JSON (not from model text) → model writes a 2-line explanation from the `changes` field.
 3. **Representative**: `askRepresentative` inserts into rep_questions, conversation status `waiting_rep` → rep answers → saved as a profile fact + system message → Realtime wakes the employee screen → agent resumes automatically from the same point.
 4. **Config**: all rules in data/*.json. In a pilot, swap files, not code.

@@ -15,8 +15,9 @@ src/lib/config/   rules.ts, catalog.ts, occupations.ts   (load + Zod)
 src/lib/engine/   net.ts, eligibility.ts, compare.ts, types.ts
 src/lib/vou/      parse.ts, lookup.ts, memory-source.ts, supabase-source.ts
 src/lib/agent/    schemas.ts, state.ts, tools.ts, system-prompt.md (+ .ts loader), number-guard.ts,
-                  notices.ts, run-turn.ts, model.ts
-src/app/employee/ , src/app/rep/ , src/app/api/chat/ , src/app/api/rep/
+                  notices.ts, run-turn.ts, events.ts, model.ts, mock-model.ts, demo-messages.ts
+src/lib/chat/     handle-turn.ts, store.ts (+ memory-store, supabase-store), comparison-view.ts, history.ts, ndjson.ts
+src/app/employee/ , src/app/rep/ , src/app/api/chat/ , src/app/api/conversation/ , src/app/api/rep/
 tests/unit/ , tests/e2e/ , tests/evals/ (live LLM, `npm run eval:agent`, not in `npm test`)
 ```
 
@@ -136,7 +137,9 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
 - `updateProfile` is all-or-nothing. It rejects an unknown group, occupation or car with the allowed options. Percent
   fields arrive as said (6 → the tool stores 0.06), so the LLM never converts. A stated current-car participation gets
   the update's source. `missing` comes from engine `missingProfileFields` (F2 fields).
-- `display` uses `roundShekel` / `displayDiff` (§3), so the model quotes ready values and never subtracts. `direction`
+- `display` uses `roundShekel` / `displayDiff` (§3), so the model quotes ready values and never subtracts. It also
+  carries the table amounts (`valueOfUse`, `participation`, `carCost`, `budget`, `electricGross`, `maintenance`,
+  `familyGapEmployee`) for today and each option, so the UI renders the table without arithmetic. `direction`
   (`up`/`down`/`none`) is the diff's sign as a word: replies say עלייה / ירידה with the absolute value, never a minus sign.
 - Call budget per case: one `getCatalog` (`all`) to map names → ids, one `updateProfile` with every stated field, then `compareOptions`.
 - Rule: if an output has `missing`, the model asks the employee or the representative.
@@ -157,6 +160,33 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
 - Notices (`notices.ts`): structured flags derived in code from the turn's tool outputs, for the UI regardless of wording:
   `missing`, `participation_unconfirmed`, `ambiguous_vou`, `confirm_vou_match`, `rep_question_open`.
 - Model: `model.ts`, Gemini via `@ai-sdk/google`, id from `AGENT_MODEL` (default `gemini-3.5-flash`).
+- **Mock model** (`AGENT_MODEL=mock`, `mock-model.ts`): for local dev / e2e without LLM access. It matches the last
+  user message to a scenario built from `data/sample-employees.json` (`demo-messages.ts`: E-001…E-006 opening messages,
+  missing data, unknown participation → representative, ATTO 3 without type code → ambiguous), emits the scripted
+  tool calls one step at a time, then a reply built from the tool results' `display` values. The real tools, engine and
+  guard run unchanged. Unknown messages get a fixed reply without digits. Refused when `NODE_ENV=production`;
+  `AGENT_MOCK_DELAY_MS` adds a delay per step. The live evals skip themselves in mock mode.
+- **Events** (`events.ts`): `runAgentTurn({ onEvent })` emits `status` (`thinking` / `checking` / `regenerating`) and
+  `tool` (`running` / `done` / `error`) events. No event carries model text.
+
+## 7a. Chat API and employee screen (M4)
+- `POST /api/chat` `{ conversationId?: uuid, text }` → `application/x-ndjson` stream of `ChatEvent`
+  (`src/lib/chat/handle-turn.ts`): `conversation` (id, first), then `status` / `tool` while the agent works, then one
+  `result` `{ reply, blocked, notices, comparison? }` **after the guard**, or `error` (`not_found` / `failed`, Hebrew
+  message, no internals). `maxDuration = 60`. Header `x-agent-mode: mock|live`.
+- `handleChatTurn`: load or create the conversation → `runAgentTurn` with the stored history + saved state → store the
+  user message, the turn's tool round-trips and the final reply (with `meta: { notices, blocked }`), the state, the latest
+  `compareOptions` output; a `rep_question_open` notice sets status `waiting_rep`. A failed turn stores nothing.
+- `ConversationStore` (`store.ts`): Supabase (`supabase-store.ts`, service role) in the app, memory in unit tests.
+  `messages.content = { message: ModelMessage, meta? }`; `profiles.data = { profile, sources }`; `askRepresentative`
+  inserts into `rep_questions`.
+- `GET /api/conversation?c=<uuid>` → visible history (user text + final replies with their notices), the last
+  comparison view, status. 400 for a non-UUID id, 404 if unknown.
+- `toComparisonView` (`comparison-view.ts`): rows for today + each option with labels, eligibility and the `display`
+  amounts copied as-is (a test checks every number is a `display` value).
+- `/employee`: chat, progress chips from events, notices as alerts from `notices` (never parsed from text), comparison as
+  a table from `md` up and one card per option below. Mock mode shows a badge and demo prompts. The conversation id
+  goes into the URL (`?c=`), so a reload restores the screen.
 
 ## 8. DB (Supabase)
 ```sql
@@ -170,7 +200,10 @@ value_of_use(... see section 5)
 ```
 Realtime: employee screen subscribes to the conversation's `rep_questions` and `messages`; rep screen to `rep_questions where status='open'`.
 No auth in the demo: conversation id in the URL (`/employee?c=...`).
-Schema: `supabase/migrations/0001_init.sql` (applied 17/10/2026 via Supabase MCP).
+Schema: `supabase/migrations/0001_init.sql` (applied 17/10/2026 via Supabase MCP) and `0002_conversation_source.sql`
+(18/10/2026): `conversations.source` (`app` | `e2e`). The e2e server sets `CONVERSATION_SOURCE=e2e`;
+`npm run db:clean-e2e` and Playwright's global teardown delete those conversations (children cascade).
+Conversation ids are random UUIDs (`gen_random_uuid()`).
 
 **RLS (demo):** enabled on all tables. One policy per table, `demo_read`: `select` for `anon, authenticated` using `true`, which Realtime and page loads need. There are no insert/update/delete policies, so the publishable key cannot write; API routes write with the service-role key. Known gap: anyone with the publishable key can read every conversation. **M7 must replace this** (e.g. per-conversation secret token checked in a policy or through RPC, or anonymous auth + `owner = auth.uid()`; rep screen behind a role).
 
@@ -181,7 +214,12 @@ Schema: `supabase/migrations/0001_init.sql` (applied 17/10/2026 via Supabase MCP
 - **Conversation evals** (`npm run eval:agent`, live Gemini, sequential with 429 backoff, skipped without a key): E-001…E-006
   from one Hebrew message (plus a follow-up turn if the model asks first) → updateProfile + compareOptions called, first line
   has the sheet's net and diff, guard never blocks, unconfirmed participation flagged; two A12 cases.
-- **E2E (Playwright)**: full A7 including representative and refresh.
+- **Chat unit tests** (memory store + mock model): event order, reply only in `result`, persistence, second turn,
+  `waiting_rep`, blocked reply stored as the fallback, unknown id, model failure; comparison view has no computed numbers.
+- **E2E (Playwright, `npm run test:e2e`, local only, ~1 min, not in the Stop hook)**: mock model on port 3100
+  (`NEXT_DIST_DIR=.next-e2e`, so it runs next to `npm run dev`). E-001 full run (progress → reply → table → participation
+  notice), reload restores it, missing-data and representative notices, E-001 at a phone viewport (cards, no horizontal
+  scroll), UUID validation. M5/M7 add A7 with the rep screen and the deployed URL.
 
 ## 10. Open decisions
 - [x] Participation for a new car (decided 18/10): the catalog `defaultParticipation`, with `participationSource: 'catalog_default'`
@@ -197,5 +235,13 @@ Schema: `supabase/migrations/0001_init.sql` (applied 17/10/2026 via Supabase MCP
   regeneration, then a blocked fallback. Numbers written as Hebrew words are not detected (prompt requires digits).
 - [x] Agent prompt language (decided 18/10): the prompt file is English; replies are Hebrew; a glossary pins the terms.
 - [x] Missing / unconfirmed data is surfaced twice: by the prompt and by code-derived notices that the UI shows.
+- [x] Local dev without LLM (decided 18/10, M4): `AGENT_MODEL=mock` scripted model over the real tools; refused in production.
+- [x] Chat transport (decided 18/10, M4): custom NDJSON, not the AI SDK UI stream; progress events stream, the reply
+  arrives once after the guard. The table renders `display` values only.
+- [x] Persistence (decided 18/10, M4): Supabase from M4 behind `ConversationStore`; e2e rows tagged `source='e2e'` and cleaned up.
 - [ ] Payslip reading: Gemini vision → JSON, employee confirms each field.
 - [ ] RLS model for the public deploy (M7): conversation token vs. anonymous auth. Demo read-all policy is a stopgap.
+- [ ] M7: `GET /api/conversation` returns a whole conversation to anyone who has its id (UUIDs are unguessable but
+  links leak). Tie it to the same per-conversation secret / auth as RLS.
+- [ ] M7: `POST /api/chat` needs rate limiting (per IP and per conversation) before the public deploy: each call can
+  cost two LLM generations and several DB writes.
