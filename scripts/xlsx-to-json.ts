@@ -8,6 +8,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import ExcelJS from "exceljs";
+import { getChallengeScript } from "../src/lib/config/challenge-script";
 import { parseWith } from "../src/lib/config/parse";
 import {
   CatalogSchema,
@@ -191,7 +192,8 @@ async function main() {
   const catalog = parseWith(CatalogSchema, { source: SOURCE, cars }, "catalog");
   const occ = parseWith(OccupationsSchema, { source: SOURCE, occupations }, "occupations");
   const emp = parseWith(SampleEmployeesSchema, { source: SOURCE, employees }, "sample-employees");
-  validateConfig({ rules, catalog, occupations: occ, employees: emp });
+  // The challenge script is hand-written (not in the xlsx); validated against the new catalog too.
+  validateConfig({ rules, catalog, occupations: occ, employees: emp, challenge: getChallengeScript() });
 
   const write = (file: string, data: unknown) => {
     writeFileSync(path.join(ROOT, "data", file), JSON.stringify(data, null, 2) + "\n", "utf8");

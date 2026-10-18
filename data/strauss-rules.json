@@ -36,6 +36,10 @@
     "maintenanceIsPensionable": false
   },
   "unusedBudget": "not_paid",
+  "participation": {
+    "max": 1000,
+    "note": "תקרה להשתתפות עובד שנציג/ה מזין/ה: הנמוך מבין הסכום הזה לבין העלות החודשית של הרכב בקטלוג. ערך הדגמה - לאשר מול שטראוס"
+  },
   "netMethod": {
     "basis": "monthly",
     "taxYear": 2025,

@@ -3,11 +3,13 @@ import rulesJson from "../../data/strauss-rules.json";
 import catalogJson from "../../data/catalog.json";
 import occupationsJson from "../../data/occupations.json";
 import employeesJson from "../../data/sample-employees.json";
+import challengeJson from "../../data/challenge-script.json";
 import {
   ConfigError,
   DRIVES,
   loadConfig,
   parseCatalog,
+  parseChallengeScript,
   parseOccupations,
   parseRules,
   parseSampleEmployees,
@@ -22,6 +24,7 @@ function freshConfig() {
     catalog: parseCatalog(clone(catalogJson)),
     occupations: parseOccupations(clone(occupationsJson)),
     employees: parseSampleEmployees(clone(employeesJson)),
+    challenge: parseChallengeScript(clone(challengeJson)),
   };
 }
 

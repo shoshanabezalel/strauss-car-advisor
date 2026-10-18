@@ -70,6 +70,8 @@ export const RulesSchema = z
       maintenanceIsPensionable: z.boolean(),
     }),
     unusedBudget: z.literal("not_paid"),
+    // Upper bound for a participation a representative enters: min(max, the car's catalog monthlyCost).
+    participation: z.object({ max: money.positive(), note }),
     netMethod: z.object({
       basis: z.literal("monthly"),
       taxYear: z.number().int(),
@@ -224,3 +226,18 @@ export const SampleEmployeesSchema = z.object({
   employees: z.array(SampleEmployeeSchema).min(1),
 });
 export type SampleEmployees = z.infer<typeof SampleEmployeesSchema>;
+
+// ---------- challenge script (A7) ----------
+
+/** The brief's scripted conversation (data/challenge-script.json): drives the A7 demo and tests. */
+export const ChallengeScriptSchema = z.object({
+  source: z.string(),
+  note,
+  /** Fields the brief leaves open; their values were chosen for the demo. */
+  assumed: z.array(z.string()),
+  profile: SampleEmployeeSchema.shape.profile.extend({ occupation: z.string().min(1).optional() }),
+  question: z.string().min(1),
+  alternative: SituationSchema,
+  repAnswer: z.object({ field: z.literal("participation"), carId: z.string().min(1), value: money }),
+});
+export type ChallengeScript = z.infer<typeof ChallengeScriptSchema>;

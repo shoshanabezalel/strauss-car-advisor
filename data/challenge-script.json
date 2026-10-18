@@ -1,0 +1,35 @@
+{
+  "source": "data/raw/challenge-brief.pdf, התסריט (עמודים 1-2)",
+  "note": "תסריט האתגר (A7). מהתסריט: קבוצה, שכר בסיס, עמלות, פנסיה, קרן השתלמות, נקודות זיכוי, מעבר לחשמלי ותשובת הנציג. התסריט לא מציין רכב נוכחי, רכב חשמלי, בונוס וילדים - הערכים בשדה assumed נבחרו להדגמה (החלטה 18/10/2026).",
+  "assumed": [
+    "bonus",
+    "childrenUnder23",
+    "current",
+    "alternative"
+  ],
+  "profile": {
+    "group": "ג",
+    "baseSalary": 14200,
+    "commissions": 1000,
+    "bonus": 0,
+    "pensionPct": 0.06,
+    "studyFundPct": 0.025,
+    "creditPoints": 2.25,
+    "childrenUnder23": 0,
+    "current": {
+      "kind": "car",
+      "carId": "CAR-09",
+      "participation": 300
+    }
+  },
+  "question": "אני שוקל/ת לעבור לרכב חשמלי. כמה זה ישנה לי בנטו?",
+  "alternative": {
+    "kind": "car",
+    "carId": "CAR-10"
+  },
+  "repAnswer": {
+    "field": "participation",
+    "carId": "CAR-10",
+    "value": 350
+  }
+}

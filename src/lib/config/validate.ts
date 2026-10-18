@@ -1,16 +1,17 @@
 import { ConfigError } from "./parse";
-import type { Catalog, Occupations, Rules, SampleEmployees } from "./schemas";
+import type { Catalog, ChallengeScript, Occupations, Rules, SampleEmployees } from "./schemas";
 
 export interface Config {
   rules: Rules;
   catalog: Catalog;
   occupations: Occupations;
   employees: SampleEmployees;
+  challenge: ChallengeScript;
 }
 
 /** Cross-file invariants that a single schema cannot express. Throws ConfigError listing every issue. */
 export function validateConfig(cfg: Config): Config {
-  const { rules, catalog, occupations, employees } = cfg;
+  const { rules, catalog, occupations, employees, challenge } = cfg;
   const issues: string[] = [];
   const groups = new Set(rules.groupOrder);
   const familyCars = new Set(rules.familyTrack.cars);
@@ -55,6 +56,12 @@ export function validateConfig(cfg: Config): Config {
       }
     }
   }
+
+  if (!groups.has(challenge.profile.group)) issues.push(`challenge: unknown group "${challenge.profile.group}"`);
+  for (const [label, s] of [["current", challenge.profile.current], ["alternative", challenge.alternative]] as const) {
+    if (s.kind === "car" && !carsById.has(s.carId)) issues.push(`challenge: ${label} car ${s.carId} not in catalog`);
+  }
+  if (!carsById.has(challenge.repAnswer.carId)) issues.push(`challenge: repAnswer car ${challenge.repAnswer.carId} not in catalog`);
 
   if (issues.length) throw new ConfigError(`Invalid configuration:\n - ${issues.join("\n - ")}`);
   return cfg;
