@@ -333,6 +333,16 @@ Conversation ids are random UUIDs (`gen_random_uuid()`).
   links leak). Tie it to the same per-conversation secret / auth as RLS.
 - [ ] M7: `POST /api/chat` needs rate limiting (per IP and per conversation) before the public deploy: each call can
   cost two LLM generations and several DB writes.
+- [ ] M7: **production model and fallback.**
+  - Gemini on the paid tier, with a budget cap set in Google Cloud billing.
+  - On 429 / 503: retry once, then run the same turn on Claude Haiku. The tools, prompt and number-guard stay the
+    same; only the `LanguageModel` changes.
+  - If both fail: a fixed Hebrew "busy, try again" message with no digits, and the turn stores nothing (as today).
+  - Nothing is lost, because conversation state is already persisted per turn (`handleChatTurn`).
+  - To do in M7:
+    - provider choice in `model.ts` (`ANTHROPIC_API_KEY` is already in the env schema);
+    - a retry / fallback wrapper around `runAgentTurn`'s generation, with an event so the UI can show it;
+    - re-run the live evals on Haiku before relying on it, since the prompt was tuned on Gemini.
 - [ ] M7: **the rep screen has no auth.** Anyone with the URL can list open questions (occupation, group, cars; no
   salary) and answer them. `/api/rep/*` needs a rep role (e.g. Supabase auth + an app role, or a shared secret as a
   stopgap) and rate limiting.
