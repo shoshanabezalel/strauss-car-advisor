@@ -110,6 +110,40 @@ describe("runAgentTurn", () => {
     expect(turn.notices).toContainEqual({ kind: "missing", fields: expect.arrayContaining(["baseSalary", "current"]) });
   });
 
+  it("a full profile is saved with a single updateProfile call", async () => {
+    // Scripted model, so this proves one call is enough (the live evals check the model actually does it).
+    const p = e1.profile;
+    const asSaid = (f: number) => +(f * 100).toFixed(4);
+    const updates = [
+      { field: "occupation", value: p.occupation },
+      { field: "group", value: p.group },
+      { field: "baseSalary", value: p.baseSalary },
+      { field: "commissions", value: p.commissions },
+      { field: "bonus", value: p.bonus },
+      { field: "pensionPct", value: asSaid(p.pensionPct) },
+      { field: "studyFundPct", value: asSaid(p.studyFundPct) },
+      { field: "creditPoints", value: p.creditPoints },
+      { field: "childrenUnder23", value: p.childrenUnder23 },
+      { field: "current", value: p.current },
+    ].map((u) => ({ ...u, source: "employee" }));
+    const model = mockModel([
+      { tool: "getCatalog", input: { scope: "all" } },
+      { tool: "updateProfile", input: { updates } },
+      compareAtto,
+      { text: GOOD },
+    ]);
+    const d = deps({});
+    const turn = await runAgentTurn({ model, messages: user("כל הפרטים שלי"), deps: d });
+
+    const count = (name: string) => turn.toolCalls.filter((c) => c.toolName === name).length;
+    expect(count("updateProfile")).toBe(1);
+    expect(count("getCatalog")).toBe(1);
+    const saved = turn.toolOutputs.find((o) => o.toolName === "updateProfile")!.output;
+    expect(saved).toMatchObject({ ok: true, missing: [] });
+    expect(turn.guard.ok).toBe(true);
+    expect(turn.notices.some((n) => n.kind === "missing")).toBe(false);
+  });
+
   it("responseMessages carry the tool round-trip and the final reply", async () => {
     const model = mockModel([compareAtto, { text: GOOD }]);
     const turn = await runAgentTurn({ model, messages: user("?"), deps: deps() });

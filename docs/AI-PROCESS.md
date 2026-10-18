@@ -84,3 +84,13 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   - Notices are derived in code.
   - One regeneration, then block.
   - The prompt has no digits.
+- **First live run (GitHub Actions, 18/10):** E-001 and E-002 passed exactly (11,693 / +661 and 5,078 / −3,522, guard ok).
+  E-003 and later hit Gemini's free-tier daily quota (retry-after ~25,000 s). Changes that followed:
+  - The eval retry now fails at once with "daily quota exhausted" when the suggested wait is over 120 s.
+  - **Efficiency:** the model called updateProfile 3× and getCatalog 2× per case. Cause: it needs car ids, and getCatalog
+    only worked after the group was saved. Fix: `getCatalog({ scope: 'all' })` for name → id lookup, plus a prompt rule
+    for one updateProfile call with every stated field. A mock test shows that one call completes the profile. The live
+    eval now asserts 1 updateProfile and ≤1 getCatalog.
+  - **Phrasing:** the diff is written as עלייה / ירידה + the absolute value, never with a minus sign. `display.direction`
+    gives the sign as a word, and the eval checks it. The minus-sign check ignores Hebrew prefixes like "ל-5,078".
+  - Actions bumped to checkout/setup-node v5 (Node 20 deprecation).

@@ -21,8 +21,18 @@ describe("system prompt", () => {
     }
   });
 
+  it("asks for one updateProfile call and a single catalog lookup", () => {
+    expect(prompt).toMatch(/one updateProfile call/i);
+    expect(prompt).toMatch(/getCatalog with scope "all" once/i);
+  });
+
+  it("phrases the difference as עלייה / ירידה, never with a minus sign", () => {
+    expect(prompt).toMatch(/never a minus sign/i);
+    expect(prompt).toContain("direction");
+  });
+
   it("has the Hebrew glossary terms", () => {
-    for (const term of ["שווי שימוש", "השתתפות עצמית", "מסלול משפחה", "ויתור על רכב", "נטו"]) {
+    for (const term of ["שווי שימוש", "השתתפות עצמית", "מסלול משפחה", "ויתור על רכב", "נטו", "עלייה", "ירידה"]) {
       expect(prompt).toContain(term);
     }
   });

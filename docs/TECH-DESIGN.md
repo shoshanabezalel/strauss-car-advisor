@@ -125,25 +125,27 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
 
 | Tool | Input | Wraps → output |
 |---|---|---|
-| `getCatalog` | `{}` (uses the profile) | `allowedCars` → `{ cars, missing }` |
+| `getCatalog` | `{ scope?: 'allowed' \| 'all' }` | `allowed` (default): `allowedCars` on the profile; `all`: whole catalog for name → id lookup → `{ cars, missing }` |
 | `checkEligibility` | `{ option: Situation }` | `checkEligibility` → `{ eligible, track, reason, missing }` |
 | `getValueOfUse` | `{ makeCode, modelCode, regYear?, vehicleTypeCode?, taxYear? }` | lookup result + `mustConfirm` (= `matchedBy: 'partial'`) |
 | `searchValueOfUse` | `{ query, regYear?, makeCode? }` | `{ status: 'candidates', candidates } \| { status: 'not_found' }` |
 | `updateProfile` | `{ updates: [{ field, value, source }] }` | `{ ok: true, profile, sources, missing }` or `{ ok: false, errors: [{ field, error, options? }] }` |
-| `compareOptions` | `{ options: Situation[] }` (1–4) | engine `compareOptions` + `display` per row (`net`, `diffVsToday`) |
+| `compareOptions` | `{ options: Situation[] }` (1–4) | engine `compareOptions` + `display` per row (`net`, `diffVsToday`, `direction`) |
 | `askRepresentative` | `{ question, field, context? }` | `{ questionId, status: 'open' }` |
 
 - `updateProfile` is all-or-nothing. It rejects an unknown group, occupation or car with the allowed options. Percent
   fields arrive as said (6 → the tool stores 0.06), so the LLM never converts. A stated current-car participation gets
   the update's source. `missing` comes from engine `missingProfileFields` (F2 fields).
-- `display` uses `roundShekel` / `displayDiff` (§3), so the model quotes ready values and never subtracts.
+- `display` uses `roundShekel` / `displayDiff` (§3), so the model quotes ready values and never subtracts. `direction`
+  (`up`/`down`/`none`) is the diff's sign as a word: replies say עלייה / ירידה with the absolute value, never a minus sign.
+- Call budget per case: one `getCatalog` (`all`) to map names → ids, one `updateProfile` with every stated field, then `compareOptions`.
 - Rule: if an output has `missing`, the model asks the employee or the representative.
 
 ## 7. System prompt and number-guard
 - Prompt: `src/lib/agent/system-prompt.md`, in English. The bot always replies in Hebrew. Sections: hard rules (never compute,
   never guess, at most two questions), workflow, signals (`missing`, `ambiguous`, `mustConfirm`/`partial`, `needsConfirmation`,
   `ok:false`, after `askRepresentative`), after `compareOptions` (first line = new net + diff from `display`, then at most two
-  lines from `changes`), a glossary of Hebrew terms, and two Hebrew example replies. **No digits** (a test enforces it), so the
+  lines from `changes`; the change is phrased עלייה / ירידה), a glossary of Hebrew terms, and two Hebrew example replies. **No digits** (a test enforces it), so the
   prompt can't leak numbers. Read from disk, traced into the build via `outputFileTracingIncludes`.
 - Number-guard (`number-guard.ts`): every number in the final text must match a numeric leaf (or a number inside a string
   leaf) of a tool output from **this turn**, or of the validated `state.profile`. Accepted display forms: the value, whole

@@ -96,6 +96,8 @@ export const OptionResultSchema = z.object({
 export const DisplaySchema = z.object({
   net: z.number().int().optional(),
   diffVsToday: z.number().int().optional(),
+  /** Sign of diffVsToday as a word, so the reply says עלייה / ירידה instead of a minus sign. */
+  direction: z.enum(["up", "down", "none"]).optional(),
 });
 
 export const DisplayedOptionSchema = OptionResultSchema.extend({ display: DisplaySchema });
@@ -127,7 +129,8 @@ export const VouRecordSchema = z.object({
 
 // ---------- getCatalog ----------
 
-export const GetCatalogInput = z.object({});
+/** allowed (default): own group and lower + family when eligible (F3). all: every catalog car, for name → id lookup. */
+export const GetCatalogInput = z.object({ scope: z.enum(["allowed", "all"]).optional() });
 export const GetCatalogOutput = z.object({ cars: z.array(CarSchema), missing: z.array(MissingFieldSchema) });
 
 // ---------- checkEligibility ----------

@@ -79,11 +79,17 @@ describe.skipIf(!hasKey)("agent evals (live model)", () => {
       const called = turns.flatMap((t) => t.toolCalls.map((c) => c.toolName));
       expect(called).toContain("updateProfile");
       expect(called).toContain("compareOptions");
+      // Efficiency (prompt): the full profile goes in one updateProfile call; at most one catalog lookup.
+      expect(called.filter((n) => n === "updateProfile"), called.join(",")).toHaveLength(1);
+      expect(called.filter((n) => n === "getCatalog").length, called.join(",")).toBeLessThanOrEqual(1);
 
       // Prompt rule: the first line after compareOptions states the new net and the diff, from display.
       const line = firstLine(last.text);
       expect(mentions(line, e.expected.netAlt), `first line: ${line}`).toBe(true);
       expect(mentions(line, Math.abs(e.expected.diff)), `first line: ${line}`).toBe(true);
+      // Phrasing: עלייה / ירידה with the absolute value, never a minus sign.
+      expect(line).toContain(e.expected.diff > 0 ? "עלייה" : "ירידה");
+      expect(line, `first line: ${line}`).not.toMatch(/(?<![\u0590-\u05FF])[-−]\s*\d/); // "ל-5,078" is a Hebrew prefix, not a sign
 
       if (e.alternative.kind === "car") {
         const carId = e.alternative.carId;

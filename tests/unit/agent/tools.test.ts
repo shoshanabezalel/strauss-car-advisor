@@ -34,6 +34,9 @@ describe("compareOptions tool", () => {
       displayDiff(engine.options[0].breakdown!.net, engine.today.breakdown!.net),
     );
     expect(out.today.display.net).toBe(roundShekel(engine.today.breakdown!.net));
+    // the sign as a word, so the model never has to read a minus sign
+    const d = e.expected.diff;
+    expect(out.options[0].display.direction).toBe(d > 0 ? "up" : d < 0 ? "down" : "none");
   });
 
   it("flags a catalog-default participation as needing confirmation", async () => {
@@ -128,6 +131,10 @@ describe("getCatalog / checkEligibility tools", () => {
   it("getCatalog wraps allowedCars on the current profile", async () => {
     deps.state = createAgentState({ group: "ב", childrenUnder23: 1 });
     expect(await tools().getCatalog({})).toEqual(allowedCars(deps.state.profile, config));
+  });
+
+  it("getCatalog scope all lists the whole catalog for name → id lookup, before the profile is known", async () => {
+    expect(await tools().getCatalog({ scope: "all" })).toEqual({ cars: config.catalog.cars, missing: [] });
   });
 
   it("getCatalog reports a missing group", async () => {

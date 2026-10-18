@@ -46,7 +46,8 @@ export function createToolHandlers(deps: AgentDeps): ToolHandlers {
 
   return {
     async getCatalog(input) {
-      S.GetCatalogInput.parse(input);
+      const { scope = "allowed" } = S.GetCatalogInput.parse(input);
+      if (scope === "all") return S.GetCatalogOutput.parse({ cars: config.catalog.cars, missing: [] });
       return S.GetCatalogOutput.parse(allowedCars(state.profile, config));
     },
 
@@ -112,13 +113,11 @@ export function createToolHandlers(deps: AgentDeps): ToolHandlers {
       const todayNet = today.breakdown?.net;
       return S.CompareOptionsOutput.parse({
         today: { ...today, display: { net: todayNet === undefined ? undefined : roundShekel(todayNet) } },
-        options: results.map((r) => ({
-          ...r,
-          display: {
-            net: r.breakdown ? roundShekel(r.breakdown.net) : undefined,
-            diffVsToday: r.breakdown && todayNet !== undefined ? displayDiff(r.breakdown.net, todayNet) : undefined,
-          },
-        })),
+        options: results.map((r) => {
+          const diff = r.breakdown && todayNet !== undefined ? displayDiff(r.breakdown.net, todayNet) : undefined;
+          const direction = diff === undefined ? undefined : diff > 0 ? "up" : diff < 0 ? "down" : "none";
+          return { ...r, display: { net: r.breakdown ? roundShekel(r.breakdown.net) : undefined, diffVsToday: diff, direction } };
+        }),
       });
     },
 
@@ -130,7 +129,8 @@ export function createToolHandlers(deps: AgentDeps): ToolHandlers {
 
 // Sent to the model on every turn: short, and no digits (the number-guard allows only tool-output numbers).
 const DESCRIPTIONS: Record<ToolName, string> = {
-  getCatalog: "Cars the employee may choose: own group and lower, plus family-track cars when eligible. Uses the saved profile.",
+  getCatalog:
+    'scope "all": every catalog car, to map car names to ids. Default scope: cars the employee may choose (saved profile).',
   checkEligibility: "Whether the employee may take this option (car or waiver), with the reason in Hebrew.",
   getValueOfUse: "Tax-authority value-of-use by make and model codes. Partial keys may return mustConfirm or ambiguous.",
   searchValueOfUse: "Find value-of-use candidates by car name. Never returns a single picked value.",
