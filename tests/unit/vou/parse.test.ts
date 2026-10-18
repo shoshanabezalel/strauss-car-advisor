@@ -24,13 +24,18 @@ describe("parseVouCsv on the real file", () => {
   });
 
   it("keeps codes as strings with leading zeros and trims every field", () => {
-    for (const r of records) {
-      expect(r.makeCode).toMatch(/^\d{5}$/);
-      expect(r.modelCode).toMatch(/^\d{5}$/);
-      expect(r.tradeName).toBe(r.tradeName.trim());
-      expect(r.makeName).toBe(r.makeName.trim());
-      expect(r.modelName).toBe(r.modelName.trim());
-    }
+    // Plain checks + one assertion: ~390k expect() calls over 78k rows timed out under load.
+    const code = /^\d{5}$/;
+    const trimmed = (s: string) => s === s.trim();
+    const bad = records.filter(
+      (r) =>
+        !code.test(r.makeCode) ||
+        !code.test(r.modelCode) ||
+        !trimmed(r.tradeName) ||
+        !trimmed(r.makeName) ||
+        !trimmed(r.modelName),
+    );
+    expect(bad.slice(0, 5)).toEqual([]);
   });
 
   it("has unique five-part keys", () => {
