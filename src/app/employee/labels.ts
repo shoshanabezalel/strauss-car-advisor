@@ -1,0 +1,60 @@
+import type { AgentEvent, ToolName } from "@/lib/agent";
+import type { ChangeKind, MissingField, Track } from "@/lib/engine";
+
+/** Hebrew UI text. Display only: no business values live here. */
+
+export const FIELD_LABELS: Record<MissingField, string> = {
+  occupation: "עיסוק",
+  group: "קבוצת זכאות",
+  baseSalary: "שכר בסיס",
+  commissions: "עמלות",
+  bonus: "בונוס",
+  pensionPct: "אחוז הפרשה לפנסיה",
+  studyFundPct: "אחוז הפרשה לקרן השתלמות",
+  creditPoints: "נקודות זיכוי",
+  childrenUnder23: "מספר ילדים עד גיל עשרים ושלוש",
+  current: "המצב היום (רכב או אחזקה)",
+  carId: "הרכב המבוקש",
+};
+
+export const TOOL_LABELS: Record<ToolName, string> = {
+  getCatalog: "בודק את קטלוג הרכבים",
+  checkEligibility: "בודק זכאות",
+  getValueOfUse: "מחפש שווי שימוש",
+  searchValueOfUse: "מחפש רכב בטבלת שווי שימוש",
+  updateProfile: "שומר את הפרטים",
+  compareOptions: "מחשב השוואה",
+  askRepresentative: "שולח שאלה לנציג/ת",
+};
+
+export const STATUS_LABELS: Record<Extract<AgentEvent, { type: "status" }>["status"], string> = {
+  thinking: "חושב…",
+  checking: "בודק שכל מספר מגיע מהחישוב…",
+  regenerating: "מנסח את התשובה מחדש…",
+};
+
+export const CHANGE_LABELS: Record<ChangeKind, string> = {
+  valueOfUse: "שווי שימוש",
+  maintenance: "אחזקת רכב",
+  participation: "השתתפות עצמית",
+  electric: "החזר חשמל (מגולם)",
+  familyGap: "פער מסלול משפחה",
+};
+
+export const TRACK_LABELS: Record<Track, string> = {
+  regular: "מסלול רגיל",
+  family: "מסלול משפחה ברוכת ילדים",
+  waiver: "ויתור על רכב",
+};
+
+const shekel = new Intl.NumberFormat("he-IL", { maximumFractionDigits: 0 });
+const unsigned = new Intl.NumberFormat("he-IL", { maximumFractionDigits: 0, signDisplay: "never" });
+
+/** Formats a server-rounded value. No arithmetic: the number is shown as received. */
+export const formatShekel = (n: number) => `${shekel.format(n)} ₪`;
+
+/** The diff as words (עלייה / ירידה) and the unsigned amount, the same phrasing the agent uses. */
+export function formatDiff(n: number, direction?: "up" | "down" | "none"): string {
+  if (direction === "none") return "ללא שינוי";
+  return `${direction === "down" ? "ירידה" : "עלייה"} של ${unsigned.format(n)} ₪`;
+}

@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { loadConfig } from "@/lib/config";
 
 export default function Home() {
@@ -13,6 +15,9 @@ export default function Home() {
         נטענו {catalog.cars.length} רכבים · {occupations.occupations.length} עיסוקים ·{" "}
         {employees.employees.length} עובדים
       </p>
+      <Button asChild size="lg">
+        <Link href="/employee">להתחלת שיחה</Link>
+      </Button>
     </main>
   );
 }
