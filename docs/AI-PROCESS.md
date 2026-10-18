@@ -127,3 +127,52 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   - Table amounts rounded server side in `display`; the UI only formats them (`Intl`, `signDisplay: "never"` for the diff).
   - The live evals skip themselves in mock mode.
   - M4 ticked on the mock run. A live-model browser run waits for an open network, like the M3 evals.
+### M5 — Rep screen + Realtime + state persistence (18/10/2026)
+- **How:** plan mode, read the brief's A7 script (the rep answers "350 ₪", the bot resumes), three questions to the
+  user (A7 demo values, deterministic resumption vs. an LLM turn, broadcast vs. postgres_changes), approval with two
+  additions: an explicit polling fallback with unit tests, and an upper bound on rep-entered participation from data
+  (then a fourth question: bound = min(rules max, the car's monthly cost)).
+- **Gaps found while planning:**
+  - `askRepresentative.field` was free text, so an answer couldn't be mapped to data.
+  - **The LLM could fake a rep confirmation:** it could send `participationSource: "rep"` to compareOptions or
+    `source: "rep"` to updateProfile, and needsConfirmation would clear. Fixed with tool origins: the LLM's tools
+    reject both, and only the rep-answer service uses `origin: "rep"`.
+  - A new-car participation confirmed by the rep would be lost on the next agent turn, because the model calls
+    compareOptions without participation. Fixed by `state.repParticipation`, which the tool applies.
+- **Tests first:** 14 test files touched, **50 red** (36 failing tests + the rep-answer file, 14 tests, failing at load)
+  against throwing stubs. Three new guard tests passed for the right reason: they lock in existing behaviour (the rep
+  origin accepts `rep`, other cars keep the catalog default, an option without participation takes the default). Then:
+  schemas/tools → config/data → mock → store → realtime → rep-answer → routes → UI.
+- **Existing tests changed (contract, not expected values):**
+  - notices.test: the "stated participation" case no longer sends `participationSource: "rep"`, which the model may
+    not send now.
+  - tools.test: askRepresentative for participation now passes the car id.
+  - config.test: the fresh config includes the challenge script.
+- **Verification:**
+  - `npm test` (316), `typecheck`, `lint`.
+  - Migration `0003_realtime_broadcast` via MCP, then `list_tables`, `get_advisors security` (no lints),
+    `check:db` green.
+  - `npm run test:e2e`: 12 green on the first run, including A7 + A13 with two pages. The employee page updated
+    without a reload while polling was off, so the update came through Realtime.
+  - Manual run via Playwright MCP: A7 → ask the rep → rep screen (context: group, Corolla Cross @300, ATTO 3 default
+    300) → answer 350 → the employee tab updated in place: 9,977 → 9,927 (−50 = 350 − 300), "אושרה ע״י נציג/ת",
+    and the old notices showed as resolved. `execute_sql`: question answered with typed JSON, comparison
+    participation 350 / rep / needsConfirmation false. No console errors. e2e rows cleaned.
+- **What went wrong:**
+  - Stamping `participationSource: "employee"` on model-stated participation changed the tool output against the M3
+    "wraps the engine" tests. Dropped it; the tool output stays identical to the engine, and the recompute keeps
+    anything that is not catalog-default / rep.
+  - The new React lint rule (`set-state-in-effect`) flagged async loaders called from effects and the
+    `setMode("connecting")` reset in `usePing`. Loaders became promise chains, and the hook keys its mode by topic.
+  - Bash heredocs holding Hebrew text failed twice on quoting (nothing was written either time). Larger edits now go
+    through Write or a script file.
+  - `next dev` with a new `NEXT_DIST_DIR` adds that dir to tsconfig `include`. Reverted after the manual run.
+  - A manual screenshot showed "טוען…" because my label edit triggered HMR during the run. Retaken.
+- **Decisions:**
+  - Resumption is deterministic: the answer goes through the tools and the engine, and the reply is built from
+    `display` and guarded. No LLM, so it works the same in mock and live.
+  - Realtime is a data-free broadcast ping + refetch. postgres_changes is dropped from the publication, with no new
+    RLS. M7 can remove anon reads entirely.
+  - Rep screen without auth and public broadcast topics are logged for M7 (TECH-DESIGN §10).
+  - Risk to check in tomorrow's live evals: the stored rep round-trip puts an assistant tool-call message right
+    after an assistant reply in the history (two assistant turns in a row).
