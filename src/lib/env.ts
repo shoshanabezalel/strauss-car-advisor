@@ -9,7 +9,8 @@ const PublicEnvSchema = z.object({
 /** Server-only env. */
 const ServerEnvSchema = PublicEnvSchema.extend({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-  GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(), // required from M3
+  GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(), // required by agentEnv()
+  AGENT_MODEL: z.string().min(1).optional(),
   ANTHROPIC_API_KEY: z.string().min(1).optional(), // optional LLM fallback
   // Used only by the Supabase MCP (scripts/supabase-mcp.mjs reads it from .env.local); the app never reads it.
   SUPABASE_ACCESS_TOKEN: z.string().optional(),
@@ -24,4 +25,17 @@ export function publicEnv() {
 
 export function serverEnv() {
   return ServerEnvSchema.parse(process.env);
+}
+
+/** What the live agent model needs. Separate from serverEnv so evals can run without the Supabase keys. */
+const AgentEnvSchema = z.object({
+  GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),
+  AGENT_MODEL: z.string().min(1).default("gemini-3.5-flash"),
+});
+
+export function agentEnv() {
+  return AgentEnvSchema.parse({
+    GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY || undefined,
+    AGENT_MODEL: process.env.AGENT_MODEL || undefined,
+  });
 }

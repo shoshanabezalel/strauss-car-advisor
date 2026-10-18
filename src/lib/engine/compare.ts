@@ -74,6 +74,19 @@ function evaluate(profile: EmployeeProfile, situation: Situation, config: Engine
   return result;
 }
 
+/**
+ * Profile fields still needed before a comparison can be complete (F2): group (or an occupation that implies it),
+ * the salary fields, children under 23 and the current situation. Order follows EmployeeProfile.
+ */
+export function missingProfileFields(profile: EmployeeProfile, config: EngineConfig): MissingField[] {
+  const missing: MissingField[] = [];
+  if (resolveGroup(profile, config) === undefined) missing.push("group");
+  for (const f of SALARY_FIELDS) if (profile[f] === undefined) missing.push(f);
+  if (profile.childrenUnder23 === undefined) missing.push("childrenUnder23");
+  if (profile.current === undefined) missing.push("current");
+  return missing;
+}
+
 /** Evaluate a requested situation; no net unless eligible and complete. */
 export function evaluateSituation(profile: EmployeeProfile, situation: Situation, config: EngineConfig): OptionResult {
   return evaluate(profile, situation, config, true);
