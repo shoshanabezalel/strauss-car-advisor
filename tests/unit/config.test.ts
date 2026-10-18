@@ -103,6 +103,11 @@ describe("invalid rules are rejected with a readable error", () => {
     const run = mutate((r) => r.valueOfUse.key.pop());
     expect(run).toThrow(/key/);
   });
+
+  it("value-of-use taxYear is missing or not an integer", () => {
+    expect(mutate((r) => delete r.valueOfUse.taxYear)).toThrow(/taxYear/);
+    expect(mutate((r) => (r.valueOfUse.taxYear = 2026.5))).toThrow(/taxYear/);
+  });
 });
 
 describe("cross-file invariants", () => {

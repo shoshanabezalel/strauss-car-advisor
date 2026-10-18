@@ -21,7 +21,8 @@ npx playwright install chromium
 The schema lives in [supabase/migrations/](supabase/migrations/). Apply it to your Supabase project via the Supabase MCP (`apply_migration`), or paste it into the SQL editor. Then check it:
 
 ```bash
-npm run check:db   # every table reachable with the service-role and publishable keys
+npm run import:vou # load the tax-authority value-of-use CSV (~78k rows, idempotent)
+npm run check:db   # every table reachable; catalog cars match value_of_use in the DB
 ```
 
 > **RLS (demo only):** every table has RLS on, with a read-only `demo_read` policy for `anon`/`authenticated` so Realtime and page loads work without auth. All writes go through server API routes using the service-role key. These policies must be tightened before the public deploy (M7).
@@ -33,7 +34,8 @@ npm run check:db   # every table reachable with the service-role and publishable
 | `npm test` | Unit tests (Vitest) |
 | `npm run test:e2e` | E2E tests (Playwright). Starts `npm run dev` itself; set `E2E_BASE_URL` to test a deployed URL instead |
 | `npm run typecheck` | TypeScript check |
-| `npm run check:db` | Supabase connectivity + table check |
+| `npm run check:db` | Supabase connectivity + table check + value-of-use lookup against the DB |
+| `npm run import:vou` | Import `data/raw/vou-2026.csv` into `value_of_use` (`-- --dry-run` parses only) |
 | `npm run data:convert` | Regenerate `data/*.json` from `data/raw/challenge-data.xlsx` |
 
 ## Claude Code / MCP

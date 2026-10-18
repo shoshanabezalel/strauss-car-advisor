@@ -13,7 +13,7 @@ scripts/
   import-vou.ts               # CSV (cp1255) → value_of_use table
 src/lib/config/   rules.ts, catalog.ts, occupations.ts   (load + Zod)
 src/lib/engine/   net.ts, eligibility.ts, compare.ts, types.ts
-src/lib/vou/      lookup.ts
+src/lib/vou/      parse.ts, lookup.ts, memory-source.ts, supabase-source.ts
 src/lib/agent/    tools.ts, system-prompt.ts, number-guard.ts
 src/app/employee/ , src/app/rep/ , src/app/api/chat/ , src/app/api/rep/
 tests/unit/ , tests/e2e/ , tests/evals/
@@ -95,9 +95,27 @@ Check order; each returns a Hebrew `reason`:
 
 ## 5. Value-of-use
 - Table `value_of_use(tax_year, reg_year, vehicle_type_code, make_code, model_code, ...)`, PK on all five.
-- Import: decode cp1255, trim, codes as strings, drive mapping per rules.valueOfUse.driveField (the CSV header is wrong).
-- Test: for all 20 catalog cars — table value = catalog value.
-- Car not in catalog → search by make/trade name returns candidates; more than one → ask, never pick.
+  `model_name` = תאור דגם (model description), `trade_name` = כינוי מסחרי; unused columns go to `raw` jsonb.
+- Import (`npm run import:vou`, `scripts/import-vou.ts`): decode cp1255 (built-in `TextDecoder`), trim, codes as strings,
+  columns **by position** (19, checked), drive code → `Drive` per rules.valueOfUse.driveField (the CSV header is wrong).
+  Upsert in chunks of 1000 on the PK, so it is idempotent. 77,988 rows for tax year 2026.
+- Tax year comes from `rules.valueOfUse.taxYear`; callers may override it.
+- Code: `src/lib/vou/` — `parse.ts` (pure), `lookup.ts` (pure logic over a `VouSource`), `memory-source.ts` (tests),
+  `supabase-source.ts` (DB; name search filter built only by `buildNameFilter`, which LIKE-escapes `\ % _` and
+  double-quotes values so `, ( ) "` in a query can't break PostgREST `or()`).
+- `getValueOfUse({ makeCode, modelCode, regYear?, vehicleTypeCode?, taxYear? })` →
+  - `{ status: 'found', value, record, matchedBy: 'key' }`: the full key matched;
+  - `{ status: 'found', ..., matchedBy: 'partial' }`: part of the key was missing and exactly one row matched.
+    **The agent (M3) must confirm a `partial` match with the user (show make/model/year) before using the value.**
+  - `{ status: 'ambiguous', candidates, truncated }`: two or more rows (e.g. ATTO 3 / TANG without the vehicle type
+    code) → ask, never pick;
+  - `{ status: 'not_found' }`.
+- `searchValueOfUse({ query, regYear?, makeCode?, limit? })`: case-insensitive substring of trade, make or model name →
+  `{ status: 'candidates', candidates, truncated }` (max 20 by default) or `{ status: 'not_found' }`. Never a picked value.
+- Tests: every catalog car (from catalog.json) → found with value, drive and list price equal to the catalog;
+  ATTO 3/TANG collision; name search; filter escaping. `npm run check:db` repeats the catalog and collision checks
+  against the DB with the publishable key.
+- The engine still takes catalog cars' value from catalog.json (proven equal to the table).
 
 ## 6. Agent tools (Zod)
 | Tool | Input | Output |
@@ -145,5 +163,8 @@ Schema: `supabase/migrations/0001_init.sql` (applied 17/10/2026 via Supabase MCP
 - [x] EV (decided 18/10): both are supported, chosen by `rules.electric.method`: `gross_up` (default, exact +netBonus net) or
   `flat` (netBonus as taxable gross).
 - [x] Diff rounding (decided 18/10): difference of the rounded values (see §3).
+- [x] Value-of-use tax year (decided 18/10): `rules.valueOfUse.taxYear` (2026), not a code constant.
+- [x] Value-of-use partial key (decided 18/10): one match → `found` with `matchedBy: 'partial'`, which the agent must
+  confirm with the user; two or more → `ambiguous`, never picked (see §5).
 - [ ] Payslip reading: Gemini vision → JSON, employee confirms each field.
 - [ ] RLS model for the public deploy (M7): conversation token vs. anonymous auth. Demo read-all policy is a stopgap.

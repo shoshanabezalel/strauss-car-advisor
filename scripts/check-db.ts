@@ -1,11 +1,14 @@
 /**
  * Connectivity check: every table from supabase/migrations exists and is reachable
- * with the service-role key, and readable with the publishable key (demo RLS).
+ * with the service-role key, and readable with the publishable key (demo RLS); then the
+ * value-of-use lookup against the DB (needs `npm run import:vou` first).
  *
  * Usage: npm run check:db
  */
 import { config } from "dotenv";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { getCatalog, getRules } from "@/lib/config";
+import { createSupabaseVouSource, getValueOfUse } from "@/lib/vou";
 
 config({ path: ".env.local", quiet: true });
 
@@ -26,7 +29,34 @@ async function main() {
       console.log(`${error ? "FAIL" : "ok  "} ${table.padEnd(14)} [${name}] ${error ? error.message : `${count} rows`}`);
     }
   }
+  if (!(await checkValueOfUse(clients.publishable))) failed = true;
   if (failed) process.exit(1);
+}
+
+/** The DB lookup path (publishable key, as the app reads it): every catalog car matches; ATTO 3/TANG stays ambiguous. */
+async function checkValueOfUse(client: SupabaseClient): Promise<boolean> {
+  const rules = getRules();
+  const source = createSupabaseVouSource(client, rules);
+  let ok = true;
+  const report = (pass: boolean, msg: string) => {
+    if (!pass) ok = false;
+    console.log(`${pass ? "ok  " : "FAIL"} ${msg}`);
+  };
+
+  for (const car of getCatalog().cars) {
+    const key = { regYear: car.regYear, vehicleTypeCode: car.vehicleTypeCode, makeCode: car.makeCode, modelCode: car.modelCode };
+    const res = await getValueOfUse(key, source, rules);
+    const value = res.status === "found" ? res.value : res.status;
+    report(value === car.valueOfUse, `vou ${car.id} ${car.model}: ${value} (catalog ${car.valueOfUse})`);
+  }
+
+  const atto = getCatalog().cars.find((c) => c.model === "ATTO 3");
+  if (atto) {
+    const res = await getValueOfUse({ regYear: atto.regYear, makeCode: atto.makeCode, modelCode: atto.modelCode }, source, rules);
+    const names = res.status === "ambiguous" ? res.candidates.map((c) => c.tradeName).join(" / ") : res.status;
+    report(res.status === "ambiguous" && res.candidates.length === 2, `vou ATTO 3 without vehicle type → ambiguous: ${names}`);
+  }
+  return ok;
 }
 
 main().catch((e) => {

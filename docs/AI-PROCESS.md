@@ -38,3 +38,26 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   - "Today" is not eligibility-gated.
   - The engine also honours the rules flags `maintenanceIsTaxable` / `maintenanceIsPensionable` / `reducesValueOfUse`
     instead of hard-coding them.
+### M2 — Value-of-use import + lookup (18/10/2026)
+- **How:** plan mode → approval after three review rounds, which added:
+  - name search over the trade, make and model names, with an explicit `not_found`
+  - `partial` matches must be confirmed by the agent in M3
+  - the PostgREST `or()` filter built by a single tested function that escapes and quotes values
+- Before planning I profiled the CSV read-only: 77,988 rows, 19 columns each, no duplicate keys, and all 20 catalog cars match.
+- Then tests first (red: missing module + a `taxYear` schema test), then parse → lookup → sources until green.
+  The MCP servers now run from local devDependencies, because the npx registry check pushed startup past the 30 s timeout.
+- **Verification:**
+  - Tests: `npm test` (152), `typecheck`, `lint`.
+  - `npm run import:vou` upserted 77,988 rows in ~40 s.
+  - `npm run check:db`: all 20 catalog cars match from the DB with the publishable key, and ATTO 3/TANG comes back ambiguous.
+  - Supabase MCP `execute_sql`: count, plus the ATTO 3 (type 1, 3130) / TANG (type 2, 6950) rows.
+  - `get_advisors security`: no lints.
+- **What went wrong:**
+  - The plan cited the ATTO 3 key as 01014/**00012**. That code belongs to the DOLPHIN; the real ATTO 3 key is 00003.
+    The tests were unaffected, because they look the car up by name in catalog.json. I caught the mistake when the verification SQL returned DOLPHIN.
+  - PostgREST returns `numeric` columns as strings. `fromVouRow` converts them.
+- **Decisions:**
+  - Tax year comes from `rules.valueOfUse.taxYear`.
+  - Columns are read by position (the header is wrong).
+  - A partial-key unique match is returned as `found`/`partial`.
+  - The engine keeps the catalog values, which are now proven equal to the table.

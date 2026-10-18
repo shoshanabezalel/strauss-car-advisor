@@ -99,6 +99,7 @@ export const RulesSchema = z
     }),
     valueOfUse: z.object({
       source: z.string(),
+      taxYear: z.number().int().min(2000).max(2100),
       key: z.array(z.string().min(1)).length(5),
       driveField: z.record(z.string(), z.string().min(1)).refine(
         (m) => {
