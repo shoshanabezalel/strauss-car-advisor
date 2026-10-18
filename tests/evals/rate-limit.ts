@@ -6,6 +6,8 @@ import { APICallError, wrapLanguageModel, type LanguageModel } from "ai";
  */
 const MAX_TRIES = 6;
 const BASE_MS = 2_000;
+/** A longer suggested wait means the daily quota is gone; waiting would just hang the run. */
+const MAX_WAIT_MS = 120_000;
 
 function isRateLimit(err: unknown): boolean {
   if (APICallError.isInstance(err) && err.statusCode === 429) return true;
@@ -28,7 +30,11 @@ export async function withRateLimitRetry<T>(fn: () => PromiseLike<T>, label = "m
       return await fn();
     } catch (err) {
       if (attempt >= MAX_TRIES || !isRateLimit(err)) throw err;
-      const wait = (suggestedDelayMs(err) ?? BASE_MS * 2 ** (attempt - 1)) + 250;
+      const suggested = suggestedDelayMs(err);
+      if (suggested !== undefined && suggested > MAX_WAIT_MS) {
+        throw new Error(`${label}: daily quota exhausted (retry-after ${Math.round(suggested / 1000)}s), not waiting`, { cause: err });
+      }
+      const wait = (suggested ?? BASE_MS * 2 ** (attempt - 1)) + 250;
       console.warn(`[eval] ${label}: rate limited, retry ${attempt}/${MAX_TRIES - 1} in ${Math.round(wait / 1000)}s`);
       await sleep(wait);
     }
