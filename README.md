@@ -33,6 +33,7 @@ npm run check:db   # every table reachable; catalog cars match value_of_use in t
 | `npm run dev` | Dev server at http://localhost:3000 |
 | `npm test` | Unit tests (Vitest) |
 | `npm run test:e2e` | E2E tests (Playwright). Starts `npm run dev` itself; set `E2E_BASE_URL` to test a deployed URL instead |
+| `npm run eval:agent` | Live agent evals against Gemini (needs `GOOGLE_GENERATIVE_AI_API_KEY`; not part of `npm test`) |
 | `npm run typecheck` | TypeScript check |
 | `npm run check:db` | Supabase connectivity + table check + value-of-use lookup against the DB |
 | `npm run import:vou` | Import `data/raw/vou-2026.csv` into `value_of_use` (`-- --dry-run` parses only) |

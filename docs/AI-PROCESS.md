@@ -61,3 +61,26 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   - Columns are read by position (the header is wrong).
   - A partial-key unique match is returned as `found`/`partial`.
   - The engine keeps the catalog values, which are now proven equal to the table.
+### M3 — Agent: tools + prompt + number-guard (18/10/2026)
+- **How:** plan mode → approval after two review rounds, which added:
+  - the first reply line after `compareOptions` must state the new net + diff, so the eval matches the prompt
+  - the guard also accepts the validated profile, so the bot can echo "3 children" in a later turn
+  - sequential evals with 429 backoff for free-tier Gemini
+- The prompt language was discussed: the file is English (CLAUDE.md), the bot replies in Hebrew, and a glossary pins the terms.
+- Installed AI SDK v7 (`ai`, `@ai-sdk/google`). Before writing tests, a scratch spike confirmed the v7 API
+  (`instructions`, `isStepCount`, `MockLanguageModelV4`, per-step `response.messages`).
+- Tests first: 61 new tests with throwing stubs. 55 were red. 6 "rejects invalid input" tests passed for the wrong reason,
+  because a stub throws too. Then implemented engine `missingProfileFields` → tools → guard → notices → prompt → run-turn
+  until green.
+- **Verification:** `npm test` (213), `typecheck`, `lint`.
+- **What went wrong:**
+  - The live evals could not run: every Gemini call failed with "Blocked by NetFree" (the network filter on this machine).
+    The M3 exit criterion (E-001…E-006 via chat) is still unverified, and M3 stays unticked until `npm run eval:agent`
+    passes on an open network.
+- **Decisions:**
+  - Tools are split into plain handlers (tested directly) and AI SDK wrappers.
+  - Tools return `display` values from the existing formatters.
+  - Percent conversion happens in the tool.
+  - Notices are derived in code.
+  - One regeneration, then block.
+  - The prompt has no digits.

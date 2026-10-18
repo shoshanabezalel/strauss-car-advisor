@@ -14,9 +14,10 @@ scripts/
 src/lib/config/   rules.ts, catalog.ts, occupations.ts   (load + Zod)
 src/lib/engine/   net.ts, eligibility.ts, compare.ts, types.ts
 src/lib/vou/      parse.ts, lookup.ts, memory-source.ts, supabase-source.ts
-src/lib/agent/    tools.ts, system-prompt.ts, number-guard.ts
+src/lib/agent/    schemas.ts, state.ts, tools.ts, system-prompt.md (+ .ts loader), number-guard.ts,
+                  notices.ts, run-turn.ts, model.ts
 src/app/employee/ , src/app/rep/ , src/app/api/chat/ , src/app/api/rep/
-tests/unit/ , tests/e2e/ , tests/evals/
+tests/unit/ , tests/e2e/ , tests/evals/ (live LLM, `npm run eval:agent`, not in `npm test`)
 ```
 
 ## 2. Data model (TypeScript)
@@ -118,22 +119,42 @@ Check order; each returns a Hebrew `reason`:
 - The engine still takes catalog cars' value from catalog.json (proven equal to the table).
 
 ## 6. Agent tools (Zod)
-| Tool | Input | Output |
+Code: `src/lib/agent/tools.ts`. `createToolHandlers(deps)` gives plain handlers: Zod-parse the input, call an existing
+engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)` wraps the same handlers as AI SDK tools.
+`deps = { config, vouSource, state: { profile, sources }, repQueue }`. No calculation lives in the tools.
+
+| Tool | Input | Wraps → output |
 |---|---|---|
-| `getCatalog` | `{ group, includeFamily }` | allowed cars |
-| `checkEligibility` | `{ option }` (uses profile) | `{ eligible, reason, missing? }` |
-| `getValueOfUse` | full key | `{ value, record } \| { candidates[] }` |
-| `updateProfile` | `{ field, value, source }` | updated profile + `missing[]` |
-| `compareOptions` | `{ options: Situation[] }` | `{ today: OptionResult, options: OptionResult[] }` |
-| `askRepresentative` | `{ question, field, context }` | `{ questionId, status:'open' }` |
+| `getCatalog` | `{}` (uses the profile) | `allowedCars` → `{ cars, missing }` |
+| `checkEligibility` | `{ option: Situation }` | `checkEligibility` → `{ eligible, track, reason, missing }` |
+| `getValueOfUse` | `{ makeCode, modelCode, regYear?, vehicleTypeCode?, taxYear? }` | lookup result + `mustConfirm` (= `matchedBy: 'partial'`) |
+| `searchValueOfUse` | `{ query, regYear?, makeCode? }` | `{ status: 'candidates', candidates } \| { status: 'not_found' }` |
+| `updateProfile` | `{ updates: [{ field, value, source }] }` | `{ ok: true, profile, sources, missing }` or `{ ok: false, errors: [{ field, error, options? }] }` |
+| `compareOptions` | `{ options: Situation[] }` (1–4) | engine `compareOptions` + `display` per row (`net`, `diffVsToday`) |
+| `askRepresentative` | `{ question, field, context? }` | `{ questionId, status: 'open' }` |
 
-Rule: if `compareOptions` returns `missing`, the model must ask the employee or the representative.
+- `updateProfile` is all-or-nothing. It rejects an unknown group, occupation or car with the allowed options. Percent
+  fields arrive as said (6 → the tool stores 0.06), so the LLM never converts. A stated current-car participation gets
+  the update's source. `missing` comes from engine `missingProfileFields` (F2 fields).
+- `display` uses `roundShekel` / `displayDiff` (§3), so the model quotes ready values and never subtracts.
+- Rule: if an output has `missing`, the model asks the employee or the representative.
 
-## 7. System prompt — essentials (the prompt itself is written in English; the bot replies in Hebrew)
-- Reply in Hebrew, warm and short; one or two questions at a time; only what the profile is missing.
-- Never write a number that did not come from a tool. Never calculate.
-- Data the employee cannot know that belongs to the company (participation for a new car, exceptions) → `askRepresentative`.
-- After `compareOptions`: explanation of up to 2 lines from `changes`; the table is rendered by the UI.
+## 7. System prompt and number-guard
+- Prompt: `src/lib/agent/system-prompt.md`, in English. The bot always replies in Hebrew. Sections: hard rules (never compute,
+  never guess, at most two questions), workflow, signals (`missing`, `ambiguous`, `mustConfirm`/`partial`, `needsConfirmation`,
+  `ok:false`, after `askRepresentative`), after `compareOptions` (first line = new net + diff from `display`, then at most two
+  lines from `changes`), a glossary of Hebrew terms, and two Hebrew example replies. **No digits** (a test enforces it), so the
+  prompt can't leak numbers. Read from disk, traced into the build via `outputFileTracingIncludes`.
+- Number-guard (`number-guard.ts`): every number in the final text must match a numeric leaf (or a number inside a string
+  leaf) of a tool output from **this turn**, or of the validated `state.profile`. Accepted display forms: the value, whole
+  shekel, 1–2 decimals, and ×100 for fractions (percent). Signs are ignored (Hebrew wording carries them). The guard never
+  sums. Digits inside catalog and occupation names ("ATTO 3", "MG4") are stripped first.
+- `runAgentTurn` (`run-turn.ts`): `generateText` with tools → guard → on violation, **one** regeneration with a note listing
+  the offending numbers (this turn's tool round-trips are kept; the rejected text is dropped) → if it fails again, a fixed
+  Hebrew `BLOCKED_REPLY` with no digits. The text is buffered, not streamed, so the guard sees it first.
+- Notices (`notices.ts`): structured flags derived in code from the turn's tool outputs, for the UI regardless of wording:
+  `missing`, `participation_unconfirmed`, `ambiguous_vou`, `confirm_vou_match`, `rep_question_open`.
+- Model: `model.ts`, Gemini via `@ai-sdk/google`, id from `AGENT_MODEL` (default `gemini-3.5-flash`).
 
 ## 8. DB (Supabase)
 ```sql
@@ -153,7 +174,11 @@ Schema: `supabase/migrations/0001_init.sql` (applied 17/10/2026 via Supabase MCP
 
 ## 9. Tests
 - **Unit**: net (6 references + edge cases: below threshold, above ceiling, 0 points), eligibility (A8–A11), vou (20 cars + ATTO 3/TANG collision), config (invalid rules → error).
-- **Conversation evals**: script that runs scenarios against the API and checks: tools called, no invented numbers (number-guard), rep question when needed.
+- **Agent unit tests** (mock model from `ai/test`, deterministic): tools vs. engine on the 6 references, number-guard (incl. an
+  invented number), notices, prompt rules, regeneration and blocking.
+- **Conversation evals** (`npm run eval:agent`, live Gemini, sequential with 429 backoff, skipped without a key): E-001…E-006
+  from one Hebrew message (plus a follow-up turn if the model asks first) → updateProfile + compareOptions called, first line
+  has the sheet's net and diff, guard never blocks, unconfirmed participation flagged; two A12 cases.
 - **E2E (Playwright)**: full A7 including representative and refresh.
 
 ## 10. Open decisions
@@ -166,5 +191,9 @@ Schema: `supabase/migrations/0001_init.sql` (applied 17/10/2026 via Supabase MCP
 - [x] Value-of-use tax year (decided 18/10): `rules.valueOfUse.taxYear` (2026), not a code constant.
 - [x] Value-of-use partial key (decided 18/10): one match → `found` with `matchedBy: 'partial'`, which the agent must
   confirm with the user; two or more → `ambiguous`, never picked (see §5).
+- [x] Number-guard (decided 18/10): allowed = this turn's tool outputs + validated profile, display forms only; one
+  regeneration, then a blocked fallback. Numbers written as Hebrew words are not detected (prompt requires digits).
+- [x] Agent prompt language (decided 18/10): the prompt file is English; replies are Hebrew; a glossary pins the terms.
+- [x] Missing / unconfirmed data is surfaced twice: by the prompt and by code-derived notices that the UI shows.
 - [ ] Payslip reading: Gemini vision → JSON, employee confirms each field.
 - [ ] RLS model for the public deploy (M7): conversation token vs. anonymous auth. Demo read-all policy is a stopgap.

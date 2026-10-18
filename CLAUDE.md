@@ -31,7 +31,7 @@ Hackathon: Open Code AI 2026. Final: Wed 28/10/2026.
 - If a spec is ambiguous → stop and ask, and log the decision in TECH-DESIGN "Open decisions".
 
 ## Commands
-- `npm run dev` · `npm test` · `npm run test:e2e` · `npm run typecheck` · `npm run check:db` · `npm run data:convert` (xlsx → data/*.json) · `npm run import:vou` (CSV → DB, from M2)
+- `npm run dev` · `npm test` · `npm run test:e2e` · `npm run typecheck` · `npm run check:db` · `npm run data:convert` (xlsx → data/*.json) · `npm run import:vou` (CSV → DB, from M2) · `npm run eval:agent` (live LLM evals, not in `npm test`)
 
 ## Database & MCP
 - Schema changes = new file in `supabase/migrations/NNNN_name.sql`, applied via Supabase MCP `apply_migration` (same name), then `list_tables` + `get_advisors security` + `npm run check:db`. Never edit an applied migration.
