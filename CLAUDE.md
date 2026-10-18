@@ -42,3 +42,10 @@ Hackathon: Open Code AI 2026. Final: Wed 28/10/2026.
 ## Language
 - All code, docs, prompts, commits and files for Claude Code: **English**.
 - Only user-facing UI text and bot replies are Hebrew. Hebrew values from the source data (group names א–ד, occupation names) are kept as-is.
+
+## Git commits
+- Subject: imperative, English, max 50 chars, no period. Prefix with milestone: `M1: add net engine`
+- Body: optional. Only if the "why" isn't obvious. Max 3 short bullets, wrap at 72.
+- No file lists, no test counts, no "this commit…", no emoji, no Co-Authored-By.
+- One logical change per commit. Push to origin after each milestone commit.
+- Never use `git add -A`. Stage specific files and run `git status` before committing.

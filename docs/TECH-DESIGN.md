@@ -38,19 +38,23 @@ interface EmployeeProfile {   // each field: value + source ('employee'|'rep'|'p
   current?: Situation; }
 
 type Situation =
-  | { kind: 'car'; carId: string; participation: number }
+  | { kind: 'car'; carId: string; participation?: number;    // omitted → catalog defaultParticipation
+      participationSource?: 'employee'|'rep'|'catalog_default' }
   | { kind: 'waiver' };       // maintenance derived from occupation
 
 interface OptionResult {
-  situation: Situation; eligible: boolean; reason: string;   // reason in Hebrew (user-facing)
-  budget: number; carCost: number; participation: number; familyGapEmployee: number;
+  situation: Situation; eligibility: { eligible; track: 'regular'|'family'|'waiver'; reason /* Hebrew */; missing[] };
+  car?: Car; budget?: number; carCost: number; familyGapEmployee: number;
+  participation: number; participationSource?: ParticipationSource;
+  needsConfirmation: boolean;                                // participation is an unconfirmed catalog default
   valueOfUse: number; maintenance: number; electricGross: number;
-  gross: number; taxableIncome: number; tax: number; nationalInsurance: number; health: number;
-  pension: number; studyFund: number; net: number;           // unrounded
+  breakdown?: NetBreakdown;   // cash, pension, studyFund, taxable, tax, NI, health, net — unrounded;
+                              // absent when data is missing or the option is not eligible
   diffVsToday?: number; changes: Change[];                   // structured facts for the explanation
-  missing?: string[];                                        // if missing → no net
+  missing: MissingField[];                                   // non-empty → no net
 }
 ```
+Implementation: `src/lib/engine/` (types, net, eligibility, compare). The engine takes config as an argument and does no I/O.
 
 ## 3. Net algorithm (verified against all 6 reference employees — all match)
 ```
@@ -67,8 +71,12 @@ net = cash + maintenance + electricGross − tax − NI − health − pension �
       − participation − familyGapEmployee
 ```
 **EV gross-up**: binary search on electricGross such that
-`net(with G) − net(G=0) = 250` (no rounding). Reference results: 440 / 473 ILS.
-**Rounding**: display only (whole shekel).
+`net(with G) − net(G=0) = 250` (no rounding). Reference results: 440 / 473 ILS (exact 439.91 / 473.22).
+The method comes from `rules.electric.method`: `gross_up` (default) or `flat`, where G = netBonus as taxable gross.
+**Rounding**: display only, whole shekel (`src/lib/format/money.ts`). The **shown diff = round(alt) − round(today)**,
+the difference of the rounded values. This is what the sheet does: for E-003 (exact −1938.68) and E-006 (exact
+721.70), rounding the exact diff would give −1939 / 722, but the sheet shows −1938 / 721. It also keeps the table
+consistent (shown diff = shown alt − shown today). The engine's `diffVsToday` stays unrounded.
 
 Reference for tests (net today → alternative, EV gross):
 E-001 11,032→11,693 (440) · E-002 8,600→5,078 · E-003 15,047→13,109 (473) ·
@@ -79,7 +87,11 @@ Check order; each returns a Hebrew `reason`:
 1. Waiver: occupation `carMandatory` → no; `waiverAllowed=false` → no; else maintenance per occupation.
 2. Family car: `childrenUnder23 ≥ 4` → eligible; gap per the car's catalog cost.
 3. Regular car: `groupOrder.indexOf(car.group) ≤ indexOf(employee.group)`.
-4. Unknown group / occupation → `missing`, never a guess.
+4. Unknown group / occupation / car, or unknown children for a family car → `missing`, never a guess.
+   Group absent but occupation known → the occupation's group from occupations.json (that is data, not a guess).
+- `allowedCars(profile)`: own group and lower, plus family cars when `childrenUnder23 ≥ minChildren`. Unknown children → no
+  family cars + `missing: ['childrenUnder23']`; unknown group → `{ cars: [], missing: ['group'] }`.
+- "Today" is evaluated without an eligibility gate; requested options get a net only when eligible.
 
 ## 5. Value-of-use
 - Table `value_of_use(tax_year, reg_year, vehicle_type_code, make_code, model_code, ...)`, PK on all five.
@@ -127,7 +139,11 @@ Schema: `supabase/migrations/0001_init.sql` (applied 17/10/2026 via Supabase MCP
 - **E2E (Playwright)**: full A7 including representative and refresh.
 
 ## 10. Open decisions
-- [ ] Participation for a new car: use catalog default (marked "per catalog — to confirm") or always ask the representative? (References use the default.) Proposed: catalog default; rep only for cars outside the catalog or disputes.
-- [ ] EV gross-up: gross_up (default) or 250 gross — per `electric.method`.
+- [x] Participation for a new car (decided 18/10): the catalog `defaultParticipation`, with `participationSource: 'catalog_default'`
+  and `needsConfirmation: true`. A value with source `rep` overrides it and clears the flag. Values stated by the employee
+  (current car) need no confirmation.
+- [x] EV (decided 18/10): both are supported, chosen by `rules.electric.method`: `gross_up` (default, exact +netBonus net) or
+  `flat` (netBonus as taxable gross).
+- [x] Diff rounding (decided 18/10): difference of the rounded values (see §3).
 - [ ] Payslip reading: Gemini vision → JSON, employee confirms each field.
 - [ ] RLS model for the public deploy (M7): conversation token vs. anonymous auth. Demo read-all policy is a stopgap.

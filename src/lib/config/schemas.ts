@@ -52,7 +52,8 @@ export const RulesSchema = z
     chooseFrom: z.literal("own_group_or_lower"),
     electric: z.object({
       netBonus: money,
-      method: z.literal("gross_up"),
+      // gross_up: employer grosses up so the employee nets exactly netBonus; flat: netBonus is paid as taxable gross.
+      method: z.enum(["gross_up", "flat"]),
       note,
     }),
     familyTrack: z.object({
@@ -163,8 +164,19 @@ export type Occupations = z.infer<typeof OccupationsSchema>;
 
 // ---------- situations & sample employees ----------
 
+// Where a value came from. catalog_default = not confirmed by anyone yet.
+export const PARTICIPATION_SOURCES = ["employee", "rep", "catalog_default"] as const;
+export const ParticipationSourceSchema = z.enum(PARTICIPATION_SOURCES);
+export type ParticipationSource = z.infer<typeof ParticipationSourceSchema>;
+
 export const SituationSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("car"), carId: z.string().min(1), participation: money }),
+  z.object({
+    kind: z.literal("car"),
+    carId: z.string().min(1),
+    // Omitted → the engine uses the car's catalog defaultParticipation and flags it as needing confirmation.
+    participation: money.optional(),
+    participationSource: ParticipationSourceSchema.optional(),
+  }),
   z.object({ kind: z.literal("waiver") }), // maintenance derived from occupation
 ]);
 export type Situation = z.infer<typeof SituationSchema>;
@@ -187,7 +199,7 @@ export const SampleEmployeeSchema = z.object({
     current: SituationSchema,
   }),
   alternative: SituationSchema,
-  // Reference data only: the product decision for new-car participation is still open (TECH-DESIGN §10).
+  // Reference data only: marks that the sheet used the catalog default (product rule: TECH-DESIGN §10).
   alternativeParticipationSource: z.literal("catalog_default (reference data)").optional(),
   expected: z.object({
     eligible: z.boolean(),
