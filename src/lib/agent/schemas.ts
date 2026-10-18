@@ -92,8 +92,21 @@ export const OptionResultSchema = z.object({
   missing: z.array(MissingFieldSchema),
 });
 
-/** Ready-to-quote values, rounded for display by src/lib/format/money.ts. Absent when the engine gave no net. */
-export const DisplaySchema = z.object({
+const shekel = z.number().int();
+
+/** The option's amounts rounded for display, so the comparison table renders them without arithmetic. */
+export const AmountsDisplaySchema = z.object({
+  valueOfUse: shekel,
+  participation: shekel,
+  carCost: shekel,
+  budget: shekel.optional(),
+  electricGross: shekel,
+  maintenance: shekel,
+  familyGapEmployee: shekel,
+});
+
+/** Ready-to-quote values, rounded for display by src/lib/format/money.ts. net/diff are absent when the engine gave no net. */
+export const DisplaySchema = AmountsDisplaySchema.extend({
   net: z.number().int().optional(),
   diffVsToday: z.number().int().optional(),
   /** Sign of diffVsToday as a word, so the reply says עלייה / ירידה instead of a minus sign. */
@@ -218,7 +231,7 @@ export const UpdateProfileOutput = z.discriminatedUnion("ok", [
 
 export const CompareOptionsInput = z.object({ options: z.array(SituationSchema).min(1).max(4) });
 export const CompareOptionsOutput = z.object({
-  today: OptionResultSchema.extend({ display: DisplaySchema.pick({ net: true }) }),
+  today: OptionResultSchema.extend({ display: DisplaySchema.omit({ diffVsToday: true, direction: true }) }),
   options: z.array(DisplayedOptionSchema),
 });
 

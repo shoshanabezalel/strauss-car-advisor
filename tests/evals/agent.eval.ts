@@ -1,45 +1,32 @@
 import type { ModelMessage } from "ai";
 import { config as loadEnv } from "dotenv";
 import { describe, expect, it } from "vitest";
-import { createAgentState, createMemoryRepQueue, runAgentTurn, type AgentDeps, type AgentTurn } from "@/lib/agent";
+import {
+  carName as carNameOf,
+  createAgentState,
+  createMemoryRepQueue,
+  openingMessage as openingMessageOf,
+  runAgentTurn,
+  type AgentDeps,
+  type AgentTurn,
+} from "@/lib/agent";
 import { createAgentModel } from "@/lib/agent/model";
-import { loadConfig, type SampleEmployee, type Situation } from "@/lib/config";
+import { loadConfig, type SampleEmployee } from "@/lib/config";
 import { createMemoryVouSource } from "@/lib/vou";
 import { loadVouRecords } from "../unit/vou/fixture";
 import { rateLimited } from "./rate-limit";
 
 // Live evals (`npm run eval:agent`): the real model drives the tools from a Hebrew chat. Not part of `npm test`.
 loadEnv({ path: ".env.local", quiet: true });
-const hasKey = Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+// Live only: AGENT_MODEL=mock (local dev) would make these evals test the script, not the model.
+const hasKey = Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY) && process.env.AGENT_MODEL !== "mock";
 
 const config = loadConfig();
 const MAX_TURNS = 3;
 const FOLLOW_UP = "כן, הכול נכון. תחשב בבקשה.";
 
-const carName = (id: string) => {
-  const c = config.catalog.cars.find((x) => x.id === id)!;
-  return `${c.make} ${c.model}`;
-};
-const pct = (f: number) => +(f * 100).toFixed(2); // test-data phrasing only
-
-function describeSituation(s: Situation): string {
-  if (s.kind === "waiver") return "היום ויתרתי על רכב ואני מקבל/ת אחזקת רכב.";
-  const p = s.participation !== undefined ? ` עם השתתפות עצמית של ${s.participation} ₪` : "";
-  return `היום יש לי ${carName(s.carId)}${p}.`;
-}
-
-/** One Hebrew message with the whole profile and the employee's question, as an employee might write it. */
-function openingMessage(e: SampleEmployee): string {
-  const p = e.profile;
-  return [
-    `שלום, אני ${p.occupation}, קבוצת זכאות ${p.group}.`,
-    `שכר בסיס ${p.baseSalary} ₪, עמלות ${p.commissions} ₪, בונוס ${p.bonus} ₪.`,
-    `הפרשה לפנסיה ${pct(p.pensionPct)}% ולקרן השתלמות ${pct(p.studyFundPct)}%.`,
-    `יש לי ${p.creditPoints} נקודות זיכוי ו-${p.childrenUnder23} ילדים עד גיל עשרים ושלוש.`,
-    describeSituation(p.current),
-    e.question,
-  ].join(" ");
-}
+const carName = (id: string) => carNameOf(config, id);
+const openingMessage = (e: SampleEmployee) => openingMessageOf(config, e);
 
 function newDeps(): AgentDeps {
   return { config, vouSource: createMemoryVouSource(loadVouRecords()), state: createAgentState(), repQueue: createMemoryRepQueue() };

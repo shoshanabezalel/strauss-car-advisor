@@ -1,5 +1,6 @@
 import { generateText, isStepCount, type LanguageModel, type ModelMessage } from "ai";
 import type { Config } from "@/lib/config";
+import type { AgentEventSink } from "./events";
 import { checkNumbers, type GuardResult } from "./number-guard";
 import { deriveNotices, type Notice, type ToolOutput } from "./notices";
 import { loadSystemPrompt } from "./system-prompt";
@@ -25,6 +26,8 @@ export interface RunTurnOptions {
   maxSteps?: number;
   /** Passed to the AI SDK. Evals set 0 and retry rate limits themselves. */
   maxRetries?: number;
+  /** Progress (status + tool events) while the turn runs. Never carries model text. */
+  onEvent?: AgentEventSink;
 }
 
 /** Shown when the reply still has an untraceable number after one regeneration. Must contain no digits. */
@@ -62,9 +65,9 @@ function toolMessagesOnly(messages: ModelMessage[]): ModelMessage[] {
  * One employee turn: the model collects data and calls tools; the number-guard checks the final text against this
  * turn's tool outputs and the validated profile. A violation gets one regeneration; a second one blocks the reply.
  */
-export async function runAgentTurn({ model, messages, deps, maxSteps = 8, maxRetries }: RunTurnOptions): Promise<AgentTurn> {
+export async function runAgentTurn({ model, messages, deps, maxSteps = 8, maxRetries, onEvent }: RunTurnOptions): Promise<AgentTurn> {
   const system = loadSystemPrompt();
-  const tools = createTools(deps);
+  const tools = createTools(deps, onEvent);
   const ignoreNames = knownNames(deps.config);
 
   const toolCalls: AgentTurn["toolCalls"] = [];
@@ -74,6 +77,7 @@ export async function runAgentTurn({ model, messages, deps, maxSteps = 8, maxRet
   let guard: GuardResult = { ok: false, invented: [] };
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    onEvent?.({ type: "status", status: attempt === 1 ? "thinking" : "regenerating" });
     const result = await generateText({
       model,
       instructions: note ? `${system}\n\n${note}` : system,
@@ -89,6 +93,7 @@ export async function runAgentTurn({ model, messages, deps, maxSteps = 8, maxRet
     carried.push(...toolMessagesOnly(result.steps.flatMap((s) => s.response.messages)));
 
     const text = result.text.trim();
+    onEvent?.({ type: "status", status: "checking" });
     guard = checkNumbers(text, { toolOutputs: toolOutputs.map((o) => o.output), profile: deps.state.profile, ignoreNames });
     if (guard.ok && text) {
       return {

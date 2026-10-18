@@ -11,6 +11,8 @@ const ServerEnvSchema = PublicEnvSchema.extend({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(), // required by agentEnv()
   AGENT_MODEL: z.string().min(1).optional(),
+  /** Tag for new conversations; the e2e server sets "e2e" so `npm run db:clean-e2e` can remove them. */
+  CONVERSATION_SOURCE: z.enum(["app", "e2e"]).default("app"),
   ANTHROPIC_API_KEY: z.string().min(1).optional(), // optional LLM fallback
   // Used only by the Supabase MCP (scripts/supabase-mcp.mjs reads it from .env.local); the app never reads it.
   SUPABASE_ACCESS_TOKEN: z.string().optional(),
@@ -24,8 +26,12 @@ export function publicEnv() {
 }
 
 export function serverEnv() {
-  return ServerEnvSchema.parse(process.env);
+  // Empty lines copied from .env.example (`AGENT_MODEL=`) mean "not set".
+  return ServerEnvSchema.parse(Object.fromEntries(Object.entries(process.env).filter(([, v]) => v !== "")));
 }
+
+/** AGENT_MODEL value that selects the scripted model (src/lib/agent/mock-model.ts). */
+export const MOCK_MODEL = "mock";
 
 /** What the live agent model needs. Separate from serverEnv so evals can run without the Supabase keys. */
 const AgentEnvSchema = z.object({

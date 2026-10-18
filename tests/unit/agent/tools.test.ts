@@ -39,6 +39,24 @@ describe("compareOptions tool", () => {
     expect(out.options[0].display.direction).toBe(d > 0 ? "up" : d < 0 ? "down" : "none");
   });
 
+  it.each(employees.map((e) => [e.id, e] as const))("%s: display carries every table amount, rounded from the engine", async (_id, e) => {
+    deps.state = createAgentState(e.profile);
+    const out = await tools().compareOptions({ options: [e.alternative] });
+    for (const row of [out.today, out.options[0]]) {
+      expect(row.display).toMatchObject({
+        valueOfUse: roundShekel(row.valueOfUse),
+        participation: roundShekel(row.participation),
+        carCost: roundShekel(row.carCost),
+        electricGross: roundShekel(row.electricGross),
+        maintenance: roundShekel(row.maintenance),
+        familyGapEmployee: roundShekel(row.familyGapEmployee),
+      });
+      expect(row.display.budget).toBe(row.budget === undefined ? undefined : roundShekel(row.budget));
+    }
+    expect(out.options[0].display.electricGross).toBe(e.expected.electricGross);
+    expect(out.options[0].display.familyGapEmployee).toBe(e.expected.familyGapEmployee);
+  });
+
   it("flags a catalog-default participation as needing confirmation", async () => {
     const e = employees[0];
     deps.state = createAgentState(e.profile);

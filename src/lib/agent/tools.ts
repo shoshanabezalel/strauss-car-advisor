@@ -1,9 +1,10 @@
 import { tool, type ToolSet } from "ai";
 import type { z } from "zod";
 import type { Config } from "@/lib/config";
-import { allowedCars, checkEligibility, compareOptions, missingProfileFields, type EmployeeProfile } from "@/lib/engine";
+import { allowedCars, checkEligibility, compareOptions, missingProfileFields, type EmployeeProfile, type OptionResult } from "@/lib/engine";
 import { displayDiff, roundShekel } from "@/lib/format/money";
 import { getValueOfUse, searchValueOfUse, type VouSource } from "@/lib/vou";
+import type { AgentEventSink } from "./events";
 import * as S from "./schemas";
 import type { AgentState, RepQueue } from "./state";
 
@@ -38,6 +39,19 @@ export interface ToolHandlers {
 }
 
 const PERCENT_FIELDS = new Set<S.ProfileField>(["pensionPct", "studyFundPct"]);
+
+/** The table's amounts, rounded for display only (the engine's values stay unrounded beside them). */
+function amounts(r: OptionResult) {
+  return {
+    valueOfUse: roundShekel(r.valueOfUse),
+    participation: roundShekel(r.participation),
+    carCost: roundShekel(r.carCost),
+    budget: r.budget === undefined ? undefined : roundShekel(r.budget),
+    electricGross: roundShekel(r.electricGross),
+    maintenance: roundShekel(r.maintenance),
+    familyGapEmployee: roundShekel(r.familyGapEmployee),
+  };
+}
 
 /** Plain handlers: Zod-parse the input, call the engine / lookup, Zod-parse the output. No calculation here. */
 export function createToolHandlers(deps: AgentDeps): ToolHandlers {
@@ -111,12 +125,13 @@ export function createToolHandlers(deps: AgentDeps): ToolHandlers {
       const { options } = S.CompareOptionsInput.parse(input);
       const { today, options: results } = compareOptions(state.profile, options, config);
       const todayNet = today.breakdown?.net;
+      const net = (r: OptionResult) => (r.breakdown ? roundShekel(r.breakdown.net) : undefined);
       return S.CompareOptionsOutput.parse({
-        today: { ...today, display: { net: todayNet === undefined ? undefined : roundShekel(todayNet) } },
+        today: { ...today, display: { ...amounts(today), net: net(today) } },
         options: results.map((r) => {
           const diff = r.breakdown && todayNet !== undefined ? displayDiff(r.breakdown.net, todayNet) : undefined;
           const direction = diff === undefined ? undefined : diff > 0 ? "up" : diff < 0 ? "down" : "none";
-          return { ...r, display: { net: r.breakdown ? roundShekel(r.breakdown.net) : undefined, diffVsToday: diff, direction } };
+          return { ...r, display: { ...amounts(r), net: net(r), diffVsToday: diff, direction } };
         }),
       });
     },
@@ -149,8 +164,8 @@ const INPUTS: Record<ToolName, z.ZodType> = {
   askRepresentative: S.AskRepresentativeInput,
 };
 
-/** The same handlers as AI SDK tools. */
-export function createTools(deps: AgentDeps): ToolSet {
+/** The same handlers as AI SDK tools. `onEvent` reports each call's progress (never its output). */
+export function createTools(deps: AgentDeps, onEvent?: AgentEventSink): ToolSet {
   const handlers = createToolHandlers(deps);
   return Object.fromEntries(
     TOOL_NAMES.map((name) => [
@@ -158,7 +173,17 @@ export function createTools(deps: AgentDeps): ToolSet {
       tool({
         description: DESCRIPTIONS[name],
         inputSchema: INPUTS[name],
-        execute: (input: unknown) => (handlers[name] as (i: unknown) => Promise<unknown>)(input),
+        execute: async (input: unknown) => {
+          onEvent?.({ type: "tool", name, state: "running" });
+          try {
+            const output = await (handlers[name] as (i: unknown) => Promise<unknown>)(input);
+            onEvent?.({ type: "tool", name, state: "done" });
+            return output;
+          } catch (err) {
+            onEvent?.({ type: "tool", name, state: "error" });
+            throw err;
+          }
+        },
       }),
     ]),
   );
