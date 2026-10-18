@@ -219,6 +219,12 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
      later agent turns), and the reply with notices (`rep_answered` + derived ones). Status → `active` if no question
      is still open.
   8. Ping `conversation:<id>` and `rep-queue`. Any failure after the claim re-opens the question → 500.
+- **Model history**: step 7 stores an assistant tool-call message right after the agent's reply. `@ai-sdk/google`
+  (4.0.99, `convertToGoogleMessages`) turns each assistant message into its own `model` content, and each tool
+  message into a `user` content with `functionResponse` parts; nothing is merged. `handleChatTurn` therefore builds the
+  model history with `toModelHistory` (`history.ts`), which merges consecutive assistant messages, and consecutive tool
+  messages, keeping every part in order. The stored history is unchanged. A unit test runs the real Google provider
+  with a captured `fetch` and checks the request alternates user / model.
 - **Race**: `handleChatTurn` remembers when it loaded the conversation. Before saving, it re-applies answers given
   since then (`repQuestionsAnsweredSince`) through the same functions and recomputes its comparison, so a stale turn
   state can't overwrite a rep answer. That turn's reply text may still describe the unconfirmed value; its table is

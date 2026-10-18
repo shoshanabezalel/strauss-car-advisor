@@ -1,3 +1,4 @@
+import type { ModelMessage } from "ai";
 import type { Notice } from "@/lib/agent";
 import type { StoredMessage } from "./store";
 
@@ -24,4 +25,31 @@ export function toVisibleHistory(messages: readonly StoredMessage[]): VisibleMes
     }
     return [];
   });
+}
+
+type AssistantPart = Exclude<Extract<ModelMessage, { role: "assistant" }>["content"], string>[number];
+type ToolPart = Extract<ModelMessage, { role: "tool" }>["content"][number];
+
+const assistantParts = (m: Extract<ModelMessage, { role: "assistant" }>): AssistantPart[] =>
+  typeof m.content === "string" ? [{ type: "text", text: m.content }] : m.content;
+
+/**
+ * The history sent to the model: consecutive assistant messages, and consecutive tool messages, merged into one.
+ * A representative's answer stores a tool round-trip right after the agent's reply (rep-answer.ts), and
+ * @ai-sdk/google sends each assistant message as its own `model` turn. Merging keeps every part in order;
+ * the stored history is not changed.
+ */
+export function toModelHistory(messages: readonly StoredMessage[]): ModelMessage[] {
+  const out: ModelMessage[] = [];
+  for (const { message } of messages) {
+    const last = out.at(-1);
+    if (message.role === "assistant" && last?.role === "assistant") {
+      out[out.length - 1] = { ...last, content: [...assistantParts(last), ...assistantParts(message)] };
+    } else if (message.role === "tool" && last?.role === "tool") {
+      out[out.length - 1] = { ...last, content: [...last.content, ...message.content] as ToolPart[] };
+    } else {
+      out.push(message);
+    }
+  }
+  return out;
 }

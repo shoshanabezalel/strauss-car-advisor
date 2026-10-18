@@ -4,6 +4,7 @@ import type { Config } from "@/lib/config";
 import { noopNotifier, type Notifier } from "@/lib/realtime/notifier";
 import type { VouSource } from "@/lib/vou";
 import { toComparisonView, type ComparisonView } from "./comparison-view";
+import { toModelHistory } from "./history";
 import { applyRepAnswer, recompute } from "./rep-answer";
 import type { CompareOutput, ConversationSource, ConversationStore } from "./store";
 
@@ -58,7 +59,7 @@ export async function handleChatTurn(input: ChatTurnInput): Promise<void> {
   try {
     const state: AgentState = snapshot?.state ?? createAgentState();
     const user: ModelMessage = { role: "user", content: text };
-    const history = (snapshot?.messages ?? []).map((m) => m.message);
+    const history = toModelHistory(snapshot?.messages ?? []);
 
     const turn = await runAgentTurn({
       model,

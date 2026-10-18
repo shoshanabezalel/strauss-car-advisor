@@ -176,3 +176,11 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   - Rep screen without auth and public broadcast topics are logged for M7 (TECH-DESIGN §10).
   - Risk to check in tomorrow's live evals: the stored rep round-trip puts an assistant tool-call message right
     after an assistant reply in the history (two assistant turns in a row).
+- **Follow-up (same day): consecutive assistant turns.**
+  - Read `@ai-sdk/google` 4.0.99 `convertToGoogleMessages`: each assistant message becomes its own `model` content,
+    with no merging, so the A7 history really did send `model, model` to Gemini.
+  - Test first (2 red): drive the real Google provider through a captured `fetch` with an A7 history (rep reply,
+    then an employee turn) and assert alternating roles; check that merging keeps every part and every
+    call / result id.
+  - Fix: `toModelHistory` merges consecutive assistant / tool messages when the model history is built. The stored
+    history is unchanged. 319 unit, 12 e2e.
