@@ -2,11 +2,12 @@ import "server-only";
 import { createAgentModel, isMockMode } from "@/lib/agent/model";
 import { loadConfig } from "@/lib/config";
 import { serverEnv } from "@/lib/env";
+import { createSupabaseNotifier } from "@/lib/realtime/supabase-notifier";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseVouSource } from "@/lib/vou";
 import { createSupabaseStore } from "./supabase-store";
 
-/** Wiring for the API routes: Supabase store + value-of-use table + the configured model. */
+/** Wiring for the API routes: Supabase store + value-of-use table + Realtime pings + the configured model. */
 export function chatDeps() {
   const config = loadConfig();
   const db = createAdminClient();
@@ -14,6 +15,7 @@ export function chatDeps() {
     config,
     store: createSupabaseStore(db),
     vouSource: createSupabaseVouSource(db, config.rules),
+    notifier: createSupabaseNotifier(db),
     source: serverEnv().CONVERSATION_SOURCE,
     createModel: createAgentModel,
   };

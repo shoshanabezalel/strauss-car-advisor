@@ -45,3 +45,25 @@ export function agentEnv() {
     AGENT_MODEL: process.env.AGENT_MODEL || undefined,
   });
 }
+
+/** Realtime polling fallback (src/lib/realtime/ping-fallback.ts). Raw values are passed in so this stays testable. */
+const RealtimeEnvSchema = z.object({
+  poll: z.enum(["on", "off"]).default("on"),
+  fallbackMs: z.coerce.number().int().positive().default(5000),
+  pollMs: z.coerce.number().int().positive().default(5000),
+});
+
+export function parseRealtimeEnv(raw: { poll?: string; fallbackMs?: string; pollMs?: string }) {
+  const clean = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined && v !== ""));
+  const env = RealtimeEnvSchema.parse(clean);
+  return { pollEnabled: env.poll === "on", fallbackAfterMs: env.fallbackMs, pollMs: env.pollMs };
+}
+
+/** Browser-safe: NEXT_PUBLIC_* referenced literally so Next.js inlines them. */
+export function realtimeEnv() {
+  return parseRealtimeEnv({
+    poll: process.env.NEXT_PUBLIC_REALTIME_POLL,
+    fallbackMs: process.env.NEXT_PUBLIC_REALTIME_FALLBACK_MS,
+    pollMs: process.env.NEXT_PUBLIC_REALTIME_POLL_MS,
+  });
+}
