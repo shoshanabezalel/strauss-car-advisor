@@ -1,15 +1,18 @@
 import type { LanguageModel } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import type { z } from "zod";
-import type { Config, SampleEmployee, Situation } from "@/lib/config";
+import type { Config, Situation } from "@/lib/config";
 import {
   ambiguousVouCar,
   ambiguousVouMessage,
+  ASK_REP_MESSAGE,
   carName,
+  challengeOpeningMessage,
   missingDataMessage,
   openingMessage,
   UNKNOWN_PARTICIPATION_MESSAGE,
 } from "./demo-messages";
+import { compareReply } from "./replies";
 import type { CompareOptionsOutput, GetValueOfUseOutput } from "./schemas";
 import type { ToolName } from "./tools";
 
@@ -26,10 +29,16 @@ export interface DemoPrompt {
   text: string;
 }
 
+type CallOptions = MockLanguageModelV4["doGenerateCalls"][number];
+type GenerateResult = Awaited<ReturnType<MockLanguageModelV4["doGenerate"]>>;
+type Prompt = CallOptions["prompt"];
+
 type ToolResults = Partial<Record<ToolName, unknown>>;
+type Call = { toolName: ToolName; input: unknown };
 interface Scenario extends DemoPrompt {
-  calls: { toolName: ToolName; input: unknown }[];
-  reply: (results: ToolResults) => string;
+  /** Fixed calls, or calls that depend on the conversation so far (e.g. the car from an earlier comparison). */
+  calls: Call[] | ((prompt: Prompt) => Call[]);
+  reply: (results: ToolResults, prompt: Prompt) => string;
 }
 
 type Compare = z.output<typeof CompareOptionsOutput>;
@@ -37,45 +46,23 @@ type Vou = z.output<typeof GetValueOfUseOutput>;
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 
-const CHANGE_WORDS: Record<string, string> = {
-  valueOfUse: "שווי השימוש משתנה",
-  electric: "נוסף החזר חשמל מגולם",
-  maintenance: "אחזקת הרכב משתנה",
-  participation: "ההשתתפות העצמית משתנה",
-  familyGap: "חלקך בפער של מסלול משפחה ברוכת ילדים",
-};
-
 const FALLBACK_REPLY =
   "אני במצב הדגמה ועונה רק על השאלות המוכנות. אפשר לבחור אחת מהן מתחת לשיחה, או לשאול את נציג/ת הרכב.";
 
-function compareReply(results: ToolResults): string {
-  const c = results.compareOptions as Compare | undefined;
-  const opt = c?.options[0];
-  if (!c || !opt) return "לא הצלחתי לחשב את ההשוואה. אפשר לנסות שוב?";
-  if (!opt.eligibility.eligible) return `האפשרות הזו לא זמינה עבורך: ${opt.eligibility.reason}`;
-  const { net, diffVsToday, direction } = opt.display;
-  if (net === undefined || diffVsToday === undefined || c.today.display.net === undefined) {
-    return "חסרים לי עוד פרטים כדי לחשב את הנטו. אפשר להשלים אותם?";
-  }
-  const change =
-    direction === "none" ? "ללא שינוי" : `${direction === "up" ? "עלייה" : "ירידה"} של ${fmt(Math.abs(diffVsToday))} ₪`;
-  const lines = [`הנטו החדש שלך: ${fmt(net)} ₪, ${change} לעומת היום (${fmt(c.today.display.net)} ₪).`];
-  const why = [...new Set(opt.changes.map((ch) => CHANGE_WORDS[ch.kind]).filter(Boolean))];
-  if (why.length) lines.push(`מה משתנה: ${why.join(", ")}.`);
-  if (opt.needsConfirmation) lines.push("ההשתתפות העצמית ברכב החדש לפי ברירת המחדל בקטלוג, וצריך לאשר אותה מול נציג/ת הרכב.");
-  return lines.join("\n");
-}
+const compareFromResults = (results: ToolResults) => compareReply(results.compareOptions as Compare | undefined);
 
 /** The alternative without participation, so a new car takes the catalog default and is flagged for confirmation. */
 function requested(s: Situation): Situation {
   return s.kind === "car" ? { kind: "car", carId: s.carId } : s;
 }
 
-function employeeScenario(config: Config, e: SampleEmployee): Scenario {
-  const p = e.profile;
+type StatedProfile = Config["challenge"]["profile"];
+
+/** updateProfile with everything stated, then compareOptions for the alternative. */
+function profileScenario(prompt: DemoPrompt, p: StatedProfile, alternative: Situation): Scenario {
   const asSaid = (f: number) => +(f * 100).toFixed(4); // percent as the employee says it; the tool converts back
   const updates = [
-    { field: "occupation", value: p.occupation },
+    ...(p.occupation === undefined ? [] : [{ field: "occupation", value: p.occupation }]),
     { field: "group", value: p.group },
     { field: "baseSalary", value: p.baseSalary },
     { field: "commissions", value: p.commissions },
@@ -86,23 +73,57 @@ function employeeScenario(config: Config, e: SampleEmployee): Scenario {
     { field: "childrenUnder23", value: p.childrenUnder23 },
     { field: "current", value: p.current },
   ].map((u) => ({ ...u, source: "employee" }));
-  const alt = e.alternative.kind === "car" ? carName(config, e.alternative.carId) : "ויתור על הרכב";
   return {
-    id: e.id,
-    label: `${e.name}: ${alt}`,
-    text: openingMessage(config, e),
+    ...prompt,
     calls: [
       { toolName: "updateProfile", input: { updates } },
-      { toolName: "compareOptions", input: { options: [requested(e.alternative)] } },
+      { toolName: "compareOptions", input: { options: [requested(alternative)] } },
     ],
-    reply: compareReply,
+    reply: compareFromResults,
   };
+}
+
+/** Every tool result in the conversation so far, oldest first. */
+function allToolResults(prompt: Prompt): { toolName: string; value: unknown }[] {
+  return prompt.flatMap((m) =>
+    m.role === "tool"
+      ? m.content.flatMap((part) => (part.type === "tool-result" && part.output.type === "json" ? [{ toolName: part.toolName, value: part.output.value }] : []))
+      : [],
+  );
+}
+
+/** The car of the latest comparison whose participation is still the unconfirmed catalog default. */
+function unconfirmedCar(prompt: Prompt): string | undefined {
+  const last = allToolResults(prompt).findLast((r) => r.toolName === "compareOptions")?.value as Compare | undefined;
+  const opt = last?.options.find((o) => o.needsConfirmation && o.situation.kind === "car");
+  return opt?.situation.kind === "car" ? opt.situation.carId : undefined;
 }
 
 function buildScenarios(config: Config): Scenario[] {
   const vouCar = ambiguousVouCar(config);
+  const a7 = config.challenge;
   return [
-    ...config.employees.employees.map((e) => employeeScenario(config, e)),
+    ...config.employees.employees.map((e) => {
+      const alt = e.alternative.kind === "car" ? carName(config, e.alternative.carId) : "ויתור על הרכב";
+      return profileScenario({ id: e.id, label: `${e.name}: ${alt}`, text: openingMessage(config, e) }, e.profile, e.alternative);
+    }),
+    profileScenario({ id: "a7", label: "A7: תסריט האתגר", text: challengeOpeningMessage(config) }, a7.profile, a7.alternative),
+    {
+      id: "ask-rep",
+      label: "לבקש אישור השתתפות מנציג/ת",
+      text: ASK_REP_MESSAGE,
+      calls: (prompt) => {
+        const carId = unconfirmedCar(prompt);
+        if (!carId) return [];
+        const question = `מה ההשתתפות העצמית של העובד/ת ב-${carName(config, carId)}?`;
+        return [{ toolName: "askRepresentative", input: { question, field: "participation", carId } }];
+      },
+      reply: (results, prompt) => {
+        if (!results.askRepresentative) return "אין כרגע השתתפות שממתינה לאישור. אפשר לבקש השוואה לרכב מסוים קודם.";
+        const carId = unconfirmedCar(prompt);
+        return `שלחתי לנציג/ת הרכב שאלה על ההשתתפות העצמית ב-${carId ? carName(config, carId) : "רכב החדש"}. ההשוואה תתעדכן כשתגיע תשובה.`;
+      },
+    },
     {
       id: "missing",
       label: "פרטים חסרים",
@@ -117,7 +138,7 @@ function buildScenarios(config: Config): Scenario[] {
       calls: [
         {
           toolName: "askRepresentative",
-          input: { question: "מה ההשתתפות העצמית של העובד/ת ברכב הנוכחי?", field: "current", context: { reason: "employee_does_not_know" } },
+          input: { question: "מה הרכב הנוכחי של העובד/ת ומה ההשתתפות העצמית בו?", field: "current", context: { reason: "employee_does_not_know" } },
         },
       ],
       reply: () => "שלחתי את השאלה לנציג/ת הרכב. ההשוואה תתעדכן כשתגיע תשובה.",
@@ -144,16 +165,13 @@ export function demoPrompts(config: Config): DemoPrompt[] {
   return buildScenarios(config).map(({ id, label, text }) => ({ id, label, text }));
 }
 
-type CallOptions = MockLanguageModelV4["doGenerateCalls"][number];
-type GenerateResult = Awaited<ReturnType<MockLanguageModelV4["doGenerate"]>>;
-
 const usage = {
   inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
   outputTokens: { total: 0, text: 0, reasoning: 0 },
 };
 
 /** The last user message's text, and the tool results that came after it (this turn). */
-function readTurn(prompt: CallOptions["prompt"]) {
+function readTurn(prompt: Prompt) {
   const lastUser = prompt.findLastIndex((m) => m.role === "user");
   const userMsg = prompt[lastUser];
   const text =
@@ -170,7 +188,7 @@ function readTurn(prompt: CallOptions["prompt"]) {
       if (part.output.type === "json") results[part.toolName as ToolName] = part.output.value;
     }
   }
-  return { text, results, count };
+  return { text, results, count, before: prompt.slice(0, lastUser + 1) };
 }
 
 /** `delayMs` per model step makes progress visible in demos and e2e (a real model takes seconds). */
@@ -182,9 +200,11 @@ export function createMockModel(config: Config, { delayMs = 0 }: { delayMs?: num
     modelId: "mock",
     doGenerate: async ({ prompt }): Promise<GenerateResult> => {
       if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
-      const { text, results, count } = readTurn(prompt);
+      const { text, results, count, before } = readTurn(prompt);
       const scenario = scenarios.find((s) => s.text === text);
-      const next = scenario?.calls[count];
+      // Dynamic calls look only at the conversation before this turn, so they stay the same across steps.
+      const calls = scenario ? (typeof scenario.calls === "function" ? scenario.calls(before) : scenario.calls) : [];
+      const next = calls[count];
       if (next) {
         return {
           content: [{ type: "tool-call", toolCallId: `mock-${++callId}`, toolName: next.toolName, input: JSON.stringify(next.input) }],
@@ -193,7 +213,7 @@ export function createMockModel(config: Config, { delayMs = 0 }: { delayMs?: num
           warnings: [],
         };
       }
-      const reply = scenario ? scenario.reply(results) : FALLBACK_REPLY;
+      const reply = scenario ? scenario.reply(results, before) : FALLBACK_REPLY;
       return { content: [{ type: "text", text: reply }], finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
     },
   });

@@ -15,18 +15,33 @@ function describeSituation(config: Config, s: Situation): string {
   return `היום יש לי ${carName(config, s.carId)}${p}.`;
 }
 
-/** One Hebrew message with the whole profile and the employee's question, as an employee might write it. */
-export function openingMessage(config: Config, e: SampleEmployee): string {
-  const p = e.profile;
+type StatedProfile = Omit<SampleEmployee["profile"], "occupation"> & { occupation?: string };
+
+function describeProfile(config: Config, p: StatedProfile, question: string): string {
   return [
-    `שלום, אני ${p.occupation}, קבוצת זכאות ${p.group}.`,
+    p.occupation ? `שלום, אני ${p.occupation}, קבוצת זכאות ${p.group}.` : `שלום, אני בקבוצת זכאות ${p.group}.`,
     `שכר בסיס ${p.baseSalary} ₪, עמלות ${p.commissions} ₪, בונוס ${p.bonus} ₪.`,
     `הפרשה לפנסיה ${pct(p.pensionPct)}% ולקרן השתלמות ${pct(p.studyFundPct)}%.`,
     `יש לי ${p.creditPoints} נקודות זיכוי ו-${p.childrenUnder23} ילדים עד גיל עשרים ושלוש.`,
     describeSituation(config, p.current),
-    e.question,
+    question,
   ].join(" ");
 }
+
+/** One Hebrew message with the whole profile and the employee's question, as an employee might write it. */
+export function openingMessage(config: Config, e: SampleEmployee): string {
+  return describeProfile(config, e.profile, e.question);
+}
+
+/** A7: the brief's script in one message (data/challenge-script.json), naming the EV the employee picked. */
+export function challengeOpeningMessage(config: Config): string {
+  const c = config.challenge;
+  const pick = c.alternative.kind === "car" ? ` הרכב שמעניין אותי: ${carName(config, c.alternative.carId)}.` : "";
+  return describeProfile(config, c.profile, c.question + pick);
+}
+
+/** A7 follow-up: the employee asks to confirm the new car's participation with the representative. */
+export const ASK_REP_MESSAGE = "אפשר לבדוק מול נציג/ת הרכב מה ההשתתפות העצמית ברכב החדש?";
 
 /** A partial profile: only the group, so the agent has to ask for the rest. */
 export function missingDataMessage(config: Config): string {
