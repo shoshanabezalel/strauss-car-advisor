@@ -2,7 +2,7 @@ import type { Car } from "@/lib/config";
 import type { MissingField } from "@/lib/engine";
 import type { VouRecord } from "@/lib/vou";
 import type { z } from "zod";
-import type { CompareOptionsOutput, GetValueOfUseOutput, UpdateProfileOutput } from "./schemas";
+import type { CompareOptionsOutput, GetValueOfUseOutput, RepField, UpdateProfileOutput } from "./schemas";
 
 export interface ToolOutput {
   toolName: string;
@@ -15,7 +15,9 @@ export type Notice =
   | { kind: "participation_unconfirmed"; carId: Car["id"] }
   | { kind: "ambiguous_vou"; candidates: VouRecord[] }
   | { kind: "confirm_vou_match"; record: VouRecord }
-  | { kind: "rep_question_open"; questionId: string };
+  | { kind: "rep_question_open"; questionId: string }
+  /** Added by the representative-answer service (src/lib/chat/rep-answer.ts), not derived from agent tools. */
+  | { kind: "rep_answered"; questionId: string; field: RepField };
 
 type Compare = z.output<typeof CompareOptionsOutput>;
 type Update = z.output<typeof UpdateProfileOutput>;

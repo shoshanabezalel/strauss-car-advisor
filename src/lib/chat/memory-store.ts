@@ -1,18 +1,18 @@
-import type { RepQuestionInput } from "@/lib/agent";
-import type { ConversationSnapshot, ConversationSource, ConversationStore } from "./store";
+import type { ConversationSnapshot, ConversationSource, ConversationStore, RepQuestionRecord } from "./store";
 
 /** In-memory store for unit tests. Same contract as the Supabase store. */
-export function createMemoryStore(): ConversationStore & { questions: Map<string, (RepQuestionInput & { questionId: string })[]> } {
-  const rows = new Map<string, ConversationSnapshot & { source: ConversationSource }>();
-  const questions = new Map<string, (RepQuestionInput & { questionId: string })[]>();
+export function createMemoryStore(): ConversationStore {
+  const rows = new Map<string, Omit<ConversationSnapshot, "repQuestions"> & { source: ConversationSource }>();
+  const questions = new Map<string, RepQuestionRecord>();
   const get = (id: string) => {
     const row = rows.get(id);
     if (!row) throw new Error(`conversation ${id} not found`);
     return row;
   };
+  const byCreated = (a: RepQuestionRecord, b: RepQuestionRecord) => a.createdAt.localeCompare(b.createdAt);
+  const list = (pred: (q: RepQuestionRecord) => boolean) => structuredClone([...questions.values()].filter(pred).sort(byCreated));
 
   return {
-    questions,
     async create(source) {
       const id = crypto.randomUUID();
       rows.set(id, { id, source, status: "active", state: { profile: {}, sources: {} }, messages: [] });
@@ -20,7 +20,9 @@ export function createMemoryStore(): ConversationStore & { questions: Map<string
     },
     async load(id) {
       const row = rows.get(id);
-      return row ? structuredClone({ id: row.id, status: row.status, state: row.state, messages: row.messages, comparison: row.comparison }) : null;
+      if (!row) return null;
+      const { id: rowId, status, state, messages, comparison } = structuredClone(row);
+      return { id: rowId, status, state, messages, comparison, repQuestions: list((q) => q.conversationId === id) };
     },
     async appendMessages(id, messages) {
       get(id).messages.push(...structuredClone(messages));
@@ -37,13 +39,45 @@ export function createMemoryStore(): ConversationStore & { questions: Map<string
     repQueue(id) {
       return {
         async ask(q) {
-          const list = questions.get(id) ?? [];
+          get(id);
           const questionId = crypto.randomUUID();
-          list.push({ ...q, questionId });
-          questions.set(id, list);
+          questions.set(questionId, {
+            id: questionId,
+            conversationId: id,
+            field: q.field,
+            carId: q.carId,
+            question: q.question,
+            context: { ...q.context, ...(q.carId ? { carId: q.carId } : {}) },
+            status: "open",
+            createdAt: new Date().toISOString(),
+          });
           return { questionId, status: "open" as const };
         },
       };
+    },
+    async listOpenRepQuestions() {
+      return list((q) => q.status === "open");
+    },
+    async getRepQuestion(id) {
+      const q = questions.get(id);
+      return q ? structuredClone(q) : null;
+    },
+    async claimRepQuestion(id, answer, answeredBy) {
+      const q = questions.get(id);
+      if (!q || q.status !== "open") return false;
+      Object.assign(q, { status: "answered", answer: structuredClone(answer), answeredBy, answeredAt: new Date().toISOString() });
+      return true;
+    },
+    async reopenRepQuestion(id) {
+      const q = questions.get(id);
+      if (!q) return;
+      q.status = "open";
+      delete q.answer;
+      delete q.answeredBy;
+      delete q.answeredAt;
+    },
+    async repQuestionsAnsweredSince(conversationId, since) {
+      return list((q) => q.conversationId === conversationId && q.status === "answered" && (q.answeredAt ?? "") >= since);
     },
   };
 }
