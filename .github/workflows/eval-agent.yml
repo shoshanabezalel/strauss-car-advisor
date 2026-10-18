@@ -1,0 +1,33 @@
+# Live agent evals against Gemini (tests/evals). Manual only: they cost API calls and depend on a network service.
+name: eval-agent
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  eval-agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Check API key secret
+        env:
+          GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
+        run: |
+          if [ -z "$GOOGLE_GENERATIVE_AI_API_KEY" ]; then
+            echo "::error::Repository secret GOOGLE_GENERATIVE_AI_API_KEY is not set (the evals would be skipped)."
+            exit 1
+          fi
+      - run: npm run eval:agent
+        env:
+          GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
+          # Optional; empty falls back to the default in src/lib/env.ts.
+          AGENT_MODEL: ${{ secrets.AGENT_MODEL }}
