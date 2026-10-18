@@ -36,7 +36,7 @@ Hackathon: Open Code AI 2026. Final: Wed 28/10/2026.
 ## Database & MCP
 - Schema changes = new file in `supabase/migrations/NNNN_name.sql`, applied via Supabase MCP `apply_migration` (same name), then `list_tables` + `get_advisors security` + `npm run check:db`. Never edit an applied migration.
 - RLS is on for every table. Current policies are **demo-only read for anon** (see TECH-DESIGN §8); all writes go through API routes with the service-role key (`src/lib/supabase/admin.ts`, server only). Tighten before the M7 deploy.
-- Supabase MCP runs via `scripts/supabase-mcp.mjs` (token from `.env.local`). `SUPABASE_ACCESS_TOKEN` expires 24/10/2026 — remind the user to regenerate it (project-scoped) if it is close or MCP auth fails.
+- Supabase MCP runs via `scripts/supabase-mcp.mjs` (token from `.env.local`). `SUPABASE_ACCESS_TOKEN` expires 17/11/2026 — remind the user to regenerate it (project-scoped) if it is close or MCP auth fails.
 - A Stop hook runs `npm test` when Claude finishes a turn; a failing hook means tests are red — fix them, don't bypass.
 
 ## Language

@@ -41,7 +41,7 @@ npm run check:db   # every table reachable with the service-role and publishable
 - **supabase**: [scripts/supabase-mcp.mjs](scripts/supabase-mcp.mjs) reads `SUPABASE_ACCESS_TOKEN` from `.env.local` so no secret lives in `.mcp.json`.
 - **playwright**: browser automation for manual UI checks.
 
-> ⚠️ **`SUPABASE_ACCESS_TOKEN` expires on 24/10/2026.** Before then, regenerate it at https://supabase.com/dashboard/account/tokens, **scoped to this project only**, and update `.env.local`. After that date the Supabase MCP stops working, but the app keeps running because it never uses this token.
+> ⚠️ **`SUPABASE_ACCESS_TOKEN` expires on 17/11/2026.** Before then, regenerate it at https://supabase.com/dashboard/account/tokens, **scoped to this project only**, and update `.env.local`. After that date the Supabase MCP stops working, but the app keeps running because it never uses this token.
 
 ## Project layout
 ```
