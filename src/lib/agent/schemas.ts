@@ -250,22 +250,35 @@ export const AGENT_PROFILE_SOURCES = ["employee", "payslip"] as const;
  * updateProfile as the model sees it: one object with every field as a named property. With the handler's
  * `updates: [{ field, value }]` list, Gemini guessed field names (live eval 19/10: pensionRate, currentOption).
  * createTools converts it to that list (toProfileUpdates), so the handler and the rep path are unchanged.
+ * Occupation and group are enums from the data files (agentUpdateProfileInput): with free strings Gemini dropped the
+ * gender form ("מפתח תוכנה" for "מפתח/ת תוכנה"). The handler still checks them against the data.
  */
-export const AgentProfileSchema = z
-  .object({
-    occupation: z.string().trim().min(1).optional(),
-    group: z.string().trim().min(1).optional(),
-    baseSalary: money.optional(),
+function agentProfileSchema(occupation: z.ZodType<string>, group: z.ZodType<string>) {
+  return z
+    .object({
+      occupation: occupation.optional(),
+      group: group.optional(),
+      baseSalary: money.optional(),
     commissions: money.optional(),
     bonus: money.optional(),
-    pensionPct: percent.optional(),
-    studyFundPct: percent.optional(),
-    creditPoints: z.number().nonnegative().optional(),
-    childrenUnder23: z.number().int().nonnegative().optional(),
-    current: AgentSituationSchema.optional(),
-  })
-  .refine((p) => Object.values(p).some((v) => v !== undefined), { message: "at least one field" });
-export const AgentUpdateProfileInput = z.object({ source: z.enum(AGENT_PROFILE_SOURCES), profile: AgentProfileSchema });
+      pensionPct: percent.optional(),
+      studyFundPct: percent.optional(),
+      creditPoints: z.number().nonnegative().optional(),
+      childrenUnder23: z.number().int().nonnegative().optional(),
+      current: AgentSituationSchema.optional(),
+    })
+    .refine((p) => Object.values(p).some((v) => v !== undefined), { message: "at least one field" });
+}
+
+const name = z.string().trim().min(1);
+/** The shape, with plain strings (types, and tools without data lists). */
+export const AgentUpdateProfileInput = z.object({ source: z.enum(AGENT_PROFILE_SOURCES), profile: agentProfileSchema(name, name) });
+
+/** What createTools offers: occupation and group limited to the data's values. */
+export function agentUpdateProfileInput(lists: { occupations: readonly string[]; groups: readonly string[] }) {
+  const oneOf = (values: readonly string[]) => (values.length ? z.enum(values as [string, ...string[]]) : name);
+  return z.object({ source: z.enum(AGENT_PROFILE_SOURCES), profile: agentProfileSchema(oneOf(lists.occupations), oneOf(lists.groups)) });
+}
 
 /** The flat model input as the handler's update list, in PROFILE_FIELDS order. */
 export function toProfileUpdates(input: z.output<typeof AgentUpdateProfileInput>): z.input<typeof UpdateProfileInput> {

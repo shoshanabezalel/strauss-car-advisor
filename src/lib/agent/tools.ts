@@ -186,19 +186,23 @@ const DESCRIPTIONS: Record<ToolName, string> = {
 };
 
 /** Model-facing input schemas: no rep-only fields, flat updateProfile (schemas.ts, "model-facing inputs"). */
-const INPUTS: Record<ToolName, z.ZodType> = {
+const inputs = (config: Config): Record<ToolName, z.ZodType> => ({
   getCatalog: S.GetCatalogInput,
   checkEligibility: S.AgentCheckEligibilityInput,
   getValueOfUse: S.GetValueOfUseInput,
   searchValueOfUse: S.SearchValueOfUseInput,
-  updateProfile: S.AgentUpdateProfileInput,
+  updateProfile: S.agentUpdateProfileInput({
+    occupations: config.occupations.occupations.map((o) => o.name),
+    groups: config.rules.groupOrder,
+  }),
   compareOptions: S.AgentCompareOptionsInput,
   askRepresentative: S.AskRepresentativeInput,
-};
+});
 
 /** The same handlers as AI SDK tools. `onEvent` reports each call's progress (never its output). */
 export function createTools(deps: AgentDeps, onEvent?: AgentEventSink): ToolSet {
   const handlers = createToolHandlers(deps);
+  const INPUTS = inputs(deps.config);
   return Object.fromEntries(
     TOOL_NAMES.map((name) => [
       name,

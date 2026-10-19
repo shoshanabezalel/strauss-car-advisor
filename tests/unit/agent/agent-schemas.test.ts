@@ -48,6 +48,22 @@ describe("model-facing tool schemas", () => {
     expect(viaTool.state).toEqual(viaHandler.state);
   });
 
+  it("occupation and group are enums from the data files (live eval 19/10: 'מפתח תוכנה' for 'מפתח/ת תוכנה')", () => {
+    const schema = z.toJSONSchema((createTools(deps()).updateProfile as { inputSchema: z.ZodType }).inputSchema) as unknown as {
+      properties: { profile: { properties: Record<string, { enum?: string[] }> } };
+    };
+    const p = schema.properties.profile.properties;
+    expect(p.occupation.enum).toEqual(config.occupations.occupations.map((o) => o.name));
+    expect(p.group.enum).toEqual(config.rules.groupOrder);
+  });
+
+  it("a value outside the data's lists is rejected by the schema", () => {
+    const schema = (createTools(deps()).updateProfile as { inputSchema: z.ZodType }).inputSchema;
+    expect(schema.safeParse({ source: "employee", profile: { occupation: "מפתח תוכנה" } }).success).toBe(false);
+    expect(schema.safeParse({ source: "employee", profile: { group: "ה" } }).success).toBe(false);
+    expect(schema.safeParse({ source: "employee", profile: { occupation: config.occupations.occupations[0].name } }).success).toBe(true);
+  });
+
   it("an empty profile is rejected by the schema", () => {
     const schema = (createTools(deps()).updateProfile as { inputSchema: z.ZodType }).inputSchema;
     expect(schema.safeParse({ source: "employee", profile: {} }).success).toBe(false);
