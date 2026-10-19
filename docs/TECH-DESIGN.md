@@ -16,11 +16,13 @@ src/lib/config/   rules.ts, catalog.ts, occupations.ts   (load + Zod)
 src/lib/engine/   net.ts, eligibility.ts, compare.ts, types.ts
 src/lib/vou/      parse.ts, lookup.ts, memory-source.ts, supabase-source.ts
 src/lib/agent/    schemas.ts, state.ts, tools.ts, system-prompt.md (+ .ts loader), number-guard.ts,
-                  notices.ts, run-turn.ts, events.ts, model.ts, mock-model.ts, demo-messages.ts, replies.ts
+                  notices.ts, run-turn.ts, events.ts, model.ts, mock-model.ts, demo-messages.ts, replies.ts, explain.ts
 src/lib/chat/     handle-turn.ts, store.ts (+ memory-store, supabase-store), comparison-view.ts, history.ts, ndjson.ts,
-                  rep-answer.ts, rep-view.ts, conversation-response.ts
+                  rep-answer.ts, rep-view.ts, conversation-response.ts, direct-turn.ts, direct-actions.ts, profile-view.ts
 src/lib/realtime/ topics.ts, notifier.ts, supabase-notifier.ts, ping-fallback.ts, use-ping.ts
-src/app/employee/ , src/app/rep/ , src/app/api/chat/ , src/app/api/conversation/ , src/app/api/rep/{questions,answer}/
+src/lib/format/   money.ts, labels.ts (Hebrew field labels shared by UI and replies)
+src/app/employee/ (+ profile-panel, option-picker) , src/app/rep/ , src/app/api/{chat,conversation,profile,compare}/ ,
+                  src/app/api/rep/{questions,answer}/
 tests/unit/ , tests/e2e/ , tests/evals/ (live LLM, `npm run eval:agent`, not in `npm test`)
 ```
 
@@ -150,6 +152,18 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
   may not send `source: "rep"` to updateProfile, nor any `participationSource` (in compareOptions options or in a
   `current` situation): the tool throws `ToolInputError`. Only the rep-answer service uses `origin: "rep"`, so a model
   can never fake a representative's confirmation.
+- **Model-facing input schemas (M6, from the 19/10 live evals)**: `createTools` offers the model separate schemas
+  (schemas.ts, "model-facing inputs"):
+  - `AgentSituationSchema` has no `participationSource`; updateProfile's source is `employee` / `payslip` only.
+    Zod strips unknown keys, so a spoofed `participationSource: "rep"` is dropped silently and the value is saved as
+    the employee's (tested). The handler checks above stay as a second line.
+  - updateProfile is **flat**: `{ source, profile: { occupation?, group?, baseSalary?, … , current? } }`, which
+    `toProfileUpdates` turns into the handler's `updates` list. With the list form, Gemini guessed field names
+    (`pensionRate`, `currentOption`, `eligibilityGroup`), got a validation error and called again.
+  - In that flat schema, `occupation` and `group` are **enums built from the data** (`occupations.json` names,
+    `rules.groupOrder`) by `agentUpdateProfileInput(lists)`. With free strings, Gemini dropped the gender form
+    ("מפתח תוכנה" for "מפתח/ת תוכנה"). No fuzzy matching on the server: that would be guessing.
+  - Turns report `toolErrors`, and the evals log every call's input and every rejected call.
 - `AgentState.repParticipation` (car id → ₪): rep-confirmed participation for cars other than the current one.
   compareOptions fills a car option without participation from it (`participationSource: "rep"`, no
   `needsConfirmation`), so the confirmation survives later agent turns. Otherwise the engine uses the catalog default.
@@ -224,7 +238,14 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
   message into a `user` content with `functionResponse` parts; nothing is merged. `handleChatTurn` therefore builds the
   model history with `toModelHistory` (`history.ts`), which merges consecutive assistant messages, and consecutive tool
   messages, keeping every part in order. The stored history is unchanged. A unit test runs the real Google provider
-  with a captured `fetch` and checks the request alternates user / model.
+  with a captured `fetch` and checks the request alternates user / model. Verified live on 19/10 (A7 eval).
+- **thoughtSignature warning** (seen in the 19/10 live run): Gemini 3 attaches a `thoughtSignature` to each function
+  call. Replayed calls without one trigger an AI SDK warning, and the SDK injects the documented
+  `skip_thought_signature_validator` sentinel, so the request still succeeds. Ours lack it because:
+  - the synthetic rep / profile round-trips and the mock model's calls never had one;
+  - the stored history keeps `providerOptions` only if the SDK put them on the response message.
+  This is harmless for now. If Google stops honouring the sentinel, keep `providerOptions.google.thoughtSignature`
+  on stored agent tool calls, and mark synthetic calls as such.
 - **Race**: `handleChatTurn` remembers when it loaded the conversation. Before saving, it re-applies answers given
   since then (`repQuestionsAnsweredSince`) through the same functions and recomputes its comparison, so a stale turn
   state can't overwrite a rep answer. That turn's reply text may still describe the unconfirmed value; its table is
@@ -253,6 +274,39 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
 - **A7 data**: `data/challenge-script.json`. The brief gives group, base, commissions, pension, study fund, points,
   "switch to EV" and the rep's 350. Demo values for what it leaves open: bonus 0, 0 children, current CAR-09 @300,
   target CAR-10.
+
+## 7c. Explanations, profile edits and car changes (M6)
+- **Explanation (F4)**: `explainOption(today, option)` (`agent/explain.ts`), at most two plain-Hebrew lines, built
+  in code from the two rows' `display` amounts:
+  - line 1, the tax side: value-of-use from → to (so the tax goes up / down), or none any more; maintenance
+    allowance (taxable, not pensionable), or the allowance stopping;
+  - line 2, the net side: EV refund (gross), participation from → to (straight off the net), family-gap share;
+  - a non-eligible option gets the engine's Hebrew `reason`; no change at all gets one fixed line.
+  `ComparisonRow.explanation` carries it to the table (under the option name) and the cards. `compareReply` uses the
+  same lines, so the chat and the table agree. A test checks every amount the sheet's "why" column names
+  (except the rules' +250 net) appears.
+- **Direct turns** (`direct-turn.ts`): the persistence shared by rep answers and employee edits. It covers the
+  guarded reply built in code, notices, the synthetic tool round-trip, state and comparison, and the conversation
+  ping. No LLM.
+- **Profile edit (F5)**: `POST /api/profile` `{ conversationId?, updates: [{ field, value }] }` →
+  `updateProfileDirect`:
+  - the agent-origin updateProfile, with the source always `employee` (set on the server); percents as said; no id
+    → a new conversation;
+  - **rep-confirmed fields are locked** (409): a field with source `rep`, or a current car whose participation is
+    rep;
+  - an unknown value → 422 with the options;
+  - recomputes the last comparison; the reply is "עדכנתי: …" plus the options summary, or what is still missing.
+- **Car change (F5)**: `POST /api/compare` `{ conversationId, options }` (1–3 cars or waiver) → `changeOptions`.
+  A participation from the client is dropped, so a new car always takes the rep's answer or the catalog default.
+  An incomplete profile → 422 with the missing fields. The reply has one line per option plus today's net.
+- **Screen**: `GET /api/conversation` adds `profile` (`profile-view.ts`):
+  - form values (percents ×100 on the server), sources, locked fields and missing fields;
+  - choices: the engine's `allowedCars`, all catalog cars, whether waiver is allowed, groups, occupations.
+  Layout:
+  - the profile panel is a side column from `lg` and a collapsible card on phones;
+  - the option picker (swap / add / remove) sits above the comparison.
+  The screen refetches after every chat turn, so agent-made profile changes show in the form. New server values
+  update untouched fields only; unsaved edits stay.
 
 ## 8. DB (Supabase)
 ```sql
@@ -295,11 +349,26 @@ Conversation ids are random UUIDs (`gen_random_uuid()`).
   - A12 with a current-car answer.
   - The rep screen at phone width.
   - API 400 / 404.
-  M7 adds the deployed URL.
+  M6 adds `profile.spec.ts`:
+  - explanations visible;
+  - today's participation +100 in the form → today's net −100, kept after a reload;
+  - EV3, then back to ATTO 3 at the sheet's net; add waiver, then remove it;
+  - an invalid value shows a Hebrew error;
+  - the form can start a conversation;
+  - phone: the panel is collapsed, no horizontal scroll.
+  The dev and e2e servers bind to `127.0.0.1` (`next dev` listens on all interfaces by default, and the API routes
+  use the service role). M7 adds the deployed URL.
 - **M5 unit tests**: tool origin and rep participation, structured askRepresentative / RepAnswer, rep-answer service
   (A7 loop vs. the engine, guard, persistence across turns, 404 / mismatch / 409 / 422 / bound / failure re-open,
   race), rep view (no salary), store rep methods, ping fallback (fake timers), realtime env, replies, mock A7 /
   ask-rep, challenge config and participation bound.
+- **M6 unit tests**:
+  - model-facing schemas: no rep-only fields; spoofed `rep` stripped; flat updateProfile = the handler's list;
+    occupation / group enums from the data; tool errors reported;
+  - eval retry: 503 once, 429 backoff;
+  - explanations: the six references, waiver, not eligible, no change;
+  - profile view and locked fields;
+  - profile edits and option changes: recompute, guard, 422 / 409 / not found, rep participation kept across swaps.
 
 ## 10. Open decisions
 - [x] Participation for a new car (decided 18/10): the catalog `defaultParticipation`, with `participationSource: 'catalog_default'`
@@ -326,7 +395,17 @@ Conversation ids are random UUIDs (`gen_random_uuid()`).
 - [x] A7 demo values (decided 18/10, M5): see §7b, `assumed` in the data file.
 - [ ] Participation bound `rules.participation.max = 1000` is a demo value; confirm with Strauss. The effective
   bound is min(that, the car's monthly cost).
-- [ ] The brief's rep answer has an effective date ("בתוקף מ-1/1"). It is not captured yet (M6 candidate).
+- [x] The rep answer's effective date ("בתוקף מ-1/1", decided 19/10, M6): **deferred to the pilot.** No calculation
+  uses it: the engine is a monthly snapshot (rules have no time dimension), so a date changes no number,
+  eligibility or confirmation. Showing it would be rep-typed text reaching the employee. It becomes a real input
+  only with rules that change over time (tax-year tables, a participation change from a given month); then it
+  means a per-month comparison.
+- [x] Explanations (decided 19/10, M6): built in code from display values (§7c), not by the LLM; shared by table,
+  cards and replies.
+- [x] Employee edits vs. the rep (decided 19/10, M6): rep-confirmed fields are read-only in the form and rejected
+  by `/api/profile`. The employee can raise it in the chat.
+- [x] Dev / e2e servers on loopback only (decided 19/10, M6).
+- [ ] M6 exit criterion: a test round with someone who hasn't seen the system (the user runs it).
 - [ ] Payslip reading: Gemini vision → JSON, employee confirms each field.
 - [ ] RLS model for the public deploy (M7): conversation token vs. anonymous auth. Demo read-all policy is a stopgap.
 - [ ] M7: `GET /api/conversation` returns a whole conversation to anyone who has its id (UUIDs are unguessable but
@@ -352,3 +431,5 @@ Conversation ids are random UUIDs (`gen_random_uuid()`).
 - [ ] M7: the demo `demo_read` policies are no longer needed by any screen: Realtime no longer reads tables, and
   pages load through the API with the service role. Drop them for conversations / messages / profiles /
   rep_questions / comparisons; keep or narrow `value_of_use` for `check:db`.
+- [ ] M7: `POST /api/profile` and `POST /api/compare` have the same conversation-id-only access as `/api/chat`, and
+  need the same auth and rate limits. They write state and comparisons, though without LLM cost.

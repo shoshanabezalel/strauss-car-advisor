@@ -19,4 +19,4 @@ Plan mode → approval → tests first → implement until green → manual chec
 Fri–Sat 23–24/10: no work. Buffer: Mon–Tue.
 
 ## Status
-- [x] M0 (17/10) · [x] M1 (18/10) · [x] M2 (18/10) · [ ] M3 (code + unit tests done 18/10; live evals blocked by network) · [x] M4 (18/10; E-001 in the browser with the mock model, live model pending network) · [x] M5 (18/10; A7, A12, A13 in the browser with the mock model, Realtime via broadcast) · [ ] M6 · [ ] M7 · [ ] M8
+- [x] M0 (17/10) · [x] M1 (18/10) · [x] M2 (18/10) · [ ] M3 (code + unit tests done 18/10; live evals 19/10: all 9 cases pass after the schema fixes, across runs — one clean full run before ticking) · [x] M4 (18/10; E-001 in the browser with the mock model, live model pending network) · [x] M5 (18/10; A7, A12, A13 in the browser with the mock model, Realtime via broadcast) · [ ] M6 (code done 19/10: explanations, profile edit, car change, layout; test round pending) · [ ] M7 · [ ] M8

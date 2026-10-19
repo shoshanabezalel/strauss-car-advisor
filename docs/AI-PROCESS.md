@@ -184,3 +184,50 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
     call / result id.
   - Fix: `toModelHistory` merges consecutive assistant / tool messages when the model history is built. The stored
     history is unchanged. 319 unit, 12 e2e.
+### M6 — Live evals, explanations, profile edits, car changes (19/10/2026)
+- **How:** plan mode, then approval. The user approved by typing the reason for rejecting the tool rather than
+  clicking approve, twice; I went ahead on that, and said so when asked. Before M6 work: live evals, including a new
+  A7 case (mock setup, rep answer through `answerRepQuestion`, then one live turn on the merged history).
+- **Live evals (Gemini, NetFree now allows it):**
+  - Run 1 (free tier): E-001 to E-003 had correct numbers but called updateProfile twice. Then the daily quota
+    ran out, so E-004 and on were never evaluated.
+  - My first guess (participationSource in the schema) was **wrong**. I added logging of tool inputs and errors
+    before fixing anything else, and hid the rep-only fields anyway (a test covers the spoofing case the user
+    asked for: `participationSource: "rep"` is stripped and saved as the employee's).
+  - Run 2 (paid tier): the logs showed the real cause. Gemini **guessed field names** in the `updates: [{field}]`
+    list (`pensionRate`, `currentOption`, `eligibilityGroup`). Six cases also failed on 503 "high demand". A7
+    passed: Gemini accepted the merged history and did not ask about participation again.
+  - Fixes, test first: a flat updateProfile (named properties), and one retry on 503. Re-run of the 8: 6 pass;
+    E-003 and E-006 still called updateProfile twice, because Gemini dropped the gender form of the occupation
+    ("מפתח תוכנה").
+  - Fix: occupation and group enums built from the data files (no fuzzy matching: that would be guessing).
+    Re-run of E-003 and E-006: both pass with one updateProfile call.
+  - Result: all 9 cases pass, across runs. A clean single full run is still worth doing before ticking M3.
+- **Tests first:**
+  - step −1 schemas: 7 red;
+  - flat schema + 503 retry: 8 red (one new test passed for the wrong reason: the old schema rejected anything
+    without `updates`);
+  - enums: 2 red;
+  - explanations: 17 red;
+  - profile and options services: 16 red;
+  - e2e profile spec: 5 red (the explanation test already passed after part A).
+  Then green: 368 unit, 18 e2e, typecheck, lint.
+- **Contract changes (no expected values touched):** the mock model and two run-turn tests now script the flat
+  updateProfile shape; `FIELD_LABELS` moved to `lib/format/labels.ts`.
+- **What went wrong:**
+  - `next dev` listens on all interfaces by default, so my manual-check server (and `npm run dev`, and the e2e
+    server) were reachable from the LAN. The user noticed. Stopping the background task killed only npm, and the
+    Node server kept running; I said it was fixed before checking, which was wrong. I found it when the restart
+    failed, then stopped it by PID and checked the port. Now `--hostname 127.0.0.1` for dev and e2e, and
+    `baseURL` uses 127.0.0.1 (localhost may resolve to ::1).
+  - I misread "plan mode" as "lan mode", which is what led to finding the LAN exposure.
+  - A heredoc Python edit wrote literal backspace bytes into a regex (`\b`). Caught with `od -c`, fixed, and
+    the repo scanned for control characters. Escape-heavy edits now go through Edit or a script file.
+  - The profile panel was remounted by `key` when the post-turn refetch landed, which wiped an unsaved edit. An
+    e2e test caught it once the timing shifted. Fix: no remount; new server values update untouched fields only.
+- **Decisions:**
+  - Explanations are built in code from display values.
+  - Rep-confirmed fields are locked in the form.
+  - The rep's "effective from" date is deferred to the pilot (no rule uses time).
+  - The thoughtSignature warning is harmless for now (TECH-DESIGN §7b).
+  - M6 stays unticked until the user's test round.
