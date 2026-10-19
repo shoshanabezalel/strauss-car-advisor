@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ComparisonRow, ComparisonView } from "@/lib/chat/comparison-view";
-import { CHANGE_LABELS, formatDiff, formatShekel, TRACK_LABELS } from "./labels";
+import { formatDiff, formatShekel, TRACK_LABELS } from "./labels";
 
 /**
  * The comparison, rendered only from the server's comparison view (display values from compareOptions).
@@ -66,12 +66,19 @@ function Extras({ row }: { row: ComparisonRow }) {
   return <span>{parts.length ? parts.join(" · ") : "—"}</span>;
 }
 
-function Changes({ row }: { row: ComparisonRow }) {
-  if (row.isToday || !row.changes.length) return null;
-  return <span className="text-xs text-muted-foreground">משתנה: {row.changes.map((c) => CHANGE_LABELS[c]).join(", ")}</span>;
+/** F4: the server's two-line explanation (explain.ts). Not shown for a non-eligible row: its reason is in the eligibility cell. */
+function Explanation({ row }: { row: ComparisonRow }) {
+  if (row.isToday || !row.eligible || !row.explanation.length) return null;
+  return (
+    <div className="flex flex-col gap-0.5 text-xs text-muted-foreground" data-testid="explanation">
+      {row.explanation.map((line, i) => (
+        <p key={i}>{line}</p>
+      ))}
+    </div>
+  );
 }
 
-function OptionName({ row }: { row: ComparisonRow }) {
+function OptionName({ row, withExplanation = false }: { row: ComparisonRow; withExplanation?: boolean }) {
   return (
     <div className="flex flex-col gap-0.5">
       <span className="font-medium">{row.label}</span>
@@ -79,7 +86,7 @@ function OptionName({ row }: { row: ComparisonRow }) {
         {TRACK_LABELS[row.track]}
         {row.carGroup ? ` · קבוצה ${row.carGroup}` : ""}
       </span>
-      <Changes row={row} />
+      {withExplanation && <Explanation row={row} />}
     </div>
   );
 }
@@ -103,8 +110,8 @@ function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
         <TableBody>
           {rows.map((row) => (
             <TableRow key={row.key} data-testid={`row-${row.key}`} className="align-top">
-              <TableCell className="whitespace-normal">
-                <OptionName row={row} />
+              <TableCell className="max-w-72 whitespace-normal">
+                <OptionName row={row} withExplanation />
               </TableCell>
               <TableCell className="max-w-56 whitespace-normal">
                 <Eligibility row={row} />
@@ -182,6 +189,9 @@ function ComparisonCards({ rows }: { rows: ComparisonRow[] }) {
                 <Extras row={row} />
               </Field>
             </dl>
+            <div className="mt-2">
+              <Explanation row={row} />
+            </div>
           </CardContent>
         </Card>
       ))}

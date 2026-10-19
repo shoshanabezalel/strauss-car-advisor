@@ -1,5 +1,5 @@
 import type { AgentEvent, RepField, ToolName } from "@/lib/agent";
-import type { ChangeKind, MissingField, Track } from "@/lib/engine";
+import type { MissingField, Track } from "@/lib/engine";
 
 /** Hebrew UI text. Display only: no business values live here. */
 
@@ -31,14 +31,6 @@ export const STATUS_LABELS: Record<Extract<AgentEvent, { type: "status" }>["stat
   thinking: "חושב…",
   checking: "בודק שכל מספר מגיע מהחישוב…",
   regenerating: "מנסח את התשובה מחדש…",
-};
-
-export const CHANGE_LABELS: Record<ChangeKind, string> = {
-  valueOfUse: "שווי שימוש",
-  maintenance: "אחזקת רכב",
-  participation: "השתתפות עצמית",
-  electric: "החזר חשמל (מגולם)",
-  familyGap: "פער מסלול משפחה",
 };
 
 export const TRACK_LABELS: Record<Track, string> = {

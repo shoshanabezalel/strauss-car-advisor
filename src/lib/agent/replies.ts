@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { Config } from "@/lib/config";
 import { carName } from "./demo-messages";
+import { explainOption } from "./explain";
 import type { CompareOptionsOutput, RepAnswer } from "./schemas";
 
 /**
@@ -12,15 +13,7 @@ type Compare = z.output<typeof CompareOptionsOutput>;
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 
-const CHANGE_WORDS: Record<string, string> = {
-  valueOfUse: "שווי השימוש משתנה",
-  electric: "נוסף החזר חשמל מגולם",
-  maintenance: "אחזקת הרכב משתנה",
-  participation: "ההשתתפות העצמית משתנה",
-  familyGap: "חלקך בפער של מסלול משפחה ברוכת ילדים",
-};
-
-/** First line: new net and the change (עלייה / ירידה, no sign); then why, from `changes`; then confirmation status. */
+/** First line: new net and the change (עלייה / ירידה, no sign); then why (the table's explanation lines); then confirmation status. */
 export function compareReply(c: Compare | undefined): string {
   const opt = c?.options[0];
   if (!c || !opt) return "לא הצלחתי לחשב את ההשוואה. אפשר לנסות שוב?";
@@ -32,8 +25,7 @@ export function compareReply(c: Compare | undefined): string {
   const change =
     direction === "none" ? "ללא שינוי" : `${direction === "up" ? "עלייה" : "ירידה"} של ${fmt(Math.abs(diffVsToday))} ₪`;
   const lines = [`הנטו החדש שלך: ${fmt(net)} ₪, ${change} לעומת היום (${fmt(c.today.display.net)} ₪).`];
-  const why = [...new Set(opt.changes.map((ch) => CHANGE_WORDS[ch.kind]).filter(Boolean))];
-  if (why.length) lines.push(`מה משתנה: ${why.join(", ")}.`);
+  lines.push(...explainOption(c.today, opt));
   if (opt.needsConfirmation) lines.push("ההשתתפות העצמית ברכב החדש לפי ברירת המחדל בקטלוג, וצריך לאשר אותה מול נציג/ת הרכב.");
   return lines.join("\n");
 }

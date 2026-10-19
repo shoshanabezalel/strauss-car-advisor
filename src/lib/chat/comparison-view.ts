@@ -1,5 +1,6 @@
 import type { Config, Drive, ParticipationSource } from "@/lib/config";
 import type { ChangeKind, MissingField, Track } from "@/lib/engine";
+import { explainOption } from "@/lib/agent/explain";
 import type { CompareOutput } from "./store";
 
 /**
@@ -22,6 +23,8 @@ export interface ComparisonRow {
   participationSource?: ParticipationSource;
   missing: MissingField[];
   changes: ChangeKind[];
+  /** F4: up to two plain-Hebrew lines vs today (explain.ts); empty for today. */
+  explanation: string[];
   amounts: {
     net?: number;
     diffVsToday?: number;
@@ -44,7 +47,7 @@ export const WAIVER_LABEL = "ויתור על רכב (אחזקת רכב)";
 
 type Row = CompareOutput["today"] | CompareOutput["options"][number];
 
-function toRow(r: Row, key: string, isToday: boolean, config: Config): ComparisonRow {
+function toRow(r: Row, key: string, isToday: boolean, config: Config, explanation: string[] = []): ComparisonRow {
   const d = r.display;
   const s = r.situation;
   const car = s.kind === "car" ? (r.car ?? config.catalog.cars.find((c) => c.id === s.carId)) : undefined;
@@ -64,6 +67,7 @@ function toRow(r: Row, key: string, isToday: boolean, config: Config): Compariso
     participationSource: r.participationSource,
     missing: r.missing,
     changes: [...new Set(r.changes.map((c) => c.kind))],
+    explanation,
     amounts: {
       net: d.net,
       diffVsToday: "diffVsToday" in d ? d.diffVsToday : undefined,
@@ -81,6 +85,9 @@ function toRow(r: Row, key: string, isToday: boolean, config: Config): Compariso
 
 export function toComparisonView(output: CompareOutput, config: Config): ComparisonView {
   return {
-    rows: [toRow(output.today, "today", true, config), ...output.options.map((r, i) => toRow(r, `option-${i}`, false, config))],
+    rows: [
+      toRow(output.today, "today", true, config),
+      ...output.options.map((r, i) => toRow(r, `option-${i}`, false, config, explainOption(output.today, r))),
+    ],
   };
 }
