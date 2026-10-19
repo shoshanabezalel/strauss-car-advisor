@@ -245,3 +245,54 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
 - What it took: three schema fixes found by the eval logs (rep-only fields hidden, flat updateProfile,
   occupation / group enums from the data) and one retry on 503. See the M6 entry.
 - Full table and log: [docs/evals/2026-10-19-full-run.md](evals/2026-10-19-full-run.md).
+### M7 — Deploy, model fallback, security, CI (19/10/2026, code; deploy pending)
+- **How:** plan mode. Every open M7 item in TECH-DESIGN §10 got a disposition (fix / mitigate / document) with a
+  reason. Three questions to the user: owner cookie vs. link-as-secret, shared access code vs. magic link, same vs.
+  second Supabase project for CI e2e (owner cookie, access code, same project). The user approved with one change:
+  judges at the venue share one Wi-Fi IP, so per-IP limits are loose (chat 60/min, 600/h; others ×6) and the real
+  guard is per conversation + a global daily cap; rep login stays 5 / 15 min. Mid-turn the user added: note the
+  magic link as the pilot step, and the Supabase region (eu-central-1 → Vercel `fra1`).
+- **Probe before planning:** `api.anthropic.com` answered 401 without a key, so NetFree didn't block it on 19/10; the
+  Haiku evals can run locally, with the `eval-agent` workflow (`provider: anthropic`) as backup.
+- **Tests first:** **56 unit red** (10 files) + **4 e2e red** (`security.spec.ts`) against throwing stubs. Three new
+  tests passed early: "createFallbackOnlyModel needs the Anthropic key" passed **for the wrong reason** (the stub
+  threw); rechecked after implementing (now `fallbackEnv()` rejects the empty key). "Fallback is optional" and
+  "ModelBusyError keeps the cause" lock in existing / trivial behaviour.
+- **Contract changes in existing tests (no expected values touched):** `handleChatTurn` and the direct actions take a
+  required `ownerHash`; `createMemoryNotifier(secret)` and `conversationTopic(id, secret)` (the topic is an HMAC now);
+  `rep.spec.ts` logs in and calls the rep API through the browser context; the evals choose a provider.
+- **Verification:** 425 unit, typecheck, lint, 22 e2e (twice), `npm run build` + `check:build` (the prompt is in the
+  chat route's trace), the Vercel env guard refusing a mock / keyless env. Migration `0004_m7_security` via MCP, then
+  `list_tables`, `get_advisors security` (only INFO "RLS enabled, no policy" on the private tables: intended),
+  `execute_sql` (the function allows, then denies with `retry_after`; only `service_role` may execute it), and
+  `check:db` (publishable key: 0 rows on six tables, function refused, `value_of_use` readable, 20 cars match).
+- **What went wrong:**
+  - Mixed line endings (`core.autocrlf=true`): my first scripted edit didn't match CRLF files. The edit script now
+    normalizes to LF (git stores LF anyway). Two JSON edit files broke on regex escapes; I switched those edits to
+    the Edit tool and to Playwright glob strings.
+  - `/rep` logged "Date.now() while prerendering": `cookies()` alone wasn't enough with `partialPrefetching`.
+    `await connection()` first (an auth-gated page shouldn't be prefetched anyway).
+  - Two e2e tests timed out under parallel load. Run alone they passed. I measured before changing anything: one
+    rate-limit RPC is ~250 ms from here to Frankfurt (4 in parallel: ~330 ms). Fixes: `enforceLimits` now counts
+    all of a request's buckets in one parallel round trip (the chat route had four sequential ones), which changed
+    one test I had written this session ("stops at the first hit" → "one round trip, longest wait"); and the e2e
+    per-test timeout went from 30 to 60 s. On Vercel fra1 the round trip is a few ms.
+  - An unscaled rep-login limit (5 / 15 min) would have locked out the e2e suite (~6 logins from 127.0.0.1 per run,
+    buckets persist in the DB). Caught before running it; the e2e scale applies there too, production stays at 5.
+- **Decisions:**
+  - Fallback = a `wrapGenerate` middleware: one retry, then the fallback for the rest of the turn; `busy` when
+    both are busy or the 100 s budget runs out. Haiku runs with thinking disabled (history drops reasoning parts;
+    latency).
+  - Owner cookie: 404 (not 403) for someone else's conversation, so existence isn't confirmed; pre-M7 rows open
+    for nobody.
+  - Rate limits in Postgres (no new service), fail open, one round trip per request.
+  - Topics: HMAC of the id, given only to the owner; channels stay public until Supabase Auth (pilot).
+  - The deployed Playwright suite is separate (`*.deployed.spec.ts`): the mock-scripted specs can't run against the
+    live model. It deletes what it created by id.
+  - `.env.local` got generated `APP_SECRET` / `REP_ACCESS_CODE` for local dev (append only).
+- **Commits:** the plan listed nine; there are six. Owner cookie, rep code, rate limits and the RLS change share
+  the routes and one migration, so they are one commit. The fallback commit needed six files that also carry
+  security changes; without `git add -p`, I backed up the final files, built fallback-only versions from HEAD,
+  staged them, and checked the staged state alone (other work stashed): typecheck, lint, 387 unit. The security
+  commit was checked the same way (420 unit), then the final files were restored and compared byte for byte.
+  Restored LF files showed as modified under `core.autocrlf` with an empty `git diff`; re-adding them stored nothing.

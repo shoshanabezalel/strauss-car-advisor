@@ -5,11 +5,12 @@
 |---|---|---|
 | App | Next.js (App Router) + TypeScript | Frontend + API in one project, Vercel deploy |
 | UI | Tailwind + shadcn/ui, `dir="rtl"` | Fast, looks good |
-| LLM | Gemini 2.5 Flash (free) via Vercel AI SDK; fallback Claude Haiku 5.5 | Function calling, good Hebrew; one-line provider switch |
+| LLM | Gemini (paid tier) via Vercel AI SDK; on 429 / 503 one retry, then Claude Haiku 5.5 with the same tools, prompt and guard | Function calling, good Hebrew; the fallback only swaps the `LanguageModel` |
 | DB | Supabase (Postgres + Realtime) | Persisted state + live update when the rep answers |
 | Validation | Zod | Schemas for tools, rules and profile |
 | Tests | Vitest (unit) + Playwright (E2E) | |
-| Hosting | Vercel + Supabase free tier | |
+| Hosting | Vercel (`fra1`) + Supabase free tier (eu-central-1) | Functions next to the DB |
+| CI | GitHub Actions: lint, types, unit, build, e2e (mock) on every push | |
 
 ## Components
 ```
@@ -46,3 +47,6 @@
 - Every tool input passes Zod; missing input → structured error that sends the model back to ask.
 - Conversation state lives in the DB (not memory/browser) → survives refresh and serverless.
 - Guard: automatic check that every number in bot text appears in tool results for that conversation; if not → regenerate.
+- Access (M7): a conversation opens only in the browser that created it (httpOnly owner cookie); the rep screen needs
+  a shared access code (demo scope; per-rep sign-in in the pilot); every API route is rate-limited; the browser key
+  reads no conversation table (RLS, no policy).

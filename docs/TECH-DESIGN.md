@@ -16,14 +16,17 @@ src/lib/config/   rules.ts, catalog.ts, occupations.ts   (load + Zod)
 src/lib/engine/   net.ts, eligibility.ts, compare.ts, types.ts
 src/lib/vou/      parse.ts, lookup.ts, memory-source.ts, supabase-source.ts
 src/lib/agent/    schemas.ts, state.ts, tools.ts, system-prompt.md (+ .ts loader), number-guard.ts,
-                  notices.ts, run-turn.ts, events.ts, model.ts, mock-model.ts, demo-messages.ts, replies.ts, explain.ts
+                  notices.ts, run-turn.ts, events.ts, model.ts, mock-model.ts, demo-messages.ts, replies.ts, explain.ts,
+                  model-errors.ts, fallback-model.ts (M7)
 src/lib/chat/     handle-turn.ts, store.ts (+ memory-store, supabase-store), comparison-view.ts, history.ts, ndjson.ts,
                   rep-answer.ts, rep-view.ts, conversation-response.ts, direct-turn.ts, direct-actions.ts, profile-view.ts
-src/lib/realtime/ topics.ts, notifier.ts, supabase-notifier.ts, ping-fallback.ts, use-ping.ts
+src/lib/realtime/ topics.ts, conversation-topic.ts, notifier.ts, supabase-notifier.ts, ping-fallback.ts, use-ping.ts
+src/lib/security/ owner.ts, rep-session.ts, rate-limit.ts, http.ts (M7)
 src/lib/format/   money.ts, labels.ts (Hebrew field labels shared by UI and replies)
 src/app/employee/ (+ profile-panel, option-picker) , src/app/rep/ , src/app/api/{chat,conversation,profile,compare}/ ,
-                  src/app/api/rep/{questions,answer}/
-tests/unit/ , tests/e2e/ , tests/evals/ (live LLM, `npm run eval:agent`, not in `npm test`)
+                  src/app/api/rep/{questions,answer,login,logout}/
+tests/unit/ , tests/e2e/ (+ *.deployed.spec.ts for the public URL) , tests/evals/ (live LLM, `npm run eval:agent`, not in `npm test`)
+.github/workflows/ ci.yml (push / PR), eval-agent.yml (manual)
 ```
 
 ## 2. Data model (TypeScript)
@@ -185,21 +188,22 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
   Hebrew `BLOCKED_REPLY` with no digits. The text is buffered, not streamed, so the guard sees it first.
 - Notices (`notices.ts`): structured flags derived in code from the turn's tool outputs, for the UI regardless of wording:
   `missing`, `participation_unconfirmed`, `ambiguous_vou`, `confirm_vou_match`, `rep_question_open`.
-- Model: `model.ts`, Gemini via `@ai-sdk/google`, id from `AGENT_MODEL` (default `gemini-3.5-flash`).
+- Model: `model.ts`, Gemini via `@ai-sdk/google`, id from `AGENT_MODEL` (default `gemini-3.5-flash`), wrapped with the
+  Claude fallback since M7 (§7d).
 - **Mock model** (`AGENT_MODEL=mock`, `mock-model.ts`): for local dev / e2e without LLM access. It matches the last
   user message to a scenario built from `data/sample-employees.json` (`demo-messages.ts`: E-001…E-006 opening messages,
   missing data, unknown participation → representative, ATTO 3 without type code → ambiguous), emits the scripted
   tool calls one step at a time, then a reply built from the tool results' `display` values. The real tools, engine and
   guard run unchanged. Unknown messages get a fixed reply without digits. Refused when `NODE_ENV=production`;
   `AGENT_MOCK_DELAY_MS` adds a delay per step. The live evals skip themselves in mock mode.
-- **Events** (`events.ts`): `runAgentTurn({ onEvent })` emits `status` (`thinking` / `checking` / `regenerating`) and
-  `tool` (`running` / `done` / `error`) events. No event carries model text.
+- **Events** (`events.ts`): `runAgentTurn({ onEvent })` emits `status` (`thinking` / `checking` / `regenerating`, and
+  `fallback` from the chat route since M7) and `tool` (`running` / `done` / `error`) events. No event carries model text.
 
 ## 7a. Chat API and employee screen (M4)
 - `POST /api/chat` `{ conversationId?: uuid, text }` → `application/x-ndjson` stream of `ChatEvent`
   (`src/lib/chat/handle-turn.ts`): `conversation` (id, first), then `status` / `tool` while the agent works, then one
-  `result` `{ reply, blocked, notices, comparison? }` **after the guard**, or `error` (`not_found` / `failed`, Hebrew
-  message, no internals). `maxDuration = 60`. Header `x-agent-mode: mock|live`.
+  `result` `{ reply, blocked, notices, comparison? }` **after the guard**, or `error` (`not_found` / `failed` / `busy`,
+  Hebrew message, no internals). `maxDuration = 120` since M7 (§7d). Header `x-agent-mode: mock|live`.
 - `handleChatTurn`: load or create the conversation → `runAgentTurn` with the stored history + saved state → store the
   user message, the turn's tool round-trips and the final reply (with `meta: { notices, blocked }`), the state, the latest
   `compareOptions` output; a `rep_question_open` notice sets status `waiting_rep`. A failed turn stores nothing.
@@ -207,7 +211,8 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
   `messages.content = { message: ModelMessage, meta? }`; `profiles.data = { profile, sources }`; `askRepresentative`
   inserts into `rep_questions`.
 - `GET /api/conversation?c=<uuid>` → visible history (user text + final replies with their notices), the last
-  comparison view, status. 400 for a non-UUID id, 404 if unknown.
+  comparison view, status, and (M7) the Realtime `topic`. 400 for a non-UUID id, 404 if unknown **or not the
+  caller's** (§7e).
 - `toComparisonView` (`comparison-view.ts`): rows for today + each option with labels, eligibility and the `display`
   amounts copied as-is (a test checks every number is a `display` value).
 - `/employee`: chat, progress chips from events, notices as alerts from `notices` (never parsed from text), comparison as
@@ -308,6 +313,53 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
   The screen refetches after every chat turn, so agent-made profile changes show in the form. New server values
   update untouched fields only; unsaved edits stay.
 
+## 7d. Production model and fallback (M7)
+- `createAgentModel({ onFallback })` = `withFallback(Gemini, Claude?)` (`fallback-model.ts`), a `wrapGenerate`
+  middleware, one instance per chat turn:
+  1. a transient error (`model-errors.ts`: 429 / RESOURCE_EXHAUSTED, 503 / UNAVAILABLE / high demand, Anthropic 529
+     overloaded) → wait `min(Retry-After or retryDelay, 3 s)` (default 1 s), retry the primary **once**;
+  2. transient again → `onFallback()` (the route emits `status: fallback`, chip "עובר למודל גיבוי…"), then the
+     **same call** (prompt, tools, settings) on the fallback; the rest of the turn, including the guard's
+     regeneration, stays on it, so a turn never alternates providers;
+  3. no fallback configured, or it is busy too → `ModelBusyError` → chat `error: busy` with a fixed Hebrew message
+     (no digits); the turn stores nothing, as before. Other errors pass through unchanged (`failed`).
+- Fallback: `@ai-sdk/anthropic` 4.0.82 (same `@ai-sdk/provider` as `ai`), `FALLBACK_MODEL` default
+  `claude-haiku-5-5`, only when `ANTHROPIC_API_KEY` is set. Thinking is **disabled** on it (allowed on Haiku 5.5
+  at effort ≤ high): the stored history drops reasoning parts between turns (`toolMessagesOnly`), and the turn must
+  fit the route's time budget.
+- runAgentTurn, the tools, the prompt and the number-guard are untouched: they only see a `LanguageModel`.
+  Unit tests: the fallback gets the same system prompt and tool list; a tool step and the reply both run on it;
+  the guard still blocks invented numbers there.
+- The chat route passes `maxRetries: 0` (the wrapper retries; no stacking with the SDK's 2) and
+  `abortSignal: AbortSignal.timeout(100 s)`; an abort is reported as `busy`. `maxDuration = 120` (Fluid compute
+  allows 300).
+- Evals: `createPrimaryModel()` / `createFallbackOnlyModel()` measure each provider alone (`EVAL_PROVIDER`).
+
+## 7e. Security (M7)
+- **Owner cookie** (`security/owner.ts`, `security/http.ts`): a browser without `advisor_owner` gets a random
+  32-byte token (httpOnly, SameSite=Lax, Secure in production, 30 days) on the response that creates a
+  conversation. `conversations.owner_hash` = SHA-256 of it. `handleChatTurn`, `updateProfileDirect`,
+  `changeOptions` and `GET /api/conversation` open a conversation only when `ownsConversation` (constant-time
+  compare); anyone else, and pre-M7 rows without owner, get the same `not_found` / 404 as a missing id. Rep
+  answers don't check the owner (they need the rep session).
+- **Rep session** (`security/rep-session.ts`): `POST /api/rep/login {code}` compares with `REP_ACCESS_CODE`
+  (constant-time on SHA-256 digests) and sets `rep_session = <expiresAt>.<HMAC-SHA256(APP_SECRET)>` (httpOnly,
+  SameSite=Strict, 12 h). `/api/rep/questions` and `/api/rep/answer` → 401 without it. `/rep` is a server gate
+  (`cookies()` after `connection()`, inside Suspense) that renders the login form or the queue; logout clears the
+  cookie; a 401 in the queue refreshes to the login form.
+- **Rate limits** (`security/rate-limit.ts`): Postgres `hit_rate_limit(key, window, max)` (fixed window, atomic
+  upsert, service role only), one round trip per request (all buckets in parallel; any bucket over → 429 with
+  `Retry-After` and a Hebrew message without digits). Fails open if the DB call fails (logged). Limits (§10 for
+  why per IP is loose): chat 60/min + 600/h per IP, 30/h per conversation, 300/day overall; profile / compare
+  180/min; conversation GET 720/min; rep questions 360/min; rep answer 180/min; rep login 5 / 15 min.
+  `RATE_LIMIT_SCALE` (e2e server: 20) multiplies every max. IP = first `x-forwarded-for` hop (set by Vercel).
+- **Realtime topic**: `conversation:<HMAC(APP_SECRET, id)[0..32]>` (`conversation-topic.ts`, server only), sent to
+  the owner as `topic` by `GET /api/conversation`; the client subscribes to what it receives. `rep-queue` stays a
+  fixed public topic (a ping only triggers a refetch, which needs the rep cookie).
+- **Deploy guard**: `deployEnvProblems` / `assertDeployEnv` (`env.ts`), called by `next.config.ts` when `VERCEL` is
+  set: the four Supabase / Google keys, no `AGENT_MODEL=mock`, no `CONVERSATION_SOURCE=e2e`, `REP_ACCESS_CODE` ≥ 8,
+  `APP_SECRET` ≥ 32. `npm run check:build` asserts the chat route's `.nft.json` traces `system-prompt.md`.
+
 ## 8. DB (Supabase)
 ```sql
 conversations(id uuid pk, status text check (status in ('active','waiting_rep','done')), created_at, updated_at)
@@ -322,13 +374,20 @@ Realtime (since M5): broadcast topics `conversation:<id>` and `rep-queue`, data-
 `0003_realtime_broadcast` (applied 18/10/2026 via Supabase MCP; `list_tables`, `get_advisors security` (no lints),
 `check:db` green) removed `messages` and `rep_questions` from the `supabase_realtime` publication, so no table streams
 row changes any more. `rep_questions.context.carId` holds a participation question's car; there was no column change.
-No auth in the demo: conversation id in the URL (`/employee?c=...`).
+The conversation id is in the URL (`/employee?c=...`), but since M7 it opens only in the browser that created it (§7e).
 Schema: `supabase/migrations/0001_init.sql` (applied 17/10/2026 via Supabase MCP) and `0002_conversation_source.sql`
 (18/10/2026): `conversations.source` (`app` | `e2e`). The e2e server sets `CONVERSATION_SOURCE=e2e`;
 `npm run db:clean-e2e` and Playwright's global teardown delete those conversations (children cascade).
 Conversation ids are random UUIDs (`gen_random_uuid()`).
 
-**RLS (demo):** enabled on all tables. One policy per table, `demo_read`: `select` for `anon, authenticated` using `true`, which Realtime and page loads need. There are no insert/update/delete policies, so the publishable key cannot write; API routes write with the service-role key. Known gap: anyone with the publishable key can read every conversation. **M7 must replace this** (e.g. per-conversation secret token checked in a policy or through RPC, or anonymous auth + `owner = auth.uid()`; rep screen behind a role).
+**RLS (M7, migration `0004_m7_security`, applied 19/10/2026 via MCP; `list_tables`, `get_advisors security`, `check:db`
+green):** enabled on all tables. The `demo_read` policies are dropped on conversations, messages, profiles,
+rep_questions and comparisons: no policy, so the publishable key sees no rows (`check:db` fails if it does). Every
+read and write goes through the API routes with the service-role key. `value_of_use` keeps its read policy (public
+tax-authority data; `check:db` reads it that way). The migration also adds `conversations.owner_hash` (hex SHA-256,
+null before M7) and `rate_limits(key, window_start, count)` + `hit_rate_limit()`; execute on the function is revoked
+from public / anon / authenticated (Supabase grants it by default). The only advisor note is INFO
+`rls_enabled_no_policy` on the six private tables, which is the intent.
 
 ## 9. Tests
 - **Unit**: net (6 references + edge cases: below threshold, above ceiling, 0 points), eligibility (A8–A11), vou (20 cars + ATTO 3/TANG collision), config (invalid rules → error).
@@ -362,6 +421,24 @@ Conversation ids are random UUIDs (`gen_random_uuid()`).
   (A7 loop vs. the engine, guard, persistence across turns, 404 / mismatch / 409 / 422 / bound / failure re-open,
   race), rep view (no salary), store rep methods, ping fallback (fake timers), realtime env, replies, mock A7 /
   ask-rep, challenge config and participation bound.
+- **M7 tests**:
+  - unit: model errors (429 / 503 / 529 transient, 400 / 401 / 500 not), fallback (one retry with capped delay;
+    switch + event; same prompt and tools; stays switched; guard still blocks; busy without / after fallback;
+    non-transient untouched), chat busy / abort → `busy` and nothing stored, chat via the fallback reaches the
+    E-001 net; owner (token, hash, cookie, store, chat / profile / compare not_found for others and legacy rows);
+    rep session (code, sign / verify / expiry / tamper, cookie); rate limiter (window, keys, scale, one round trip,
+    429 body, Supabase RPC mapping, fail open, the limits table); topic HMAC; deploy env problems.
+  - e2e `security.spec.ts`: a second browser gets 404 on conversation / profile / compare and `not_found` from chat
+    for someone else's id, and a leaked link shows the not-found error; the owner's topic is opaque; rep API 401
+    without a session; wrong code → Hebrew error; right code → queue; logout → login form and 401.
+    `rep.spec.ts` logs in first (`helpers.ts`) and calls the rep API through the context (its cookies).
+  - e2e per-test timeout 60 s: every API call now also counts a rate-limit bucket in Postgres (~250 ms per round
+    trip from the dev machine to Frankfurt; a few ms from Vercel fra1).
+  - `tests/e2e/app.deployed.spec.ts` (project `deployed`, only with `E2E_BASE_URL`): smoke, no mock badge, the form
+    starts a conversation another browser can't open, rep wall (login only with `E2E_REP_CODE`), one live E-001
+    turn (follow-up allowed) at the sheet's net. Deletes its conversations by id afterwards.
+  - CI (`.github/workflows/ci.yml`, every push / PR): lint, typecheck, unit, `next build` + `check:build`, then e2e in
+    mock mode against the Supabase project (repo secrets; one run at a time; skipped with a notice without secrets).
 - **M6 unit tests**:
   - model-facing schemas: no rep-only fields; spoofed `rep` stripped; flat updateProfile = the handler's list;
     occupation / group enums from the data; tool errors reported;
@@ -407,12 +484,18 @@ Conversation ids are random UUIDs (`gen_random_uuid()`).
 - [x] Dev / e2e servers on loopback only (decided 19/10, M6).
 - [ ] M6 exit criterion: a test round with someone who hasn't seen the system (the user runs it).
 - [ ] Payslip reading: Gemini vision → JSON, employee confirms each field.
-- [ ] RLS model for the public deploy (M7): conversation token vs. anonymous auth. Demo read-all policy is a stopgap.
-- [ ] M7: `GET /api/conversation` returns a whole conversation to anyone who has its id (UUIDs are unguessable but
-  links leak). Tie it to the same per-conversation secret / auth as RLS.
-- [ ] M7: `POST /api/chat` needs rate limiting (per IP and per conversation) before the public deploy: each call can
-  cost two LLM generations and several DB writes.
-- [ ] M7: **production model and fallback.**
+- [x] RLS model for the public deploy (decided 19/10, M7): **fixed.** No anon reads on conversation data at all
+  (policies dropped); access control lives in the API routes (owner cookie, rep session), which use the service
+  role. Anonymous auth + `owner = auth.uid()` would only matter if the browser read tables directly; it doesn't.
+- [x] M7: `GET /api/conversation` by id only: **fixed** with the owner cookie (§7e). Trade-off: a conversation can't
+  be opened on another device by its link.
+- [x] M7: rate limiting on `POST /api/chat` and every other route: **fixed** (§7e). Decided with the user at plan
+  approval: judges at the venue share one Wi-Fi IP, so per-IP limits are deliberately loose (chat 60/min, 600/h;
+  other routes ×6 the original plan) and the real protection is **30 turns / h per conversation and 300 / day
+  overall**. Rep login stays at 5 / 15 min per IP (brute-force guard). The provider budget caps are the backstop.
+- [x] M7: **production model and fallback** — **fixed** (§7d); the Haiku evals are still to run (needs
+  `ANTHROPIC_API_KEY`: locally, since api.anthropic.com was reachable on 19/10, or the `eval-agent` workflow with
+  `provider: anthropic`).
   - Gemini on the paid tier, with a budget cap set in Google Cloud billing.
   - On 429 / 503: retry once, then run the same turn on Claude Haiku. The tools, prompt and number-guard stay the
     same; only the `LanguageModel` changes.
@@ -422,14 +505,19 @@ Conversation ids are random UUIDs (`gen_random_uuid()`).
     - provider choice in `model.ts` (`ANTHROPIC_API_KEY` is already in the env schema);
     - a retry / fallback wrapper around `runAgentTurn`'s generation, with an event so the UI can show it;
     - re-run the live evals on Haiku before relying on it, since the prompt was tuned on Gemini.
-- [ ] M7: **the rep screen has no auth.** Anyone with the URL can list open questions (occupation, group, cars; no
-  salary) and answer them. `/api/rep/*` needs a rep role (e.g. Supabase auth + an app role, or a shared secret as a
-  stopgap) and rate limiting.
-- [ ] M7: broadcast topics are public. Anyone with the publishable key who knows a conversation id can subscribe or
-  send a ping. A ping carries no data and only triggers a refetch through the API, so the exposure is "someone saw
-  that this conversation changed". Private channels + Realtime Authorization come with real auth.
-- [ ] M7: the demo `demo_read` policies are no longer needed by any screen: Realtime no longer reads tables, and
-  pages load through the API with the service role. Drop them for conversations / messages / profiles /
-  rep_questions / comparisons; keep or narrow `value_of_use` for `check:db`.
-- [ ] M7: `POST /api/profile` and `POST /api/compare` have the same conversation-id-only access as `/api/chat`, and
-  need the same auth and rate limits. They write state and comparisons, though without LLM cost.
+- [x] M7: **the rep screen has no auth** — **fixed for the demo** with a shared access code + signed session cookie
+  and rate limits (§7e). This is a deliberate demo-scope choice: **per-rep identities via Supabase magic link (plus an
+  app role and private Realtime channels) are the next step for the pilot.** Until then `answeredBy` is a free
+  text the rep types, not an identity.
+- [x] M7: broadcast topics are public — **mitigated, known limit.** The conversation topic is an HMAC of the id that
+  only the owner receives, so a leaked link no longer reveals it. Topics stay public channels: anyone with the
+  publishable key who learns a topic can subscribe or send a ping, which carries no data and only triggers a refetch
+  through the API (owner / rep checks apply). `rep-queue` is public by design. Private channels + Realtime
+  Authorization need Supabase Auth (pilot).
+- [x] M7: the `demo_read` policies — **fixed**: dropped on the five conversation tables, kept on `value_of_use`
+  (migration 0004, §8).
+- [x] M7: `POST /api/profile` and `POST /api/compare` — **fixed**: same owner check and rate limits (§7e).
+- [x] M7: deploy (decided 19/10): Vercel `fra1` next to Supabase eu-central-1, env checked at build, mock refused,
+  prompt trace checked (`check:build`), `maxDuration` 120 on chat. CI on every push (unit + e2e in mock mode).
+- [ ] M7 exit: the deployed suite green on the public URL (after the user's Vercel / Supabase steps), and the Haiku
+  evals run.
