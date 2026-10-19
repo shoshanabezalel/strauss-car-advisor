@@ -7,14 +7,24 @@
 import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
 
-export async function cleanE2e(): Promise<number> {
+function serviceClient() {
   config({ path: ".env.local", quiet: true });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !service) throw new Error("missing Supabase env vars in .env.local");
+  return createClient(url, service, { auth: { persistSession: false } });
+}
 
-  const db = createClient(url, service, { auth: { persistSession: false } });
-  const { data, error } = await db.from("conversations").delete().eq("source", "e2e").select("id");
+export async function cleanE2e(): Promise<number> {
+  const { data, error } = await serviceClient().from("conversations").delete().eq("source", "e2e").select("id");
+  if (error) throw new Error(`cleanup failed: ${error.message}`);
+  return data.length;
+}
+
+/** The deployed suite can't tag rows (the deploy has no CONVERSATION_SOURCE), so it deletes what it created by id. */
+export async function cleanConversations(ids: string[]): Promise<number> {
+  if (!ids.length) return 0;
+  const { data, error } = await serviceClient().from("conversations").delete().in("id", ids).select("id");
   if (error) throw new Error(`cleanup failed: ${error.message}`);
   return data.length;
 }

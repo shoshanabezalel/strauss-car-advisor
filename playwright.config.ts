@@ -23,7 +23,11 @@ export default defineConfig({
     locale: "he-IL",
     trace: "on-first-retry",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // `local`: every spec against the mock-mode e2e server. `deployed` (M7): only *.deployed.spec.ts, against
+  // E2E_BASE_URL with the live model; the mock-scripted specs can't run there.
+  projects: process.env.E2E_BASE_URL
+    ? [{ name: "deployed", testMatch: "**/*.deployed.spec.ts", use: { ...devices["Desktop Chrome"] } }]
+    : [{ name: "local", testIgnore: "**/*.deployed.spec.ts", use: { ...devices["Desktop Chrome"] } }],
   // Against a deployed URL (M7) set E2E_BASE_URL and no local server is started.
   webServer: process.env.E2E_BASE_URL
     ? undefined
