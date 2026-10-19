@@ -54,8 +54,15 @@ export function ProfilePanel({
   disabled: boolean;
   onSaved: (conversationId: string) => void;
 }) {
-  const initial = toForm(profile.values);
-  const [form, setForm] = useState<Form>(initial);
+  const fresh = toForm(profile.values);
+  // `initial` = the server values the form was last synced to. When new server values arrive (refetch after a turn,
+  // a ping), fields the employee hasn't touched take them; fields they edited keep the edit (no remount, no lost input).
+  const [initial, setInitial] = useState<Form>(fresh);
+  const [form, setForm] = useState<Form>(fresh);
+  if (JSON.stringify(fresh) !== JSON.stringify(initial)) {
+    setForm((f) => Object.fromEntries(Object.keys(fresh).map((k) => [k, f[k] === initial[k] ? fresh[k] : f[k]])));
+    setInitial(fresh);
+  }
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

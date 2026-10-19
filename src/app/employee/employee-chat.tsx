@@ -275,7 +275,6 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
         </Card>
 
         <ProfilePanel
-          key={JSON.stringify([profile.values, profile.locked])}
           profile={profile}
           conversationId={conversationId}
           disabled={pending}
