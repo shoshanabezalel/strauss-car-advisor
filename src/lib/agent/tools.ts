@@ -185,13 +185,14 @@ const DESCRIPTIONS: Record<ToolName, string> = {
     'Send a question to the car representative for company data the employee cannot know. field "participation" needs the carId; "current" for an unknown current car or one not in the catalog.',
 };
 
+/** Model-facing input schemas: no rep-only fields (schemas.ts, "model-facing inputs"). */
 const INPUTS: Record<ToolName, z.ZodType> = {
   getCatalog: S.GetCatalogInput,
-  checkEligibility: S.CheckEligibilityInput,
+  checkEligibility: S.AgentCheckEligibilityInput,
   getValueOfUse: S.GetValueOfUseInput,
   searchValueOfUse: S.SearchValueOfUseInput,
-  updateProfile: S.UpdateProfileInput,
-  compareOptions: S.CompareOptionsInput,
+  updateProfile: S.AgentUpdateProfileInput,
+  compareOptions: S.AgentCompareOptionsInput,
   askRepresentative: S.AskRepresentativeInput,
 };
 

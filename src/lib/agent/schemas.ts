@@ -190,21 +190,24 @@ export const SearchValueOfUseOutput = z.discriminatedUnion("status", [
 /** Percent fields arrive as the employee said them (6 for 6%); the tool converts to a fraction, never the LLM. */
 const percent = z.number().min(0).max(100);
 
-const update = <F extends ProfileField, V extends z.ZodType>(field: F, value: V) =>
-  z.object({ field: z.literal(field), value, source: ProfileSourceSchema });
+function profileUpdateSchema<Src extends z.ZodType, Sit extends z.ZodType>(source: Src, situation: Sit) {
+  const update = <F extends ProfileField, V extends z.ZodType>(field: F, value: V) =>
+    z.object({ field: z.literal(field), value, source });
+  return z.discriminatedUnion("field", [
+    update("occupation", z.string().trim().min(1)),
+    update("group", z.string().trim().min(1)),
+    update("baseSalary", money),
+    update("commissions", money),
+    update("bonus", money),
+    update("pensionPct", percent),
+    update("studyFundPct", percent),
+    update("creditPoints", z.number().nonnegative()),
+    update("childrenUnder23", z.number().int().nonnegative()),
+    update("current", situation),
+  ]);
+}
 
-export const ProfileUpdateSchema = z.discriminatedUnion("field", [
-  update("occupation", z.string().trim().min(1)),
-  update("group", z.string().trim().min(1)),
-  update("baseSalary", money),
-  update("commissions", money),
-  update("bonus", money),
-  update("pensionPct", percent),
-  update("studyFundPct", percent),
-  update("creditPoints", z.number().nonnegative()),
-  update("childrenUnder23", z.number().int().nonnegative()),
-  update("current", SituationSchema),
-]);
+export const ProfileUpdateSchema = profileUpdateSchema(ProfileSourceSchema, SituationSchema);
 export type ProfileUpdate = z.infer<typeof ProfileUpdateSchema>;
 
 export const UpdateProfileInput = z.object({ updates: z.array(ProfileUpdateSchema).min(1) });
@@ -230,6 +233,24 @@ export const UpdateProfileOutput = z.discriminatedUnion("ok", [
 // ---------- compareOptions ----------
 
 export const CompareOptionsInput = z.object({ options: z.array(SituationSchema).min(1).max(4) });
+
+// ---------- model-facing inputs ----------
+
+/**
+ * What the LLM is offered (createTools). It has no participationSource and no "rep" source: those are set by the tools
+ * or come only from a representative's answer. Unknown keys are stripped by Zod, so a model that sends them
+ * anyway gets no error and no confirmation; the handlers' own checks stay as a second line.
+ */
+export const AgentSituationSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("car"), carId: z.string().min(1), participation: money.optional() }),
+  z.object({ kind: z.literal("waiver") }),
+]);
+export const AGENT_PROFILE_SOURCES = ["employee", "payslip"] as const;
+export const AgentUpdateProfileInput = z.object({
+  updates: z.array(profileUpdateSchema(z.enum(AGENT_PROFILE_SOURCES), AgentSituationSchema)).min(1),
+});
+export const AgentCompareOptionsInput = z.object({ options: z.array(AgentSituationSchema).min(1).max(4) });
+export const AgentCheckEligibilityInput = z.object({ option: AgentSituationSchema });
 export const CompareOptionsOutput = z.object({
   today: OptionResultSchema.extend({ display: DisplaySchema.omit({ diffVsToday: true, direction: true }) }),
   options: z.array(DisplayedOptionSchema),

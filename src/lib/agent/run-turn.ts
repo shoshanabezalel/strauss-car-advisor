@@ -13,6 +13,8 @@ export interface AgentTurn {
   attempts: number;
   toolCalls: { toolName: string; input: unknown }[];
   toolOutputs: ToolOutput[];
+  /** Tool calls the tools rejected (the model saw the error). Logged by the evals. */
+  toolErrors: { toolName: string; error: string }[];
   notices: Notice[];
   guard: GuardResult;
   /** Messages to append to the conversation history (tool calls, results and the final reply). */
@@ -72,6 +74,7 @@ export async function runAgentTurn({ model, messages, deps, maxSteps = 8, maxRet
 
   const toolCalls: AgentTurn["toolCalls"] = [];
   const toolOutputs: ToolOutput[] = [];
+  const toolErrors: AgentTurn["toolErrors"] = [];
   const carried: ModelMessage[] = [];
   let note: string | undefined;
   let guard: GuardResult = { ok: false, invented: [] };
@@ -89,6 +92,9 @@ export async function runAgentTurn({ model, messages, deps, maxSteps = 8, maxRet
     for (const step of result.steps) {
       for (const c of step.toolCalls) toolCalls.push({ toolName: c.toolName, input: c.input });
       for (const r of step.toolResults) toolOutputs.push({ toolName: r.toolName, output: r.output });
+      for (const p of step.content) {
+        if (p.type === "tool-error") toolErrors.push({ toolName: p.toolName, error: p.error instanceof Error ? p.error.message : String(p.error) });
+      }
     }
     carried.push(...toolMessagesOnly(result.steps.flatMap((s) => s.response.messages)));
 
@@ -102,6 +108,7 @@ export async function runAgentTurn({ model, messages, deps, maxSteps = 8, maxRet
         attempts: attempt,
         toolCalls,
         toolOutputs,
+        toolErrors,
         notices: deriveNotices(toolOutputs),
         guard,
         responseMessages: [...carried, { role: "assistant", content: text }],
@@ -116,6 +123,7 @@ export async function runAgentTurn({ model, messages, deps, maxSteps = 8, maxRet
     attempts: MAX_ATTEMPTS,
     toolCalls,
     toolOutputs,
+    toolErrors,
     notices: deriveNotices(toolOutputs),
     guard,
     responseMessages: [...carried, { role: "assistant", content: BLOCKED_REPLY }],
