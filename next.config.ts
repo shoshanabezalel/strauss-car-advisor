@@ -1,4 +1,8 @@
 import type { NextConfig } from "next";
+import { assertDeployEnv } from "./src/lib/env";
+
+// On Vercel, a missing key, a short secret or mock mode fails the build with a readable list (src/lib/env.ts).
+if (process.env.VERCEL) assertDeployEnv(process.env);
 
 const nextConfig: NextConfig = {
   /* config options here */

@@ -96,3 +96,25 @@ export function realtimeEnv() {
     pollMs: process.env.NEXT_PUBLIC_REALTIME_POLL_MS,
   });
 }
+
+/**
+ * What a deploy (Vercel) needs; next.config.ts fails the build with this list. Mock mode and e2e tagging are refused,
+ * the keys must be there, and the rep code and app secret must not be trivially short.
+ */
+export function deployEnvProblems(env: Record<string, string | undefined>): string[] {
+  const problems: string[] = [];
+  const set = (name: string) => Boolean(env[name]?.trim());
+  for (const name of ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SERVICE_ROLE_KEY", "GOOGLE_GENERATIVE_AI_API_KEY"]) {
+    if (!set(name)) problems.push(`${name} is not set`);
+  }
+  if (env.AGENT_MODEL === MOCK_MODEL) problems.push("AGENT_MODEL=mock is for local dev and e2e only");
+  if (env.CONVERSATION_SOURCE === "e2e") problems.push("CONVERSATION_SOURCE=e2e is for the e2e server only");
+  if ((env.REP_ACCESS_CODE ?? "").length < MIN_REP_CODE) problems.push(`REP_ACCESS_CODE must be at least ${MIN_REP_CODE} characters`);
+  if ((env.APP_SECRET ?? "").length < MIN_APP_SECRET) problems.push(`APP_SECRET must be at least ${MIN_APP_SECRET} characters`);
+  return problems;
+}
+
+export function assertDeployEnv(env: Record<string, string | undefined>): void {
+  const problems = deployEnvProblems(env);
+  if (problems.length) throw new Error(`Deploy env is not ready:\n- ${problems.join("\n- ")}`);
+}

@@ -2,6 +2,9 @@
   "name": "strauss-car-advisor",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
@@ -15,7 +18,8 @@
     "data:convert": "tsx scripts/xlsx-to-json.ts",
     "check:db": "tsx scripts/check-db.ts",
     "import:vou": "tsx scripts/import-vou.ts",
-    "db:clean-e2e": "tsx scripts/clean-e2e.ts"
+    "db:clean-e2e": "tsx scripts/clean-e2e.ts",
+    "check:build": "tsx scripts/check-build.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "4.0.82",
