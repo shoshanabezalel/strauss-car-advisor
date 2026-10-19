@@ -1,8 +1,9 @@
 import { APICallError, wrapLanguageModel, type LanguageModel } from "ai";
 
 /**
- * Free-tier Gemini has per-minute limits. Each model call is retried on 429 / RESOURCE_EXHAUSTED with exponential
- * backoff, honouring Retry-After or Gemini's RetryInfo delay. Use with maxRetries: 0 so the SDK doesn't retry too.
+ * Each model call is retried on 429 / RESOURCE_EXHAUSTED with exponential backoff, honouring Retry-After or Gemini's
+ * RetryInfo delay; and once on 503 / UNAVAILABLE ("high demand", live run 19/10), as planned for production (M7).
+ * Use with maxRetries: 0 so the SDK doesn't retry too.
  */
 const MAX_TRIES = 6;
 const BASE_MS = 2_000;
@@ -12,6 +13,11 @@ const MAX_WAIT_MS = 120_000;
 function isRateLimit(err: unknown): boolean {
   if (APICallError.isInstance(err) && err.statusCode === 429) return true;
   return /RESOURCE_EXHAUSTED|\b429\b/.test(String((err as Error)?.message ?? err));
+}
+
+function isUnavailable(err: unknown): boolean {
+  if (APICallError.isInstance(err) && err.statusCode === 503) return true;
+  return /\bUNAVAILABLE\b|\b503\b|high demand/i.test(String((err as Error)?.message ?? err));
 }
 
 function suggestedDelayMs(err: unknown): number | undefined {
@@ -29,6 +35,12 @@ export async function withRateLimitRetry<T>(fn: () => PromiseLike<T>, label = "m
     try {
       return await fn();
     } catch (err) {
+      if (isUnavailable(err)) {
+        if (attempt > 1) throw err;
+        console.warn(`[eval] ${label}: model unavailable (503), one retry in ${Math.round(BASE_MS / 1000)}s`);
+        await sleep(BASE_MS);
+        continue;
+      }
       if (attempt >= MAX_TRIES || !isRateLimit(err)) throw err;
       const suggested = suggestedDelayMs(err);
       if (suggested !== undefined && suggested > MAX_WAIT_MS) {
