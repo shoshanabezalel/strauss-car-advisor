@@ -2,7 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 // Its own port and distDir, so e2e can run next to `npm run dev` (Next allows one dev server per distDir).
 const PORT = 3100;
-const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
+// 127.0.0.1, not localhost: the server binds to IPv4 loopback only, and localhost may resolve to ::1.
+const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -23,7 +24,8 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        command: `npm run dev -- --port ${PORT}`,
+        // Loopback only, so the e2e server (service-role API routes) is not reachable from the LAN.
+        command: `npx next dev --hostname 127.0.0.1 --port ${PORT}`,
         url: baseURL,
         reuseExistingServer: false,
         timeout: 180_000,
