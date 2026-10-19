@@ -246,9 +246,35 @@ export const AgentSituationSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("waiver") }),
 ]);
 export const AGENT_PROFILE_SOURCES = ["employee", "payslip"] as const;
-export const AgentUpdateProfileInput = z.object({
-  updates: z.array(profileUpdateSchema(z.enum(AGENT_PROFILE_SOURCES), AgentSituationSchema)).min(1),
-});
+/**
+ * updateProfile as the model sees it: one object with every field as a named property. With the handler's
+ * `updates: [{ field, value }]` list, Gemini guessed field names (live eval 19/10: pensionRate, currentOption).
+ * createTools converts it to that list (toProfileUpdates), so the handler and the rep path are unchanged.
+ */
+export const AgentProfileSchema = z
+  .object({
+    occupation: z.string().trim().min(1).optional(),
+    group: z.string().trim().min(1).optional(),
+    baseSalary: money.optional(),
+    commissions: money.optional(),
+    bonus: money.optional(),
+    pensionPct: percent.optional(),
+    studyFundPct: percent.optional(),
+    creditPoints: z.number().nonnegative().optional(),
+    childrenUnder23: z.number().int().nonnegative().optional(),
+    current: AgentSituationSchema.optional(),
+  })
+  .refine((p) => Object.values(p).some((v) => v !== undefined), { message: "at least one field" });
+export const AgentUpdateProfileInput = z.object({ source: z.enum(AGENT_PROFILE_SOURCES), profile: AgentProfileSchema });
+
+/** The flat model input as the handler's update list, in PROFILE_FIELDS order. */
+export function toProfileUpdates(input: z.output<typeof AgentUpdateProfileInput>): z.input<typeof UpdateProfileInput> {
+  const profile = input.profile as Partial<Record<ProfileField, unknown>>;
+  const updates = PROFILE_FIELDS.flatMap((field) =>
+    profile[field] === undefined ? [] : [{ field, value: profile[field], source: input.source }],
+  );
+  return { updates } as z.input<typeof UpdateProfileInput>;
+}
 export const AgentCompareOptionsInput = z.object({ options: z.array(AgentSituationSchema).min(1).max(4) });
 export const AgentCheckEligibilityInput = z.object({ option: AgentSituationSchema });
 export const CompareOptionsOutput = z.object({

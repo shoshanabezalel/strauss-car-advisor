@@ -61,22 +61,12 @@ type StatedProfile = Config["challenge"]["profile"];
 /** updateProfile with everything stated, then compareOptions for the alternative. */
 function profileScenario(prompt: DemoPrompt, p: StatedProfile, alternative: Situation): Scenario {
   const asSaid = (f: number) => +(f * 100).toFixed(4); // percent as the employee says it; the tool converts back
-  const updates = [
-    ...(p.occupation === undefined ? [] : [{ field: "occupation", value: p.occupation }]),
-    { field: "group", value: p.group },
-    { field: "baseSalary", value: p.baseSalary },
-    { field: "commissions", value: p.commissions },
-    { field: "bonus", value: p.bonus },
-    { field: "pensionPct", value: asSaid(p.pensionPct) },
-    { field: "studyFundPct", value: asSaid(p.studyFundPct) },
-    { field: "creditPoints", value: p.creditPoints },
-    { field: "childrenUnder23", value: p.childrenUnder23 },
-    { field: "current", value: p.current },
-  ].map((u) => ({ ...u, source: "employee" }));
+  // The model-facing shape: every stated field as a named property, percents as said.
+  const profile = { ...p, pensionPct: asSaid(p.pensionPct), studyFundPct: asSaid(p.studyFundPct) };
   return {
     ...prompt,
     calls: [
-      { toolName: "updateProfile", input: { updates } },
+      { toolName: "updateProfile", input: { source: "employee", profile } },
       { toolName: "compareOptions", input: { options: [requested(alternative)] } },
     ],
     reply: compareFromResults,
@@ -128,7 +118,7 @@ function buildScenarios(config: Config): Scenario[] {
       id: "missing",
       label: "פרטים חסרים",
       text: missingDataMessage(config),
-      calls: [{ toolName: "updateProfile", input: { updates: [{ field: "group", value: config.employees.employees[0].profile.group, source: "employee" }] } }],
+      calls: [{ toolName: "updateProfile", input: { source: "employee", profile: { group: config.employees.employees[0].profile.group } } }],
       reply: () => "רשמתי את קבוצת הזכאות. כדי לחשב אני צריך/ה עוד כמה פרטים: מה שכר הבסיס שלך, ואיזה רכב יש לך היום?",
     },
     {

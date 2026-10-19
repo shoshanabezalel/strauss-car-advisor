@@ -185,7 +185,7 @@ const DESCRIPTIONS: Record<ToolName, string> = {
     'Send a question to the car representative for company data the employee cannot know. field "participation" needs the carId; "current" for an unknown current car or one not in the catalog.',
 };
 
-/** Model-facing input schemas: no rep-only fields (schemas.ts, "model-facing inputs"). */
+/** Model-facing input schemas: no rep-only fields, flat updateProfile (schemas.ts, "model-facing inputs"). */
 const INPUTS: Record<ToolName, z.ZodType> = {
   getCatalog: S.GetCatalogInput,
   checkEligibility: S.AgentCheckEligibilityInput,
@@ -208,7 +208,8 @@ export function createTools(deps: AgentDeps, onEvent?: AgentEventSink): ToolSet 
         execute: async (input: unknown) => {
           onEvent?.({ type: "tool", name, state: "running" });
           try {
-            const output = await (handlers[name] as (i: unknown) => Promise<unknown>)(input);
+            const handlerInput = name === "updateProfile" ? S.toProfileUpdates(input as z.output<typeof S.AgentUpdateProfileInput>) : input;
+            const output = await (handlers[name] as (i: unknown) => Promise<unknown>)(handlerInput);
             onEvent?.({ type: "tool", name, state: "done" });
             return output;
           } catch (err) {

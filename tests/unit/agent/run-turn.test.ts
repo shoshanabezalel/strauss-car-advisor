@@ -101,7 +101,7 @@ describe("runAgentTurn", () => {
 
   it("missing data surfaces as a notice", async () => {
     const model = mockModel([
-      { tool: "updateProfile", input: { updates: [{ field: "group", value: "ג", source: "employee" }] } },
+      { tool: "updateProfile", input: { source: "employee", profile: { group: "ג" } } },
       { text: "תודה! מה שכר הבסיס שלך?" },
     ]);
     const d = deps({});
@@ -114,21 +114,11 @@ describe("runAgentTurn", () => {
     // Scripted model, so this proves one call is enough (the live evals check the model actually does it).
     const p = e1.profile;
     const asSaid = (f: number) => +(f * 100).toFixed(4);
-    const updates = [
-      { field: "occupation", value: p.occupation },
-      { field: "group", value: p.group },
-      { field: "baseSalary", value: p.baseSalary },
-      { field: "commissions", value: p.commissions },
-      { field: "bonus", value: p.bonus },
-      { field: "pensionPct", value: asSaid(p.pensionPct) },
-      { field: "studyFundPct", value: asSaid(p.studyFundPct) },
-      { field: "creditPoints", value: p.creditPoints },
-      { field: "childrenUnder23", value: p.childrenUnder23 },
-      { field: "current", value: p.current },
-    ].map((u) => ({ ...u, source: "employee" }));
+    // The model-facing shape (M6): one object with named properties.
+    const profile = { ...p, pensionPct: asSaid(p.pensionPct), studyFundPct: asSaid(p.studyFundPct) };
     const model = mockModel([
       { tool: "getCatalog", input: { scope: "all" } },
-      { tool: "updateProfile", input: { updates } },
+      { tool: "updateProfile", input: { source: "employee", profile } },
       compareAtto,
       { text: GOOD },
     ]);

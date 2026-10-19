@@ -1,7 +1,7 @@
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { createAgentState, createMemoryRepQueue, createTools, runAgentTurn, type AgentDeps } from "@/lib/agent";
+import { createAgentState, createMemoryRepQueue, createToolHandlers, createTools, runAgentTurn, type AgentDeps } from "@/lib/agent";
 import { loadConfig } from "@/lib/config";
 import { createMemoryVouSource } from "@/lib/vou";
 
@@ -21,6 +21,38 @@ describe("model-facing tool schemas", () => {
     expect(jsonSchema(name)).not.toContain("participationSource");
   });
 
+  it("updateProfile names every profile field as a property (live eval 19/10: the model guessed field names)", () => {
+    const schema = z.toJSONSchema((createTools(deps()).updateProfile as { inputSchema: z.ZodType }).inputSchema) as unknown as {
+      properties: { profile: { properties: Record<string, unknown> } };
+    };
+    expect(Object.keys(schema.properties.profile.properties).sort()).toEqual(
+      ["occupation", "group", "baseSalary", "commissions", "bonus", "pensionPct", "studyFundPct", "creditPoints", "childrenUnder23", "current"].sort(),
+    );
+    expect(JSON.stringify(schema)).not.toContain('"updates"');
+  });
+
+  it("a flat call saves the same profile as the handler's update list", async () => {
+    const p = e1.profile;
+    const asSaid = (f: number) => +(f * 100).toFixed(4);
+    const flat = { ...p, pensionPct: asSaid(p.pensionPct), studyFundPct: asSaid(p.studyFundPct) };
+    const viaTool = deps();
+    viaTool.state = createAgentState();
+    const t = createTools(viaTool).updateProfile as unknown as { execute: (i: unknown, o: unknown) => Promise<unknown> };
+    await t.execute({ source: "employee", profile: flat }, { toolCallId: "x", messages: [] });
+
+    const viaHandler = deps();
+    viaHandler.state = createAgentState();
+    await createToolHandlers(viaHandler).updateProfile({
+      updates: Object.entries(flat).map(([field, value]) => ({ field, value, source: "employee" })) as never,
+    });
+    expect(viaTool.state).toEqual(viaHandler.state);
+  });
+
+  it("an empty profile is rejected by the schema", () => {
+    const schema = (createTools(deps()).updateProfile as { inputSchema: z.ZodType }).inputSchema;
+    expect(schema.safeParse({ source: "employee", profile: {} }).success).toBe(false);
+  });
+
   it("updateProfile offers no rep source", () => {
     const s = jsonSchema("updateProfile");
     expect(s).toContain('"employee"');
@@ -38,7 +70,7 @@ describe("model-facing tool schemas", () => {
               type: "tool-call",
               toolCallId: "c1",
               toolName: "updateProfile",
-              input: JSON.stringify({ updates: [{ field: "current", value: { ...current, participationSource: "employee" }, source: "employee" }] }),
+              input: JSON.stringify({ source: "employee", profile: { current: { ...current, participationSource: "employee" } } }),
             },
           ],
           finishReason: { unified: "tool-calls", raw: undefined },
@@ -68,9 +100,7 @@ describe("spoofing a rep confirmation", () => {
               type: "tool-call",
               toolCallId: "c1",
               toolName: "updateProfile",
-              input: JSON.stringify({
-                updates: [{ field: "current", value: { ...current, participation: 999, participationSource: "rep" }, source: "employee" }],
-              }),
+              input: JSON.stringify({ source: "employee", profile: { current: { ...current, participation: 999, participationSource: "rep" } } }),
             },
           ],
           finishReason: { unified: "tool-calls", raw: undefined },
