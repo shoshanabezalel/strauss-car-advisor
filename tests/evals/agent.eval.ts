@@ -14,7 +14,7 @@ import {
   type AgentTurn,
 } from "@/lib/agent";
 import { createMockModel } from "@/lib/agent/mock-model";
-import { createAgentModel } from "@/lib/agent/model";
+import { createFallbackOnlyModel, createPrimaryModel } from "@/lib/agent/model";
 import type { CompareOptionsOutput } from "@/lib/agent/schemas";
 import { handleChatTurn, type ChatEvent } from "@/lib/chat/handle-turn";
 import { createMemoryStore } from "@/lib/chat/memory-store";
@@ -28,7 +28,11 @@ import { rateLimited } from "./rate-limit";
 // Live evals (`npm run eval:agent`): the real model drives the tools from a Hebrew chat. Not part of `npm test`.
 loadEnv({ path: ".env.local", quiet: true });
 // Live only: AGENT_MODEL=mock (local dev) would make these evals test the script, not the model.
-const hasKey = Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY) && process.env.AGENT_MODEL !== "mock";
+// EVAL_PROVIDER=anthropic runs the same cases on the fallback model alone (M7: the prompt was tuned on Gemini).
+const provider = process.env.EVAL_PROVIDER === "anthropic" ? "anthropic" : "google";
+const providerKey = provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+const hasKey = Boolean(providerKey) && process.env.AGENT_MODEL !== "mock";
+const createEvalModel = () => (provider === "anthropic" ? createFallbackOnlyModel() : createPrimaryModel());
 
 const config = loadConfig();
 const MAX_TURNS = 3;
@@ -43,7 +47,7 @@ function newDeps(): AgentDeps {
 
 /** Chat until a turn produces a net for a requested option, or MAX_TURNS. Every turn must pass the guard. */
 async function chat(first: string, deps: AgentDeps, done: (t: AgentTurn) => boolean) {
-  const model = rateLimited(createAgentModel());
+  const model = rateLimited(createEvalModel());
   let messages: ModelMessage[] = [{ role: "user", content: first }];
   const turns: AgentTurn[] = [];
   for (let i = 0; i < MAX_TURNS; i++) {
@@ -75,7 +79,7 @@ const hasOptionNet = (t: AgentTurn) =>
 const firstLine = (text: string) => text.split("\n").find((l) => l.trim()) ?? "";
 const mentions = (text: string, n: number) => text.includes(n.toLocaleString("en-US")) || text.includes(String(n));
 
-describe.skipIf(!hasKey)("agent evals (live model)", () => {
+describe.skipIf(!hasKey)(`agent evals (live model: ${provider})`, () => {
   for (const e of config.employees.employees) {
     it(`${e.id}: reaches the sheet's net via chat, with no invented numbers`, async () => {
       const deps = newDeps();
@@ -139,7 +143,7 @@ describe.skipIf(!hasKey)("agent evals (live model)", () => {
     const confirmed = (await store.load(id))!.comparison!;
 
     // One live turn on the merged history (toModelHistory).
-    const events = await send(`תודה! אז מה הנטו שלי עכשיו עם ה-${carName(config.challenge.repAnswer.carId)}?`, rateLimited(createAgentModel()), id);
+    const events = await send(`תודה! אז מה הנטו שלי עכשיו עם ה-${carName(config.challenge.repAnswer.carId)}?`, rateLimited(createEvalModel()), id);
     const error = events.find((e) => e.type === "error");
     expect(error, JSON.stringify(error)).toBeUndefined();
     const result = resultOf(events)!;

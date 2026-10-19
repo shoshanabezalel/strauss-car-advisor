@@ -1,7 +1,10 @@
+import { APICallError } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { BLOCKED_REPLY, missingDataMessage, openingMessage, UNKNOWN_PARTICIPATION_MESSAGE } from "@/lib/agent";
+import { withFallback } from "@/lib/agent/fallback-model";
 import { createMockModel } from "@/lib/agent/mock-model";
+import { ModelBusyError } from "@/lib/agent/model-errors";
 import { handleChatTurn, type ChatEvent } from "@/lib/chat/handle-turn";
 import { toVisibleHistory } from "@/lib/chat/history";
 import { createMemoryStore } from "@/lib/chat/memory-store";
@@ -91,5 +94,40 @@ describe("handleChatTurn", () => {
     expect(err).toMatchObject({ type: "error", error: "failed" });
     expect((err as { message: string }).message).toMatch(/[א-ת]/);
     expect(JSON.stringify(events)).not.toContain("quota");
+  });
+});
+
+// M7: model fallback in the chat path.
+describe("handleChatTurn: busy and fallback", () => {
+  const unavailable = () =>
+    new APICallError({ message: "high demand", url: "https://example.test", requestBodyValues: {}, statusCode: 503, responseHeaders: {}, isRetryable: true });
+
+  it("ModelBusyError → a Hebrew 'busy' error without digits; no reply is stored", async () => {
+    const busy = new MockLanguageModelV4({ doGenerate: () => Promise.reject(new ModelBusyError(unavailable())) });
+    const { events } = await send("שלום", undefined, busy);
+    const err = events.at(-1) as Extract<ChatEvent, { type: "error" }>;
+    expect(err).toMatchObject({ type: "error", error: "busy" });
+    expect(err.message).toMatch(/[א-ת]/);
+    expect(err.message).not.toMatch(/\d/);
+    const id = (events[0] as Extract<ChatEvent, { type: "conversation" }>).conversationId;
+    expect((await store.load(id))!.messages).toEqual([]);
+  });
+
+  it("a timed-out turn (abort) is reported as busy too", async () => {
+    const aborted = new MockLanguageModelV4({ doGenerate: () => Promise.reject(new DOMException("The operation was aborted", "AbortError")) });
+    const { events } = await send("שלום", undefined, aborted);
+    expect(events.at(-1)).toMatchObject({ type: "error", error: "busy" });
+  });
+
+  it("primary unavailable twice → the fallback finishes the turn with the same tools and engine numbers", async () => {
+    const events: ChatEvent[] = [];
+    const primary = new MockLanguageModelV4({ doGenerate: () => Promise.reject(unavailable()) });
+    const model = withFallback(primary, createMockModel(config), { sleep: async () => {}, onFallback: () => events.push({ type: "status", status: "fallback" }) });
+    await handleChatTurn({ store, model, config, vouSource, text: openingMessage(config, e1), source: "app", emit: (e) => events.push(e), maxRetries: 0 });
+    const result = events.find((e) => e.type === "result") as Extract<ChatEvent, { type: "result" }>;
+    expect(result.comparison?.rows[1].amounts.net).toBe(e1.expected.netAlt);
+    const fallbackAt = events.findIndex((e) => e.type === "status" && e.status === "fallback");
+    expect(fallbackAt).toBeGreaterThan(-1);
+    expect(fallbackAt).toBeLessThan(events.indexOf(result));
   });
 });

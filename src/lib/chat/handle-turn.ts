@@ -1,5 +1,6 @@
 import type { LanguageModel, ModelMessage } from "ai";
 import { createAgentState, createToolHandlers, runAgentTurn, type AgentEvent, type AgentState, type Notice } from "@/lib/agent";
+import { ModelBusyError } from "@/lib/agent/model-errors";
 import type { Config } from "@/lib/config";
 import { noopNotifier, type Notifier } from "@/lib/realtime/notifier";
 import type { VouSource } from "@/lib/vou";
@@ -20,7 +21,7 @@ export type ChatEvent =
       notices: Notice[];
       comparison?: ComparisonView;
     }
-  | { type: "error"; error: "not_found" | "failed"; message: string };
+  | { type: "error"; error: "not_found" | "failed" | "busy"; message: string };
 
 export interface ChatTurnInput {
   store: ConversationStore;
@@ -33,19 +34,25 @@ export interface ChatTurnInput {
   emit: (e: ChatEvent) => void;
   /** Pings the rep screen when a turn opens a question. */
   notifier?: Notifier;
-  /** Passed to the AI SDK; the live evals set 0 and retry rate limits themselves. */
+  /** Passed to the AI SDK. The chat route sets 0: the fallback wrapper retries; the live evals retry themselves. */
   maxRetries?: number;
+  /** Ends a turn that runs too long (the chat route's time budget); reported as busy. */
+  abortSignal?: AbortSignal;
 }
 
 const NOT_FOUND_MESSAGE = "לא מצאתי את השיחה הזו. אפשר להתחיל שיחה חדשה.";
 const FAILED_MESSAGE = "משהו השתבש ולא הצלחתי לענות. אפשר לנסות שוב בעוד רגע.";
+/** Both models are rate-limited / overloaded, or the turn ran out of time. No digits. */
+const BUSY_MESSAGE = "המערכת עמוסה כרגע ולא הצלחתי לענות. אפשר לנסות שוב בעוד דקה.";
+
+const isBusy = (err: unknown) => err instanceof ModelBusyError || (err as Error)?.name === "AbortError" || (err as Error)?.name === "TimeoutError";
 
 /**
  * One employee message: load (or create) the conversation, run the agent with progress events, persist the
  * turn, then emit a single `result`. Nothing is stored when the turn fails, so the employee can resend.
  */
 export async function handleChatTurn(input: ChatTurnInput): Promise<void> {
-  const { store, model, config, vouSource, text, source, emit, notifier = noopNotifier, maxRetries } = input;
+  const { store, model, config, vouSource, text, source, emit, notifier = noopNotifier, maxRetries, abortSignal } = input;
 
   const loadedAt = new Date().toISOString();
   let conversationId = input.conversationId;
@@ -69,6 +76,7 @@ export async function handleChatTurn(input: ChatTurnInput): Promise<void> {
       deps: { config, vouSource, state, repQueue: store.repQueue(id) },
       onEvent: emit,
       maxRetries,
+      abortSignal,
     });
 
     // A representative may have answered while the model was working: re-apply those answers so the state loaded
@@ -104,6 +112,11 @@ export async function handleChatTurn(input: ChatTurnInput): Promise<void> {
       comparison: compared ? toComparisonView(compared, config) : undefined,
     });
   } catch (err) {
+    if (isBusy(err)) {
+      console.warn("[chat] models busy or turn timed out", (err as Error)?.message ?? err);
+      emit({ type: "error", error: "busy", message: BUSY_MESSAGE });
+      return;
+    }
     console.error("[chat] turn failed", err);
     emit({ type: "error", error: "failed", message: FAILED_MESSAGE });
   }

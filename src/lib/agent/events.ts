@@ -5,7 +5,7 @@ import type { ToolName } from "./tools";
  * after the number-guard passes (see run-turn.ts).
  */
 export type AgentEvent =
-  | { type: "status"; status: "thinking" | "checking" | "regenerating" }
+  | { type: "status"; status: "thinking" | "checking" | "regenerating" | "fallback" }
   | { type: "tool"; name: ToolName; state: "running" | "done" | "error" };
 
 export type AgentEventSink = (e: AgentEvent) => void;

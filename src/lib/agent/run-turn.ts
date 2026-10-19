@@ -30,6 +30,8 @@ export interface RunTurnOptions {
   maxRetries?: number;
   /** Progress (status + tool events) while the turn runs. Never carries model text. */
   onEvent?: AgentEventSink;
+  /** Passed to the AI SDK: ends the turn when the chat route's time budget runs out. */
+  abortSignal?: AbortSignal;
 }
 
 /** Shown when the reply still has an untraceable number after one regeneration. Must contain no digits. */
@@ -67,7 +69,7 @@ function toolMessagesOnly(messages: ModelMessage[]): ModelMessage[] {
  * One employee turn: the model collects data and calls tools; the number-guard checks the final text against this
  * turn's tool outputs and the validated profile. A violation gets one regeneration; a second one blocks the reply.
  */
-export async function runAgentTurn({ model, messages, deps, maxSteps = 8, maxRetries, onEvent }: RunTurnOptions): Promise<AgentTurn> {
+export async function runAgentTurn({ model, messages, deps, maxSteps = 8, maxRetries, onEvent, abortSignal }: RunTurnOptions): Promise<AgentTurn> {
   const system = loadSystemPrompt();
   const tools = createTools(deps, onEvent);
   const ignoreNames = knownNames(deps.config);
@@ -88,6 +90,7 @@ export async function runAgentTurn({ model, messages, deps, maxSteps = 8, maxRet
       tools,
       stopWhen: isStepCount(maxSteps),
       maxRetries,
+      abortSignal,
     });
     for (const step of result.steps) {
       for (const c of step.toolCalls) toolCalls.push({ toolName: c.toolName, input: c.input });

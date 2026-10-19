@@ -1,4 +1,5 @@
-import { APICallError, wrapLanguageModel, type LanguageModel } from "ai";
+import { wrapLanguageModel, type LanguageModel } from "ai";
+import { isRateLimit, isUnavailable, suggestedDelayMs } from "@/lib/agent/model-errors";
 
 /**
  * Each model call is retried on 429 / RESOURCE_EXHAUSTED with exponential backoff, honouring Retry-After or Gemini's
@@ -9,24 +10,6 @@ const MAX_TRIES = 6;
 const BASE_MS = 2_000;
 /** A longer suggested wait means the daily quota is gone; waiting would just hang the run. */
 const MAX_WAIT_MS = 120_000;
-
-function isRateLimit(err: unknown): boolean {
-  if (APICallError.isInstance(err) && err.statusCode === 429) return true;
-  return /RESOURCE_EXHAUSTED|\b429\b/.test(String((err as Error)?.message ?? err));
-}
-
-function isUnavailable(err: unknown): boolean {
-  if (APICallError.isInstance(err) && err.statusCode === 503) return true;
-  return /\bUNAVAILABLE\b|\b503\b|high demand/i.test(String((err as Error)?.message ?? err));
-}
-
-function suggestedDelayMs(err: unknown): number | undefined {
-  if (!APICallError.isInstance(err)) return undefined;
-  const header = err.responseHeaders?.["retry-after"];
-  if (header && Number.isFinite(Number(header))) return Number(header) * 1000;
-  const body = err.responseBody?.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/);
-  return body ? Number(body[1]) * 1000 : undefined;
-}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

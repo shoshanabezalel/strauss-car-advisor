@@ -1,8 +1,16 @@
-# Live agent evals against Gemini (tests/evals). Manual only: they cost API calls and depend on a network service.
+# Live agent evals (tests/evals). Manual only: they cost API calls and depend on a network service.
+# provider=google measures the production model (Gemini); provider=anthropic measures the fallback (Claude Haiku)
+# alone, with the same tools, prompt and guard (M7). Also the way to run them if NetFree blocks a provider locally.
 name: eval-agent
 
 on:
   workflow_dispatch:
+    inputs:
+      provider:
+        description: Which model to evaluate
+        type: choice
+        options: [google, anthropic]
+        default: google
 
 permissions:
   contents: read
@@ -11,6 +19,13 @@ jobs:
   eval-agent:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      EVAL_PROVIDER: ${{ inputs.provider }}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # Optional; empty falls back to the defaults in src/lib/env.ts.
+      AGENT_MODEL: ${{ secrets.AGENT_MODEL }}
+      FALLBACK_MODEL: ${{ secrets.FALLBACK_MODEL }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -19,15 +34,10 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Check API key secret
-        env:
-          GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
         run: |
-          if [ -z "$GOOGLE_GENERATIVE_AI_API_KEY" ]; then
-            echo "::error::Repository secret GOOGLE_GENERATIVE_AI_API_KEY is not set (the evals would be skipped)."
+          if [ "$EVAL_PROVIDER" = "anthropic" ]; then key="$ANTHROPIC_API_KEY"; name=ANTHROPIC_API_KEY; else key="$GOOGLE_GENERATIVE_AI_API_KEY"; name=GOOGLE_GENERATIVE_AI_API_KEY; fi
+          if [ -z "$key" ]; then
+            echo "::error::Repository secret $name is not set (the evals would be skipped)."
             exit 1
           fi
       - run: npm run eval:agent
-        env:
-          GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
-          # Optional; empty falls back to the default in src/lib/env.ts.
-          AGENT_MODEL: ${{ secrets.AGENT_MODEL }}

@@ -19,6 +19,7 @@ export const STATUS_LABELS: Record<Extract<AgentEvent, { type: "status" }>["stat
   thinking: "חושב…",
   checking: "בודק שכל מספר מגיע מהחישוב…",
   regenerating: "מנסח את התשובה מחדש…",
+  fallback: "המערכת עמוסה, עובר למודל גיבוי…",
 };
 
 export const TRACK_LABELS: Record<Track, string> = {

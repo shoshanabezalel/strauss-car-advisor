@@ -14,6 +14,7 @@ const ServerEnvSchema = PublicEnvSchema.extend({
   /** Tag for new conversations; the e2e server sets "e2e" so `npm run db:clean-e2e` can remove them. */
   CONVERSATION_SOURCE: z.enum(["app", "e2e"]).default("app"),
   ANTHROPIC_API_KEY: z.string().min(1).optional(), // optional LLM fallback
+  FALLBACK_MODEL: z.string().min(1).optional(),
   // Used only by the Supabase MCP (scripts/supabase-mcp.mjs reads it from .env.local); the app never reads it.
   SUPABASE_ACCESS_TOKEN: z.string().optional(),
 });
@@ -43,6 +44,19 @@ export function agentEnv() {
   return AgentEnvSchema.parse({
     GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY || undefined,
     AGENT_MODEL: process.env.AGENT_MODEL || undefined,
+  });
+}
+
+/** The fallback model (fallback-model.ts): Claude Haiku unless FALLBACK_MODEL says otherwise. */
+const FallbackEnvSchema = z.object({
+  ANTHROPIC_API_KEY: z.string().min(1),
+  FALLBACK_MODEL: z.string().min(1).default("claude-haiku-5-5"),
+});
+
+export function fallbackEnv() {
+  return FallbackEnvSchema.parse({
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || undefined,
+    FALLBACK_MODEL: process.env.FALLBACK_MODEL || undefined,
   });
 }
 
