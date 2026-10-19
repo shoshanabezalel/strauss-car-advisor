@@ -1,21 +1,11 @@
-import type { ModelMessage } from "ai";
-import {
-  checkNumbers,
-  createToolHandlers,
-  deriveNotices,
-  knownNames,
-  type AgentState,
-  type Notice,
-  type RepAnswer,
-  type ToolHandlers,
-} from "@/lib/agent";
-import type { ToolOutput } from "@/lib/agent/notices";
+import { createToolHandlers, type AgentState, type RepAnswer, type ToolHandlers } from "@/lib/agent";
 import { REP_ANSWERED_FALLBACK, repAnsweredReply } from "@/lib/agent/replies";
 import { RepFieldSchema } from "@/lib/agent/schemas";
 import type { Config, Situation } from "@/lib/config";
 import { maxParticipation } from "@/lib/engine";
 import type { Notifier } from "@/lib/realtime/notifier";
 import type { VouSource } from "@/lib/vou";
+import { persistDirectTurn, type ToolCallRecord } from "./direct-turn";
 import type { CompareOutput, ConversationStore } from "./store";
 
 /**
@@ -69,7 +59,7 @@ function boundError(config: Config, answer: RepAnswer): string | undefined {
 
 export interface AppliedAnswer {
   ok: boolean;
-  calls: { toolName: string; input: unknown; output: unknown }[];
+  calls: ToolCallRecord[];
 }
 
 /** Apply one validated answer to `state` through the rep-origin tools. */
@@ -146,46 +136,23 @@ export async function answerRepQuestion(input: RepAnswerInput): Promise<RepAnswe
       calls.push({ toolName: "compareOptions", input: compareInput, output });
     }
 
-    const outputs: ToolOutput[] = calls.map(({ toolName, output }) => ({ toolName, output }));
-    let reply = repAnsweredReply({ answer, compare: compared, config });
-    const guard = checkNumbers(reply, {
-      toolOutputs: [...outputs.map((o) => o.output), answer],
-      profile: state.profile,
-      ignoreNames: knownNames(config),
-    });
-    if (!guard.ok) {
-      console.error("[rep] built reply failed the number-guard", guard.invented);
-      reply = REP_ANSWERED_FALLBACK;
-    }
-    const notices: Notice[] = [{ kind: "rep_answered", questionId, field: answer.field }, ...deriveNotices(outputs)];
-
-    // The round-trip goes into the model history, so later agent turns see the confirmed data.
-    const callId = (i: number) => `rep-${questionId}-${i}`;
-    const history: ModelMessage[] = calls.length
-      ? [
-          { role: "assistant", content: calls.map((c, i) => ({ type: "tool-call" as const, toolCallId: callId(i), toolName: c.toolName, input: c.input })) },
-          {
-            role: "tool",
-            content: calls.map((c, i) => ({
-              type: "tool-result" as const,
-              toolCallId: callId(i),
-              toolName: c.toolName,
-              output: { type: "json" as const, value: c.output as never },
-            })),
-          },
-        ]
-      : [];
-
-    await store.saveState(id, state);
-    if (compared) await store.saveComparison(id, compared);
-    await store.appendMessages(id, [
-      ...history.map((message) => ({ message })),
-      { message: { role: "assistant", content: reply }, meta: { notices, blocked: false } },
-    ]);
     const stillOpen = snap.repQuestions.some((r) => r.id !== questionId && r.status === "open");
-    await store.setStatus(id, stillOpen ? "waiting_rep" : "active");
-
-    await Promise.all([notifier.conversation(id), notifier.repQueue()]);
+    const { reply } = await persistDirectTurn({
+      store,
+      config,
+      notifier,
+      conversationId: id,
+      callIdPrefix: `rep-${questionId}`,
+      state,
+      calls,
+      compared,
+      reply: repAnsweredReply({ answer, compare: compared, config }),
+      fallback: REP_ANSWERED_FALLBACK,
+      extraAllowed: [answer],
+      extraNotices: [{ kind: "rep_answered", questionId, field: answer.field }],
+      status: stillOpen ? "waiting_rep" : "active",
+    });
+    await notifier.repQueue();
     return { ok: true, conversationId: id, reply };
   } catch (err) {
     console.error("[rep] answer failed", err);
