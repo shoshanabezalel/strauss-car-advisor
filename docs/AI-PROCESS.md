@@ -244,3 +244,4 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   It didn't ask about participation again.
 - What it took: three schema fixes found by the eval logs (rep-only fields hidden, flat updateProfile,
   occupation / group enums from the data) and one retry on 503. See the M6 entry.
+- Full table and log: [docs/evals/2026-10-19-full-run.md](evals/2026-10-19-full-run.md).
