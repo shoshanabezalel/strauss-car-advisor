@@ -231,3 +231,16 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   - The rep's "effective from" date is deferred to the pilot (no rule uses time).
   - The thoughtSignature warning is harmless for now (TECH-DESIGN §7b).
   - M6 stays unticked until the user's test round.
+### M3 ticked — clean full live eval run (19/10/2026)
+- One run of all 9 cases on the final M6 code (`npm run eval:agent`, Gemini paid tier): **9/9 pass**, with no tool
+  errors, no 503 retries, and every turn passing the guard.
+- E-001 to E-006: every case called updateProfile exactly once and hit the sheet's net and diff on the first line:
+  11693 (+661), 5078 (−3522), 13109 (−1938), 11900 (+1207), 17806 (+3562), 17794 (+721). Diffs are written as
+  עלייה / ירידה.
+- A12-a (EV3, participation unknown): net 11779, flagged as unconfirmed.
+- A12-b (ID.7, not in the catalog): a catalog lookup and a search, then "not in the catalog", with no comparison
+  made up.
+- A7: after the rep's answer, the live turn called only compareOptions and quoted 9,927 (+606) with the rep's 350.
+  It didn't ask about participation again.
+- What it took: three schema fixes found by the eval logs (rep-only fields hidden, flat updateProfile,
+  occupation / group enums from the data) and one retry on 503. See the M6 entry.
