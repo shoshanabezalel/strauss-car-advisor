@@ -14,18 +14,23 @@ import type { ComparisonView } from "@/lib/chat/comparison-view";
 import type { ConversationResponse, RepQuestionStatusView } from "@/lib/chat/conversation-response";
 import type { ChatEvent } from "@/lib/chat/handle-turn";
 import type { VisibleMessage } from "@/lib/chat/history";
+import type { ProfileView } from "@/lib/chat/profile-view";
 import { createNdjsonParser } from "@/lib/chat/ndjson";
 import { conversationTopic } from "@/lib/realtime/topics";
 import { usePing } from "@/lib/realtime/use-ping";
 import { Comparison } from "./comparison";
 import { STATUS_LABELS, TOOL_LABELS } from "./labels";
 import { Notices, type Resolved } from "./notices";
+import { OptionPicker } from "./option-picker";
+import { ProfilePanel } from "./profile-panel";
 import { RepStatus } from "./rep-status";
 
 interface Props {
   mock: boolean;
   demoPrompts: DemoPrompt[];
   carLabels: Record<string, string>;
+  /** The form before any conversation exists (choices from the data files). */
+  emptyProfile: ProfileView;
 }
 
 type Status = Extract<AgentEvent, { type: "status" }>["status"];
@@ -36,7 +41,7 @@ interface Progress {
 
 const GENERIC_ERROR = "לא הצלחתי להתחבר לשרת. אפשר לנסות שוב.";
 
-export function EmployeeChat({ mock, demoPrompts, carLabels }: Props) {
+export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Props) {
   const params = useSearchParams();
   const [conversationId, setConversationId] = useState<string | undefined>(params.get("c") ?? undefined);
   const [messages, setMessages] = useState<VisibleMessage[]>([]);
@@ -45,6 +50,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [repQuestions, setRepQuestions] = useState<RepQuestionStatusView[]>([]);
+  const [profile, setProfile] = useState<ProfileView>(emptyProfile);
   const [loading, setLoading] = useState(Boolean(params.get("c")));
   const endRef = useRef<HTMLDivElement>(null);
   const pending = progress !== null;
@@ -72,6 +78,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels }: Props) {
           setMessages(data.messages);
           setComparison(data.comparison);
           setRepQuestions(data.repQuestions);
+          setProfile(data.profile);
         })
         .catch(() => {
           if (initial) setError(GENERIC_ERROR);
@@ -142,6 +149,16 @@ export function EmployeeChat({ mock, demoPrompts, carLabels }: Props) {
     }
   }
 
+  /** After a form save or an option change: adopt the (maybe new) conversation id and refetch the screen. */
+  function onDirectChange(id: string) {
+    if (id !== conversationId) {
+      setConversationId(id);
+      window.history.replaceState(null, "", `?c=${id}`);
+    }
+    setError(null);
+    void load(id);
+  }
+
   async function send(text: string) {
     const trimmed = text.trim();
     if (!trimmed || pending) return;
@@ -151,7 +168,6 @@ export function EmployeeChat({ mock, demoPrompts, carLabels }: Props) {
     setProgress({ tools: [] });
     busy.current = true;
     let id = conversationId;
-    let opened = false;
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -161,7 +177,6 @@ export function EmployeeChat({ mock, demoPrompts, carLabels }: Props) {
       if (!res.ok || !res.body) throw new Error(`chat ${res.status}`);
       const parser = createNdjsonParser<ChatEvent>((e) => {
         if (e.type === "conversation") id = e.conversationId;
-        if (e.type === "result" && e.notices.some((n) => n.kind === "rep_question_open")) opened = true;
         onEvent(e);
       });
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -176,10 +191,9 @@ export function EmployeeChat({ mock, demoPrompts, carLabels }: Props) {
     } finally {
       busy.current = false;
       setProgress(null);
-      if (id && (opened || refetchAfterTurn.current)) {
-        refetchAfterTurn.current = false;
-        void load(id);
-      }
+      // Always refetch after a turn: the agent may have changed the profile, and a rep question may be open.
+      refetchAfterTurn.current = false;
+      if (id) void load(id);
     }
   }
 
@@ -199,67 +213,87 @@ export function EmployeeChat({ mock, demoPrompts, carLabels }: Props) {
 
       <RepStatus questions={repQuestions} carLabels={carLabels} />
 
-      <Card>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex max-h-[60vh] min-h-40 flex-col gap-3 overflow-y-auto" aria-live="polite" data-testid="chat-log">
-            {loading && <p className="text-sm text-muted-foreground">טוען את השיחה…</p>}
-            {!loading && messages.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                ספר/י לי על השכר, ההפרשות והרכב שיש לך היום, ומה היית רוצה לבדוק.
-              </p>
-            )}
-            {messages.map((m, i) => (
-              <Bubble key={i} message={m} carLabels={carLabels} resolved={resolved} />
-            ))}
-            {progress && <ProgressView progress={progress} />}
-            <div ref={endRef} />
-          </div>
-
-          {error && (
-            <Alert variant="destructive" data-testid="chat-error">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {mock && demoPrompts.length > 0 && (
-            <div className="flex flex-wrap gap-2" aria-label="שאלות לדוגמה">
-              {demoPrompts.map((p) => (
-                <Button key={p.id} variant="outline" size="sm" disabled={pending} onClick={() => send(p.text)} data-testid={`demo-${p.id}`}>
-                  {p.label}
-                </Button>
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <Card className="min-w-0">
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex max-h-[60vh] min-h-40 flex-col gap-3 overflow-y-auto" aria-live="polite" data-testid="chat-log">
+              {loading && <p className="text-sm text-muted-foreground">טוען את השיחה…</p>}
+              {!loading && messages.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  ספר/י לי על השכר, ההפרשות והרכב שיש לך היום, ומה היית רוצה לבדוק.
+                </p>
+              )}
+              {messages.map((m, i) => (
+                <Bubble key={i} message={m} carLabels={carLabels} resolved={resolved} />
               ))}
+              {progress && <ProgressView progress={progress} />}
+              <div ref={endRef} />
             </div>
-          )}
 
-          <form
-            className="flex items-end gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void send(draft);
-            }}
-          >
-            <Textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  void send(draft);
-                }
+            {error && (
+              <Alert variant="destructive" data-testid="chat-error">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {mock && demoPrompts.length > 0 && (
+              <div className="flex flex-wrap gap-2" aria-label="שאלות לדוגמה">
+                {demoPrompts.map((p) => (
+                  <Button key={p.id} variant="outline" size="sm" disabled={pending} onClick={() => send(p.text)} data-testid={`demo-${p.id}`}>
+                    {p.label}
+                  </Button>
+                ))}
+              </div>
+            )}
+
+            <form
+              className="flex items-end gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void send(draft);
               }}
-              placeholder="כתב/י הודעה…"
-              aria-label="הודעה"
-              rows={2}
-              disabled={pending}
-            />
-            <Button type="submit" disabled={pending || !draft.trim()} aria-label="שליחה">
-              <Send className="rtl:-scale-x-100" />
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+            >
+              <Textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void send(draft);
+                  }
+                }}
+                placeholder="כתב/י הודעה…"
+                aria-label="הודעה"
+                rows={2}
+                disabled={pending}
+              />
+              <Button type="submit" disabled={pending || !draft.trim()} aria-label="שליחה">
+                <Send className="rtl:-scale-x-100" />
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
-      {comparison && <Comparison view={comparison} />}
+        <ProfilePanel
+          key={JSON.stringify([profile.values, profile.locked])}
+          profile={profile}
+          conversationId={conversationId}
+          disabled={pending}
+          onSaved={onDirectChange}
+        />
+      </div>
+
+      {conversationId && profile.missing.length === 0 && (
+        <OptionPicker
+          conversationId={conversationId}
+          comparison={comparison}
+          choices={profile.choices}
+          disabled={pending}
+          onChanged={() => onDirectChange(conversationId)}
+        />
+      )}
+
+      <div aria-live="polite">{comparison && <Comparison view={comparison} />}</div>
     </div>
   );
 }
