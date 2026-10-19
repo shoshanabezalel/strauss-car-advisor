@@ -1,6 +1,7 @@
 import type { Config, Drive, ParticipationSource } from "@/lib/config";
 import type { ChangeKind, MissingField, Track } from "@/lib/engine";
 import { explainOption } from "@/lib/agent/explain";
+import { WAIVER_LABEL } from "@/lib/format/labels";
 import type { CompareOutput } from "./store";
 
 /**
@@ -43,7 +44,7 @@ export interface ComparisonView {
   rows: ComparisonRow[];
 }
 
-export const WAIVER_LABEL = "ויתור על רכב (אחזקת רכב)";
+export { WAIVER_LABEL } from "@/lib/format/labels";
 
 type Row = CompareOutput["today"] | CompareOutput["options"][number];
 

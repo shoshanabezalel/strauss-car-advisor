@@ -1,21 +1,9 @@
 import type { AgentEvent, RepField, ToolName } from "@/lib/agent";
-import type { MissingField, Track } from "@/lib/engine";
+import type { Track } from "@/lib/engine";
 
 /** Hebrew UI text. Display only: no business values live here. */
 
-export const FIELD_LABELS: Record<MissingField, string> = {
-  occupation: "עיסוק",
-  group: "קבוצת זכאות",
-  baseSalary: "שכר בסיס",
-  commissions: "עמלות",
-  bonus: "בונוס",
-  pensionPct: "אחוז הפרשה לפנסיה",
-  studyFundPct: "אחוז הפרשה לקרן השתלמות",
-  creditPoints: "נקודות זיכוי",
-  childrenUnder23: "מספר ילדים עד גיל עשרים ושלוש",
-  current: "המצב היום (רכב או אחזקה)",
-  carId: "הרכב המבוקש",
-};
+export { FIELD_LABELS } from "@/lib/format/labels";
 
 export const TOOL_LABELS: Record<ToolName, string> = {
   getCatalog: "בודק את קטלוג הרכבים",

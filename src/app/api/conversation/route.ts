@@ -2,6 +2,7 @@ import { z } from "zod";
 import { toComparisonView } from "@/lib/chat/comparison-view";
 import { toRepQuestionStatuses, type ConversationResponse } from "@/lib/chat/conversation-response";
 import { toVisibleHistory } from "@/lib/chat/history";
+import { toProfileView } from "@/lib/chat/profile-view";
 import { agentModeHeader, chatDeps } from "@/lib/chat/server";
 
 /**
@@ -24,6 +25,7 @@ export async function GET(request: Request) {
     comparison: snap.comparison ? toComparisonView(snap.comparison, config) : null,
     // Status only: the answer reaches the employee through the tools (reply + comparison), never as raw input.
     repQuestions: toRepQuestionStatuses(snap),
+    profile: toProfileView(snap.state, config),
   };
   return Response.json(body, { headers });
 }

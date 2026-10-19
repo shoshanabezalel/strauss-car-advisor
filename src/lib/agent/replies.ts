@@ -30,6 +30,37 @@ export function compareReply(c: Compare | undefined): string {
   return lines.join("\n");
 }
 
+const optionLabel = (config: Config, o: Compare["options"][number]) =>
+  o.situation.kind === "car" ? carName(config, o.situation.carId) : "ויתור על רכב";
+
+/** Several options: one line each (net and change, or why it's unavailable), then today's net. One option → compareReply. */
+export function optionsReply(c: Compare, config: Config): string {
+  if (c.options.length <= 1) return compareReply(c);
+  const lines = c.options.map((o) => {
+    const name = optionLabel(config, o);
+    if (!o.eligibility.eligible) return `${name}: לא זמין – ${o.eligibility.reason}`;
+    const { net, diffVsToday, direction } = o.display;
+    if (net === undefined || diffVsToday === undefined) return `${name}: חסרים נתונים לחישוב`;
+    const change = direction === "none" ? "ללא שינוי" : `${direction === "up" ? "עלייה" : "ירידה"} של ${fmt(Math.abs(diffVsToday))} ₪`;
+    return `${name}: נטו ${fmt(net)} ₪, ${change}`;
+  });
+  if (c.today.display.net !== undefined) lines.push(`הנטו היום: ${fmt(c.today.display.net)} ₪.`);
+  if (c.options.some((o) => o.needsConfirmation)) lines.push("ההשתתפות העצמית ברכב חדש לפי ברירת המחדל בקטלוג, וצריך לאשר אותה מול נציג/ת הרכב.");
+  return lines.join("\n");
+}
+
+/** After a direct profile edit: what was saved, then the recomputed comparison or what is still missing. */
+export function profileUpdatedReply({ fields, compare, missing, config }: { fields: string[]; compare?: Compare; missing: string[]; config: Config }): string {
+  const lines = [`עדכנתי: ${fields.join(", ")}.`];
+  if (compare) lines.push(optionsReply(compare, config));
+  else if (missing.length) lines.push(`כדי לחשב חסרים עוד: ${missing.join(", ")}.`);
+  else lines.push("הפרטים מלאים. אפשר לבחור רכב להשוואה.");
+  return lines.join("\n");
+}
+
+/** Used when a built reply fails the number-guard (should not happen). No digits. */
+export const DIRECT_FALLBACK = "עדכנתי, וההשוואה חושבה מחדש. אפשר לראות את הסכומים בטבלה.";
+
 /** Used when a built reply fails the number-guard (should not happen). No digits. */
 export const REP_ANSWERED_FALLBACK = "נציג/ת הרכב ענה/תה על השאלה, וההשוואה עודכנה. אפשר לראות את הסכומים בטבלה.";
 
