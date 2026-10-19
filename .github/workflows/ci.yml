@@ -1,0 +1,74 @@
+# Every push and PR: lint, typecheck, unit tests, a production build (with the prompt-trace check), then the e2e
+# suite in mock mode (no LLM) against the Supabase project. E2E rows are tagged source='e2e' and deleted at teardown.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+        env:
+          # Build-time placeholders only: the build reads no data, and nothing is deployed from here.
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_placeholder
+      - run: npm run check:build
+
+  e2e:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # One run at a time: e2e writes to the shared Supabase project (and teardown deletes every e2e row).
+    concurrency:
+      group: e2e-supabase
+      cancel-in-progress: false
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Check Supabase secrets
+        id: secrets
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] || [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::notice::Supabase secrets are not set (e.g. a fork PR): skipping e2e."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v5
+        if: steps.secrets.outputs.skip != 'true'
+      - uses: actions/setup-node@v5
+        if: steps.secrets.outputs.skip != 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+        if: steps.secrets.outputs.skip != 'true'
+      - run: npx playwright install --with-deps chromium
+        if: steps.secrets.outputs.skip != 'true'
+      # The e2e server's APP_SECRET, REP_ACCESS_CODE and mock model come from playwright.config.ts.
+      - run: npm run test:e2e
+        if: steps.secrets.outputs.skip != 'true'
+      - uses: actions/upload-artifact@v4
+        if: failure() && steps.secrets.outputs.skip != 'true'
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
