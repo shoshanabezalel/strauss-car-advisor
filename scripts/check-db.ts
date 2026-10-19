@@ -1,7 +1,8 @@
 /**
- * Connectivity check: every table from supabase/migrations exists and is reachable
- * with the service-role key, and readable with the publishable key (demo RLS); then the
- * value-of-use lookup against the DB (needs `npm run import:vou` first).
+ * Connectivity + RLS check: every table from supabase/migrations is reachable with the service-role key. With the
+ * publishable key (M7, migration 0004) the private tables show no rows, the rate-limit function cannot be called,
+ * and only value_of_use (public tax-authority data) is readable; then the value-of-use lookup against the DB
+ * (needs `npm run import:vou` first).
  *
  * Usage: npm run check:db
  */
@@ -12,7 +13,9 @@ import { createSupabaseVouSource, getValueOfUse } from "@/lib/vou";
 
 config({ path: ".env.local", quiet: true });
 
-const TABLES = ["conversations", "messages", "profiles", "rep_questions", "comparisons", "value_of_use"];
+/** No policy for anon / authenticated: the publishable key must see 0 rows. */
+const PRIVATE = ["conversations", "messages", "profiles", "rep_questions", "comparisons", "rate_limits"];
+const PUBLIC = ["value_of_use"];
 
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -22,13 +25,19 @@ async function main() {
 
   const clients = { service: createClient(url, service), publishable: createClient(url, publishable) };
   let failed = false;
-  for (const table of TABLES) {
+  for (const table of [...PRIVATE, ...PUBLIC]) {
     for (const [name, client] of Object.entries(clients)) {
       const { count, error } = await client.from(table).select("*", { count: "exact", head: true });
-      if (error) failed = true;
-      console.log(`${error ? "FAIL" : "ok  "} ${table.padEnd(14)} [${name}] ${error ? error.message : `${count} rows`}`);
+      // A private table that the publishable key can read from is a leak, even without an error.
+      const leak = name === "publishable" && PRIVATE.includes(table) && (count ?? 0) > 0;
+      if (error || leak) failed = true;
+      const status = error || leak ? "FAIL" : "ok  ";
+      console.log(`${status} ${table.padEnd(14)} [${name}] ${error ? error.message : `${count} rows${leak ? " visible to the publishable key" : ""}`}`);
     }
   }
+  const rpc = await clients.publishable.rpc("hit_rate_limit", { p_key: "check-db", p_window_seconds: 60, p_max: 1 });
+  if (!rpc.error) failed = true;
+  console.log(`${rpc.error ? "ok  " : "FAIL"} hit_rate_limit  [publishable] ${rpc.error ? `refused: ${rpc.error.message}` : "callable"}`);
   if (!(await checkValueOfUse(clients.publishable))) failed = true;
   if (failed) process.exit(1);
 }

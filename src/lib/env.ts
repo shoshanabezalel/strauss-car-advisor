@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+const MIN_APP_SECRET = 32;
+const MIN_REP_CODE = 8;
+
 /** Public env — safe in the browser. Next.js inlines NEXT_PUBLIC_* only when referenced literally. */
 const PublicEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.url(),
@@ -15,6 +18,11 @@ const ServerEnvSchema = PublicEnvSchema.extend({
   CONVERSATION_SOURCE: z.enum(["app", "e2e"]).default("app"),
   ANTHROPIC_API_KEY: z.string().min(1).optional(), // optional LLM fallback
   FALLBACK_MODEL: z.string().min(1).optional(),
+  /** HMAC key for the rep session cookie and the Realtime conversation topics (M7). */
+  APP_SECRET: z.string().min(MIN_APP_SECRET).optional(),
+  /** The rep screen's shared access code (M7, demo scope). */
+  REP_ACCESS_CODE: z.string().min(MIN_REP_CODE).optional(),
+  RATE_LIMIT_SCALE: z.string().optional(),
   // Used only by the Supabase MCP (scripts/supabase-mcp.mjs reads it from .env.local); the app never reads it.
   SUPABASE_ACCESS_TOKEN: z.string().optional(),
 });
@@ -58,6 +66,13 @@ export function fallbackEnv() {
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || undefined,
     FALLBACK_MODEL: process.env.FALLBACK_MODEL || undefined,
   });
+}
+
+/** APP_SECRET, required by the rep session and the conversation topics. A clear error instead of a weak default. */
+export function appSecret(): string {
+  const secret = process.env.APP_SECRET;
+  if (!secret || secret.length < MIN_APP_SECRET) throw new Error(`APP_SECRET must be set (at least ${MIN_APP_SECRET} characters, see .env.example)`);
+  return secret;
 }
 
 /** Realtime polling fallback (src/lib/realtime/ping-fallback.ts). Raw values are passed in so this stays testable. */

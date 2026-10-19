@@ -46,13 +46,13 @@ export function createSupabaseStore(db: SupabaseClient): ConversationStore {
     check(await db.from("conversations").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id), "conversation update");
 
   return {
-    async create(source) {
-      const row = check(await db.from("conversations").insert({ source }).select("id").single(), "conversation insert");
+    async create(source, ownerHash) {
+      const row = check(await db.from("conversations").insert({ source, owner_hash: ownerHash ?? null }).select("id").single(), "conversation insert");
       return (row as { id: string }).id;
     },
 
     async load(id) {
-      const conv = check(await db.from("conversations").select("id, status").eq("id", id).maybeSingle(), "conversation select");
+      const conv = check(await db.from("conversations").select("id, status, owner_hash").eq("id", id).maybeSingle(), "conversation select");
       if (!conv) return null;
       const [profile, messages, comparison, questions] = await Promise.all([
         db.from("profiles").select("data").eq("conversation_id", id).maybeSingle(),
@@ -64,6 +64,7 @@ export function createSupabaseStore(db: SupabaseClient): ConversationStore {
       return {
         id,
         status: (conv as { status: ConversationStatus }).status,
+        ownerHash: (conv as { owner_hash: string | null }).owner_hash ?? undefined,
         state,
         messages: (check(messages, "messages select") as { content: StoredMessage }[]).map((m) => m.content),
         comparison: (check(comparison, "comparison select") as { result: CompareOutput } | null)?.result,

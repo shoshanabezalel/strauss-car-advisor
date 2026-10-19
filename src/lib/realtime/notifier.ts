@@ -1,4 +1,5 @@
-import { conversationTopic, REP_QUEUE_TOPIC } from "./topics";
+import { conversationTopic } from "./conversation-topic";
+import { REP_QUEUE_TOPIC } from "./topics";
 
 /**
  * Tells open screens that something changed. A ping carries no data; screens refetch through the API routes,
@@ -16,12 +17,12 @@ export const noopNotifier: Notifier = {
 };
 
 /** Records the topics it was asked to ping (unit tests). */
-export function createMemoryNotifier(): Notifier & { calls: string[] } {
+export function createMemoryNotifier(secret = "memory-notifier-secret"): Notifier & { calls: string[] } {
   const calls: string[] = [];
   return {
     calls,
     async conversation(id) {
-      calls.push(conversationTopic(id));
+      calls.push(conversationTopic(id, secret));
     },
     async repQueue() {
       calls.push(REP_QUEUE_TOPIC);

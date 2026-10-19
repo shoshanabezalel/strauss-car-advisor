@@ -13,16 +13,16 @@ export function createMemoryStore(): ConversationStore {
   const list = (pred: (q: RepQuestionRecord) => boolean) => structuredClone([...questions.values()].filter(pred).sort(byCreated));
 
   return {
-    async create(source) {
+    async create(source, ownerHash) {
       const id = crypto.randomUUID();
-      rows.set(id, { id, source, status: "active", state: { profile: {}, sources: {} }, messages: [] });
+      rows.set(id, { id, source, ownerHash, status: "active", state: { profile: {}, sources: {} }, messages: [] });
       return id;
     },
     async load(id) {
       const row = rows.get(id);
       if (!row) return null;
-      const { id: rowId, status, state, messages, comparison } = structuredClone(row);
-      return { id: rowId, status, state, messages, comparison, repQuestions: list((q) => q.conversationId === id) };
+      const { id: rowId, status, state, messages, comparison, ownerHash } = structuredClone(row);
+      return { id: rowId, status, state, messages, comparison, ownerHash, repQuestions: list((q) => q.conversationId === id) };
     },
     async appendMessages(id, messages) {
       get(id).messages.push(...structuredClone(messages));

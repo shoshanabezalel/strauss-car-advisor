@@ -128,7 +128,7 @@ describe.skipIf(!hasKey)(`agent evals (live model: ${provider})`, () => {
     const vouSource = createMemoryVouSource(loadVouRecords());
     const send = async (text: string, model: Parameters<typeof handleChatTurn>[0]["model"], conversationId?: string) => {
       const events: ChatEvent[] = [];
-      await handleChatTurn({ store, model, config, vouSource, conversationId, text, source: "e2e", emit: (e) => events.push(e), maxRetries: 0 });
+      await handleChatTurn({ store, model, config, vouSource, conversationId, text, source: "e2e", ownerHash: "e".repeat(64), emit: (e) => events.push(e), maxRetries: 0 });
       return events;
     };
     const resultOf = (events: ChatEvent[]) => events.find((e) => e.type === "result") as Extract<ChatEvent, { type: "result" }> | undefined;

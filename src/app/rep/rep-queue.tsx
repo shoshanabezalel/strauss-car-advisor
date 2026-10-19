@@ -1,9 +1,11 @@
 "use client";
 
-import { Inbox } from "lucide-react";
+import { Inbox, LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { RepQuestionView } from "@/lib/chat/rep-view";
 import { REP_QUEUE_TOPIC } from "@/lib/realtime/topics";
@@ -23,18 +25,26 @@ const shekel = new Intl.NumberFormat("he-IL", { maximumFractionDigits: 0 });
 export function RepQueue({ mock, options }: { mock: boolean; options: RepOptions }) {
   const [questions, setQuestions] = useState<RepQuestionView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const load = useCallback(
     () =>
       fetch("/api/rep/questions", { cache: "no-store" })
         .then(async (res) => {
+          // The session expired (12h): back to the login form.
+          if (res.status === 401) return router.refresh();
           if (!res.ok) throw new Error(String(res.status));
           setQuestions(((await res.json()) as { questions: RepQuestionView[] }).questions);
           setError(null);
         })
         .catch(() => setError("לא הצלחתי לטעון את השאלות. מנסה שוב…")),
-    [],
+    [router],
   );
+
+  async function logout() {
+    await fetch("/api/rep/logout", { method: "POST" }).catch(() => undefined);
+    router.refresh();
+  }
 
   useEffect(() => {
     void load();
@@ -42,7 +52,7 @@ export function RepQueue({ mock, options }: { mock: boolean; options: RepOptions
   const realtime = usePing(REP_QUEUE_TOPIC, () => void load());
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6" data-realtime={realtime}>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6" data-realtime={realtime} data-testid="rep-queue">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-semibold">שאלות לנציג/ת הרכב</h1>
@@ -55,6 +65,9 @@ export function RepQueue({ mock, options }: { mock: boolean; options: RepOptions
               מצב הדגמה
             </Badge>
           )}
+          <Button variant="ghost" size="sm" onClick={() => void logout()} data-testid="rep-logout">
+            <LogOut /> יציאה
+          </Button>
         </div>
       </header>
 

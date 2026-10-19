@@ -3,6 +3,7 @@ import { createAgentState, createToolHandlers, runAgentTurn, type AgentEvent, ty
 import { ModelBusyError } from "@/lib/agent/model-errors";
 import type { Config } from "@/lib/config";
 import { noopNotifier, type Notifier } from "@/lib/realtime/notifier";
+import { ownsConversation } from "@/lib/security/owner";
 import type { VouSource } from "@/lib/vou";
 import { toComparisonView, type ComparisonView } from "./comparison-view";
 import { toModelHistory } from "./history";
@@ -31,6 +32,8 @@ export interface ChatTurnInput {
   conversationId?: string;
   text: string;
   source: ConversationSource;
+  /** SHA-256 of the caller's owner cookie: a conversation opens only for its owner (M7). */
+  ownerHash: string;
   emit: (e: ChatEvent) => void;
   /** Pings the rep screen when a turn opens a question. */
   notifier?: Notifier;
@@ -52,16 +55,17 @@ const isBusy = (err: unknown) => err instanceof ModelBusyError || (err as Error)
  * turn, then emit a single `result`. Nothing is stored when the turn fails, so the employee can resend.
  */
 export async function handleChatTurn(input: ChatTurnInput): Promise<void> {
-  const { store, model, config, vouSource, text, source, emit, notifier = noopNotifier, maxRetries, abortSignal } = input;
+  const { store, model, config, vouSource, text, source, ownerHash, emit, notifier = noopNotifier, maxRetries, abortSignal } = input;
 
   const loadedAt = new Date().toISOString();
   let conversationId = input.conversationId;
   const snapshot = conversationId ? await store.load(conversationId) : null;
-  if (conversationId && !snapshot) {
+  // Someone else's conversation looks exactly like a missing one: the response never confirms it exists.
+  if (conversationId && (!snapshot || !ownsConversation(snapshot, ownerHash))) {
     emit({ type: "error", error: "not_found", message: NOT_FOUND_MESSAGE });
     return;
   }
-  conversationId ??= await store.create(source);
+  conversationId ??= await store.create(source, ownerHash);
   const id = conversationId;
   emit({ type: "conversation", conversationId: id });
 

@@ -10,23 +10,25 @@ import { loadConfig } from "@/lib/config";
 import { compareOptions, maxParticipation } from "@/lib/engine";
 import { roundShekel } from "@/lib/format/money";
 import { createMemoryNotifier } from "@/lib/realtime/notifier";
-import { conversationTopic, REP_QUEUE_TOPIC } from "@/lib/realtime/topics";
+import { conversationTopic } from "@/lib/realtime/conversation-topic";
+import { REP_QUEUE_TOPIC } from "@/lib/realtime/topics";
 import { createMemoryVouSource } from "@/lib/vou";
 
 const config = loadConfig();
 const a7 = config.challenge;
 const answer = a7.repAnswer as Extract<RepAnswer, { field: "participation" }>;
 const vouSource = createMemoryVouSource([]);
+const SECRET = "s".repeat(40);
 let store: ReturnType<typeof createMemoryStore>;
 let notifier: ReturnType<typeof createMemoryNotifier>;
 beforeEach(() => {
   store = createMemoryStore();
-  notifier = createMemoryNotifier();
+  notifier = createMemoryNotifier(SECRET);
 });
 
 async function send(text: string, conversationId?: string, model: LanguageModel = createMockModel(config)) {
   const events: ChatEvent[] = [];
-  await handleChatTurn({ store, model, config, vouSource, notifier, conversationId, text, source: "app", emit: (e) => events.push(e) });
+  await handleChatTurn({ store, model, config, vouSource, notifier, conversationId, text, source: "app", ownerHash: "a".repeat(64), emit: (e) => events.push(e) });
   return events.find((e) => e.type === "result") as Extract<ChatEvent, { type: "result" }>;
 }
 
@@ -76,7 +78,7 @@ describe("A7: representative answers the participation", () => {
     expect(await store.getRepQuestion(questionId)).toMatchObject({ status: "answered", answer, answeredBy: "דנה" });
     expect(snap.status).toBe("active");
     expect(await store.listOpenRepQuestions()).toHaveLength(0);
-    expect(notifier.calls).toEqual(expect.arrayContaining([conversationTopic(id), REP_QUEUE_TOPIC]));
+    expect(notifier.calls).toEqual(expect.arrayContaining([conversationTopic(id, SECRET), REP_QUEUE_TOPIC]));
   });
 
   it("the employee sees a deterministic reply whose numbers all come from the tools", async () => {

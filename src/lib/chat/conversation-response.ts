@@ -15,6 +15,8 @@ export interface ConversationResponse {
   repQuestions: RepQuestionStatusView[];
   /** The profile form and the choices for the option picker (M6). */
   profile: ProfileView;
+  /** This conversation's Realtime broadcast topic (an HMAC of the id, M7): only its owner learns it. */
+  topic: string;
 }
 
 export function toRepQuestionStatuses(snap: Pick<ConversationSnapshot, "repQuestions">): RepQuestionStatusView[] {

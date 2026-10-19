@@ -12,7 +12,7 @@ import { loadConfig } from "@/lib/config";
 import { allowedCars, compareOptions } from "@/lib/engine";
 import { roundShekel } from "@/lib/format/money";
 import { createMemoryNotifier } from "@/lib/realtime/notifier";
-import { conversationTopic } from "@/lib/realtime/topics";
+import { conversationTopic } from "@/lib/realtime/conversation-topic";
 import { createMemoryVouSource } from "@/lib/vou";
 
 // M6 (F5): the employee edits the profile and swaps cars directly. Same path as the agent: tools → engine →
@@ -23,17 +23,19 @@ const current = e1.profile.current as { kind: "car"; carId: string; participatio
 const attoId = (e1.alternative as { carId: string }).carId;
 const ev3 = config.catalog.cars.find((c) => c.model === "EV3")!;
 const vouSource = createMemoryVouSource([]);
+const OWNER = "a".repeat(64);
+const SECRET = "s".repeat(40);
 let store: ConversationStore;
 let notifier: ReturnType<typeof createMemoryNotifier>;
 beforeEach(() => {
   store = createMemoryStore();
-  notifier = createMemoryNotifier();
+  notifier = createMemoryNotifier(SECRET);
 });
-const deps = () => ({ store, config, vouSource, notifier, source: "app" as const });
+const deps = () => ({ store, config, vouSource, notifier, source: "app" as const, ownerHash: OWNER });
 
 async function e1Conversation() {
   const events: ChatEvent[] = [];
-  await handleChatTurn({ store, model: createMockModel(config), config, vouSource, text: openingMessage(config, e1), source: "app", emit: (e) => events.push(e) });
+  await handleChatTurn({ store, model: createMockModel(config), config, vouSource, text: openingMessage(config, e1), source: "app", ownerHash: OWNER, emit: (e) => events.push(e) });
   const r = events.find((e) => e.type === "result") as Extract<ChatEvent, { type: "result" }>;
   return r.conversationId;
 }
@@ -80,7 +82,7 @@ describe("updateProfileDirect", () => {
     expect(snap.comparison!.today.breakdown!.net).toBeCloseTo(before.today.breakdown!.net - 100, 9);
     // the alternative's net does not depend on today's participation
     expect(snap.comparison!.options[0].display.net).toBe(before.options[0].display.net);
-    expect(notifier.calls).toContain(conversationTopic(id));
+    expect(notifier.calls).toContain(conversationTopic(id, SECRET));
   });
 
   it("the reply names the change and passes the number-guard", async () => {
@@ -185,5 +187,28 @@ describe("changeOptions", () => {
     if (!res.ok) throw new Error("setup");
     const r = await changeOptions({ ...deps(), conversationId: res.conversationId, options: [{ kind: "car", carId: attoId }] });
     expect(r).toMatchObject({ ok: false, error: "incomplete" });
+  });
+});
+
+// M7: profile edits and option changes check the owner like the chat does.
+describe("direct actions: owner", () => {
+  it("another owner → not_found for both actions, and nothing changes", async () => {
+    const id = await e1Conversation();
+    const before = await store.load(id);
+    const other = { ...deps(), ownerHash: "b".repeat(64) };
+    expect(await updateProfileDirect({ ...other, conversationId: id, updates: [{ field: "bonus", value: 1 }] })).toMatchObject({ ok: false, error: "not_found" });
+    expect(await changeOptions({ ...other, conversationId: id, options: [{ kind: "waiver" }] })).toMatchObject({ ok: false, error: "not_found" });
+    expect(await store.load(id)).toEqual(before);
+  });
+
+  it("a conversation the form starts belongs to the caller", async () => {
+    const res = await updateProfileDirect({ ...deps(), updates: [{ field: "group", value: "ג" }] });
+    if (!res.ok) throw new Error(res.message);
+    expect((await store.load(res.conversationId))!.ownerHash).toBe(OWNER);
+  });
+
+  it("a conversation without an owner → not_found", async () => {
+    const id = await store.create("app");
+    expect(await updateProfileDirect({ ...deps(), conversationId: id, updates: [{ field: "bonus", value: 1 }] })).toMatchObject({ ok: false, error: "not_found" });
   });
 });

@@ -3,6 +3,7 @@ import { AgentSituationSchema, createToolHandlers, ProfileFieldSchema, type Prof
 import { DIRECT_FALLBACK, optionsReply, profileUpdatedReply } from "@/lib/agent/replies";
 import type { Config, Situation } from "@/lib/config";
 import { missingProfileFields } from "@/lib/engine";
+import { ownsConversation } from "@/lib/security/owner";
 import { FIELD_LABELS } from "@/lib/format/labels";
 import type { Notifier } from "@/lib/realtime/notifier";
 import type { VouSource } from "@/lib/vou";
@@ -30,6 +31,8 @@ interface Deps {
   vouSource: VouSource;
   notifier: Notifier;
   source: ConversationSource;
+  /** SHA-256 of the caller's owner cookie (M7). */
+  ownerHash: string;
 }
 
 /** What the client may send: a field and a value. The source is always "employee", set here. */
@@ -42,9 +45,11 @@ const NOT_FOUND = "לא מצאתי את השיחה הזו. אפשר להתחיל
 const FAILED = "משהו השתבש ולא הצלחתי לשמור. אפשר לנסות שוב.";
 const label = (f: string) => FIELD_LABELS[f as ProfileField] ?? f;
 
+/** The caller's conversation, or a new one. Someone else's (or a pre-M7 one without owner) → null, like a missing one. */
 async function open(deps: Deps, conversationId: string | undefined): Promise<ConversationSnapshot | null> {
-  const id = conversationId ?? (await deps.store.create(deps.source));
-  return deps.store.load(id);
+  const id = conversationId ?? (await deps.store.create(deps.source, deps.ownerHash));
+  const snap = await deps.store.load(id);
+  return snap && ownsConversation(snap, deps.ownerHash) ? snap : null;
 }
 
 export async function updateProfileDirect(input: Deps & { conversationId?: string; updates: unknown }): Promise<DirectResult> {
@@ -122,7 +127,7 @@ export async function changeOptions(input: Deps & { conversationId: string; opti
     return fail("invalid", "הרכב לא נמצא בקטלוג.");
   }
 
-  const snap = await store.load(input.conversationId);
+  const snap = await open(input, input.conversationId);
   if (!snap) return fail("not_found", NOT_FOUND);
   const state = snap.state;
   const missing = missingProfileFields(state.profile, config);

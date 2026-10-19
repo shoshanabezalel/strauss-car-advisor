@@ -1,6 +1,7 @@
 import { devices, expect, test, type Page } from "@playwright/test";
 import catalog from "../../data/catalog.json" with { type: "json" };
 import script from "../../data/challenge-script.json" with { type: "json" };
+import { loginRep } from "./helpers";
 
 // A7 / A12 / A13 with the mock model. The rep's answer reaches the employee screen through Realtime only:
 // the polling fallback is off in e2e (playwright.config.ts), and the employee page is never reloaded before the check.
@@ -25,7 +26,9 @@ async function a7WaitingForRep(page: Page) {
 }
 
 test.describe("representative loop", () => {
-  test("A7 + A13: employee asks, rep answers, employee sees the recomputed comparison without a reload", async ({ page, context, request }) => {
+  test("A7 + A13: employee asks, rep answers, employee sees the recomputed comparison without a reload", async ({ page, context }) => {
+    // The rep API needs the rep session: requests go through the context, which carries its cookie (M7).
+    const request = context.request;
     const id = await a7WaitingForRep(page);
     const netBefore = shekels(await page.getByTestId("row-option-0").getByTestId("net").innerText());
 
@@ -38,7 +41,7 @@ test.describe("representative loop", () => {
 
     // the rep sees who asks, which car and what is missing
     const rep = await context.newPage();
-    await rep.goto("/rep");
+    await loginRep(rep);
     const q = card(rep, id);
     await expect(q).toBeVisible();
     await expect(q.getByTestId("rep-context")).toContainText(car.model);
@@ -89,7 +92,7 @@ test.describe("representative loop", () => {
     const id = conversationId(page);
 
     const rep = await context.newPage();
-    await rep.goto("/rep");
+    await loginRep(rep);
     const q = card(rep, id);
     await expect(q).toBeVisible();
     await expect(q.getByTestId("answer-car")).toBeVisible();
@@ -109,7 +112,7 @@ test.describe("rep screen (mobile)", () => {
   test("cards fit a phone: no horizontal scroll", async ({ page, context }) => {
     await a7WaitingForRep(page);
     const rep = await context.newPage();
-    await rep.goto("/rep");
+    await loginRep(rep);
     await expect(card(rep, conversationId(page))).toBeVisible();
     const overflow = await rep.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
@@ -117,7 +120,9 @@ test.describe("rep screen (mobile)", () => {
 });
 
 test.describe("rep API", () => {
-  test("bad bodies and unknown questions", async ({ request }) => {
+  test("bad bodies and unknown questions", async ({ page }) => {
+    await loginRep(page);
+    const request = page.context().request;
     expect((await request.post("/api/rep/answer", { data: { questionId: "x", answer } })).status()).toBe(400);
     expect((await request.post("/api/rep/answer", { data: { questionId: crypto.randomUUID(), answer: { field: "note" } } })).status()).toBe(400);
     expect((await request.post("/api/rep/answer", { data: { questionId: crypto.randomUUID(), answer } })).status()).toBe(404);

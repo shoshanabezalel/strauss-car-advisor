@@ -14,6 +14,7 @@ import { createMemoryVouSource } from "@/lib/vou";
 const config = loadConfig();
 const e1 = config.employees.employees[0];
 const vouSource = createMemoryVouSource([]);
+const OWNER = "a".repeat(64);
 let store: ReturnType<typeof createMemoryStore>;
 beforeEach(() => {
   store = createMemoryStore();
@@ -21,7 +22,7 @@ beforeEach(() => {
 
 async function send(text: string, conversationId?: string, model = createMockModel(config)) {
   const events: ChatEvent[] = [];
-  await handleChatTurn({ store, model, config, vouSource, conversationId, text, source: "app", emit: (e) => events.push(e) });
+  await handleChatTurn({ store, model, config, vouSource, conversationId, text, source: "app", ownerHash: OWNER, emit: (e) => events.push(e) });
   const result = events.find((e) => e.type === "result");
   return { events, result: result as Extract<ChatEvent, { type: "result" }> | undefined };
 }
@@ -97,6 +98,30 @@ describe("handleChatTurn", () => {
   });
 });
 
+// M7: the conversation belongs to the browser that created it (owner cookie → hash).
+describe("handleChatTurn: owner", () => {
+  it("a new conversation is stored with the caller's owner hash", async () => {
+    const { result } = await send(openingMessage(config, e1));
+    expect((await store.load(result!.conversationId))!.ownerHash).toBe(OWNER);
+  });
+
+  it("another owner gets not_found and nothing is stored", async () => {
+    const { result } = await send(openingMessage(config, e1));
+    const id = result!.conversationId;
+    const before = (await store.load(id))!.messages.length;
+    const events: ChatEvent[] = [];
+    await handleChatTurn({ store, model: createMockModel(config), config, vouSource, conversationId: id, text: "שלום", source: "app", ownerHash: "b".repeat(64), emit: (e) => events.push(e) });
+    expect(events).toEqual([{ type: "error", error: "not_found", message: expect.any(String) }]);
+    expect((await store.load(id))!.messages.length).toBe(before);
+  });
+
+  it("a conversation without an owner (before M7) is not_found for everyone", async () => {
+    const id = await store.create("app");
+    const { events } = await send("שלום", id);
+    expect(events).toEqual([{ type: "error", error: "not_found", message: expect.any(String) }]);
+  });
+});
+
 // M7: model fallback in the chat path.
 describe("handleChatTurn: busy and fallback", () => {
   const unavailable = () =>
@@ -123,7 +148,7 @@ describe("handleChatTurn: busy and fallback", () => {
     const events: ChatEvent[] = [];
     const primary = new MockLanguageModelV4({ doGenerate: () => Promise.reject(unavailable()) });
     const model = withFallback(primary, createMockModel(config), { sleep: async () => {}, onFallback: () => events.push({ type: "status", status: "fallback" }) });
-    await handleChatTurn({ store, model, config, vouSource, text: openingMessage(config, e1), source: "app", emit: (e) => events.push(e), maxRetries: 0 });
+    await handleChatTurn({ store, model, config, vouSource, text: openingMessage(config, e1), source: "app", ownerHash: OWNER, emit: (e) => events.push(e), maxRetries: 0 });
     const result = events.find((e) => e.type === "result") as Extract<ChatEvent, { type: "result" }>;
     expect(result.comparison?.rows[1].amounts.net).toBe(e1.expected.netAlt);
     const fallbackAt = events.findIndex((e) => e.type === "status" && e.status === "fallback");

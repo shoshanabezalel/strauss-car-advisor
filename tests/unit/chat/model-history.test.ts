@@ -24,7 +24,7 @@ beforeEach(() => {
 
 async function send(text: string, conversationId?: string, model = createMockModel(config)) {
   const events: ChatEvent[] = [];
-  await handleChatTurn({ store, model, config, vouSource, conversationId, text, source: "app", emit: (e) => events.push(e) });
+  await handleChatTurn({ store, model, config, vouSource, conversationId, text, source: "app", ownerHash: "a".repeat(64), emit: (e) => events.push(e) });
   return events.find((e) => e.type === "result") as Extract<ChatEvent, { type: "result" }>;
 }
 

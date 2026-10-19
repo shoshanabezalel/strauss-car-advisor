@@ -16,7 +16,6 @@ import type { ChatEvent } from "@/lib/chat/handle-turn";
 import type { VisibleMessage } from "@/lib/chat/history";
 import type { ProfileView } from "@/lib/chat/profile-view";
 import { createNdjsonParser } from "@/lib/chat/ndjson";
-import { conversationTopic } from "@/lib/realtime/topics";
 import { usePing } from "@/lib/realtime/use-ping";
 import { Comparison } from "./comparison";
 import { STATUS_LABELS, TOOL_LABELS } from "./labels";
@@ -52,6 +51,8 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
   const [repQuestions, setRepQuestions] = useState<RepQuestionStatusView[]>([]);
   const [profile, setProfile] = useState<ProfileView>(emptyProfile);
   const [loading, setLoading] = useState(Boolean(params.get("c")));
+  // The Realtime topic is an HMAC of the id that only the owner gets from the API (M7), so it arrives with the first load.
+  const [topic, setTopic] = useState<string | undefined>();
   const endRef = useRef<HTMLDivElement>(null);
   const pending = progress !== null;
   // A ping during a running turn is applied after the turn, so the stream and the refetch don't race.
@@ -71,6 +72,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
             return;
           }
           const data = (await res.json()) as ConversationResponse;
+          setTopic(data.topic);
           if (busy.current) {
             refetchAfterTurn.current = true;
             return;
@@ -96,7 +98,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const realtime = usePing(conversationId ? conversationTopic(conversationId) : undefined, () => {
+  const realtime = usePing(conversationId ? topic : undefined, () => {
     if (!conversationId) return;
     if (busy.current) refetchAfterTurn.current = true;
     else void load(conversationId);
@@ -174,6 +176,11 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ conversationId, text: trimmed }),
       });
+      if (res.status === 429) {
+        const limited = (await res.json().catch(() => ({}))) as { message?: string };
+        setError(limited.message ?? GENERIC_ERROR);
+        return;
+      }
       if (!res.ok || !res.body) throw new Error(`chat ${res.status}`);
       const parser = createNdjsonParser<ChatEvent>((e) => {
         if (e.type === "conversation") id = e.conversationId;

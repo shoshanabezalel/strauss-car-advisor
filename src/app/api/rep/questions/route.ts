@@ -1,12 +1,15 @@
 import { toRepQuestionView } from "@/lib/chat/rep-view";
 import { agentModeHeader, chatDeps } from "@/lib/chat/server";
+import { hasRepSession, NO_STORE, unauthorized } from "@/lib/security/http";
+import { clientIp, enforceLimits, LIMITS } from "@/lib/security/rate-limit";
 
-/**
- * GET /api/rep/questions → open representative questions with the context needed to answer them.
- * TODO(M7): no auth on the rep screen yet (TECH-DESIGN §10).
- */
-export async function GET() {
-  const { store, config } = chatDeps();
+/** GET /api/rep/questions → open representative questions with the context needed to answer them. Rep session only (M7). */
+export async function GET(request: Request) {
+  const { store, config, rateLimiter, rateLimitScale } = chatDeps();
+  const limited = await enforceLimits(rateLimiter, [{ limit: LIMITS.repQuestionsIp, key: clientIp(request) }], rateLimitScale);
+  if (limited) return limited;
+  if (!hasRepSession(request)) return unauthorized();
+
   const open = await store.listOpenRepQuestions();
   const ids = [...new Set(open.map((q) => q.conversationId))];
   const snaps = new Map((await Promise.all(ids.map((id) => store.load(id)))).flatMap((s) => (s ? [[s.id, s] as const] : [])));
@@ -14,5 +17,5 @@ export async function GET() {
     const snap = snaps.get(q.conversationId);
     return snap ? [toRepQuestionView(q, snap, config)] : [];
   });
-  return Response.json({ questions }, { headers: { "cache-control": "no-store", ...agentModeHeader() } });
+  return Response.json({ questions }, { headers: { ...NO_STORE, ...agentModeHeader() } });
 }

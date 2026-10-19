@@ -42,11 +42,13 @@ export interface ConversationSnapshot {
   comparison?: CompareOutput;
   /** This conversation's representative questions, oldest first. */
   repQuestions: RepQuestionRecord[];
+  /** SHA-256 of the creator's owner cookie (M7). Undefined for conversations created before M7: nobody owns them. */
+  ownerHash?: string;
 }
 
 /** Where conversations live. Supabase in the app (service role), memory in unit tests. */
 export interface ConversationStore {
-  create(source: ConversationSource): Promise<string>;
+  create(source: ConversationSource, ownerHash?: string): Promise<string>;
   /** null when no conversation has this id. */
   load(id: string): Promise<ConversationSnapshot | null>;
   appendMessages(id: string, messages: StoredMessage[]): Promise<void>;
