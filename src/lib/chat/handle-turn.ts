@@ -33,6 +33,8 @@ export interface ChatTurnInput {
   emit: (e: ChatEvent) => void;
   /** Pings the rep screen when a turn opens a question. */
   notifier?: Notifier;
+  /** Passed to the AI SDK; the live evals set 0 and retry rate limits themselves. */
+  maxRetries?: number;
 }
 
 const NOT_FOUND_MESSAGE = "לא מצאתי את השיחה הזו. אפשר להתחיל שיחה חדשה.";
@@ -43,7 +45,7 @@ const FAILED_MESSAGE = "משהו השתבש ולא הצלחתי לענות. אפ
  * turn, then emit a single `result`. Nothing is stored when the turn fails, so the employee can resend.
  */
 export async function handleChatTurn(input: ChatTurnInput): Promise<void> {
-  const { store, model, config, vouSource, text, source, emit, notifier = noopNotifier } = input;
+  const { store, model, config, vouSource, text, source, emit, notifier = noopNotifier, maxRetries } = input;
 
   const loadedAt = new Date().toISOString();
   let conversationId = input.conversationId;
@@ -66,6 +68,7 @@ export async function handleChatTurn(input: ChatTurnInput): Promise<void> {
       messages: [...history, user],
       deps: { config, vouSource, state, repQueue: store.repQueue(id) },
       onEvent: emit,
+      maxRetries,
     });
 
     // A representative may have answered while the model was working: re-apply those answers so the state loaded
