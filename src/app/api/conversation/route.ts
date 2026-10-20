@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { z } from "zod";
 import { toComparisonView } from "@/lib/chat/comparison-view";
 import { toRepQuestionStatuses, type ConversationResponse } from "@/lib/chat/conversation-response";
@@ -15,6 +16,9 @@ import { clientIp, enforceLimits, LIMITS } from "@/lib/security/rate-limit";
  * Only for the browser that created it (owner cookie, M7); anyone else gets the same 404 as for a missing id.
  */
 export async function GET(request: Request) {
+  // Request-time only: with Cache Components a GET handler is prerendered at build until it touches the request,
+  // and chatDeps() needs the server env, which a build doesn't have.
+  await connection();
   const headers = { ...NO_STORE, ...agentModeHeader() };
   const { store, config, rateLimiter, rateLimitScale } = chatDeps();
   const limited = await enforceLimits(rateLimiter, [{ limit: LIMITS.conversationIp, key: clientIp(request) }], rateLimitScale);
