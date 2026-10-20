@@ -1,16 +1,21 @@
 # Live agent evals (tests/evals). Manual only: they cost API calls and depend on a network service.
-# provider=google measures the production model (Gemini); provider=anthropic measures the fallback (Claude Haiku)
-# alone, with the same tools, prompt and guard (M7). Also the way to run them if NetFree blocks a provider locally.
+# target=primary measures the production model (AGENT_MODEL, Gemini); target=fallback measures the fallback model
+# alone (FALLBACK_MODEL: a second Gemini model on the same key, or Claude with ANTHROPIC_API_KEY), with the same
+# tools, prompt and guard (M7). Also the way to run them if NetFree blocks a provider locally.
 name: eval-agent
 
 on:
   workflow_dispatch:
     inputs:
-      provider:
+      target:
         description: Which model to evaluate
         type: choice
-        options: [google, anthropic]
-        default: google
+        options: [primary, fallback]
+        default: primary
+      fallback_model:
+        description: "FALLBACK_MODEL for target=fallback (e.g. gemini-3.5-flash-lite, claude-haiku-5-5)"
+        type: string
+        default: gemini-3.5-flash-lite
 
 permissions:
   contents: read
@@ -20,12 +25,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      EVAL_PROVIDER: ${{ inputs.provider }}
+      EVAL_TARGET: ${{ inputs.target }}
+      FALLBACK_MODEL: ${{ inputs.fallback_model }}
       GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      # Optional; empty falls back to the defaults in src/lib/env.ts.
+      # Optional; empty falls back to the default in src/lib/env.ts.
       AGENT_MODEL: ${{ secrets.AGENT_MODEL }}
-      FALLBACK_MODEL: ${{ secrets.FALLBACK_MODEL }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -35,7 +40,10 @@ jobs:
       - run: npm ci
       - name: Check API key secret
         run: |
-          if [ "$EVAL_PROVIDER" = "anthropic" ]; then key="$ANTHROPIC_API_KEY"; name=ANTHROPIC_API_KEY; else key="$GOOGLE_GENERATIVE_AI_API_KEY"; name=GOOGLE_GENERATIVE_AI_API_KEY; fi
+          case "$EVAL_TARGET:$FALLBACK_MODEL" in
+            fallback:claude-*) key="$ANTHROPIC_API_KEY"; name=ANTHROPIC_API_KEY ;;
+            *) key="$GOOGLE_GENERATIVE_AI_API_KEY"; name=GOOGLE_GENERATIVE_AI_API_KEY ;;
+          esac
           if [ -z "$key" ]; then
             echo "::error::Repository secret $name is not set (the evals would be skipped)."
             exit 1

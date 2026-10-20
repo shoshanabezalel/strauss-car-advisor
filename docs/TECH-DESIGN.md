@@ -323,17 +323,24 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
      regeneration, stays on it, so a turn never alternates providers;
   3. no fallback configured, or it is busy too → `ModelBusyError` → chat `error: busy` with a fixed Hebrew message
      (no digits); the turn stores nothing, as before. Other errors pass through unchanged (`failed`).
-- Fallback: `@ai-sdk/anthropic` 4.0.82 (same `@ai-sdk/provider` as `ai`), `FALLBACK_MODEL` default
-  `claude-haiku-5-5`, only when `ANTHROPIC_API_KEY` is set. Thinking is **disabled** on it (allowed on Haiku 5.5
-  at effort ≤ high): the stored history drops reasoning parts between turns (`toolMessagesOnly`), and the turn must
-  fit the route's time budget.
+- Fallback (`fallbackConfig` in `env.ts`, decided 20/10): `FALLBACK_MODEL`'s prefix picks the provider.
+  - `gemini-…` (e.g. `gemini-3.5-flash-lite`): a second Gemini model on the **same Google key**, with the primary's
+    defaults. This is the deploy setting while there is no Anthropic key.
+  - `claude-…`: `@ai-sdk/anthropic` 4.0.82 (same `@ai-sdk/provider` as `ai`), needs `ANTHROPIC_API_KEY`. Without
+    `FALLBACK_MODEL`, an Anthropic key alone means `claude-haiku-5-5`. Thinking is **disabled** on Claude (allowed
+    on Haiku 5.5 at effort ≤ high): the stored history drops reasoning parts between turns (`toolMessagesOnly`),
+    and the turn must fit the route's time budget.
+  - Neither → no fallback (retry, then busy). A missing key, an unknown prefix, or the primary model itself are
+    refused, at build time on Vercel too (`deployEnvProblems`).
+  - Trade-off: a second Gemini model shares Google's availability, so it helps with per-model 429 / 503 ("high
+    demand" was per model in the 19/10 runs), not with a Google-wide outage.
 - runAgentTurn, the tools, the prompt and the number-guard are untouched: they only see a `LanguageModel`.
   Unit tests: the fallback gets the same system prompt and tool list; a tool step and the reply both run on it;
   the guard still blocks invented numbers there.
 - The chat route passes `maxRetries: 0` (the wrapper retries; no stacking with the SDK's 2) and
   `abortSignal: AbortSignal.timeout(100 s)`; an abort is reported as `busy`. `maxDuration = 120` (Fluid compute
   allows 300).
-- Evals: `createPrimaryModel()` / `createFallbackOnlyModel()` measure each provider alone (`EVAL_PROVIDER`).
+- Evals: `createPrimaryModel()` / `createFallbackOnlyModel()` measure each model alone (`EVAL_TARGET=primary|fallback`).
 
 ## 7e. Security (M7)
 - **Owner cookie** (`security/owner.ts`, `security/http.ts`): a browser without `advisor_owner` gets a random
@@ -493,9 +500,13 @@ from public / anon / authenticated (Supabase grants it by default). The only adv
   approval: judges at the venue share one Wi-Fi IP, so per-IP limits are deliberately loose (chat 60/min, 600/h;
   other routes ×6 the original plan) and the real protection is **30 turns / h per conversation and 300 / day
   overall**. Rep login stays at 5 / 15 min per IP (brute-force guard). The provider budget caps are the backstop.
-- [x] M7: **production model and fallback** — **fixed** (§7d); the Haiku evals are still to run (needs
-  `ANTHROPIC_API_KEY`: locally, since api.anthropic.com was reachable on 19/10, or the `eval-agent` workflow with
-  `provider: anthropic`).
+- [x] M7: **production model and fallback** — **fixed** (§7d). No Anthropic key for now (20/10), so the fallback is
+  configurable: `FALLBACK_MODEL=gemini-3.5-flash-lite` on the same Google key; Haiku still works once
+  `ANTHROPIC_API_KEY` is set. Fallback evals (20/10, [log](evals/2026-10-20-fallback-flash-lite.md)): **7/9**, twice.
+  Every number shown was correct; E-005 used two updateProfile calls, and in A7 it answered from history without
+  calling compareOptions, so the guard blocked the reply (safe, but a failed turn).
+- [ ] Fallback A7 behaviour: a prompt line ("after a representative's answer, call compareOptions before quoting
+  numbers") or another fallback model. Open: the user decides.
   - Gemini on the paid tier, with a budget cap set in Google Cloud billing.
   - On 429 / 503: retry once, then run the same turn on Claude Haiku. The tools, prompt and number-guard stay the
     same; only the `LanguageModel` changes.

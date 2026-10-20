@@ -2,7 +2,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { defaultSettingsMiddleware, wrapLanguageModel, type LanguageModel } from "ai";
 import { loadConfig } from "@/lib/config";
-import { agentEnv, fallbackEnv, MOCK_MODEL } from "@/lib/env";
+import { agentEnv, fallbackConfig, MOCK_MODEL } from "@/lib/env";
 import { withFallback } from "./fallback-model";
 import { createMockModel } from "./mock-model";
 
@@ -13,7 +13,8 @@ export function isMockMode(): boolean {
 
 /**
  * The agent model for one chat turn (server side: reads the API keys from env). Gemini, retried once on 429 / 503,
- * then Claude Haiku if ANTHROPIC_API_KEY is set (fallback-model.ts). Unit tests pass a mock model directly.
+ * then the fallback model if one is configured (FALLBACK_MODEL / ANTHROPIC_API_KEY, see fallbackConfig;
+ * fallback-model.ts). Unit tests pass a mock model directly.
  */
 export function createAgentModel(hooks: { onFallback?: () => void } = {}): LanguageModel {
   if (isMockMode()) {
@@ -21,7 +22,7 @@ export function createAgentModel(hooks: { onFallback?: () => void } = {}): Langu
     return createMockModel(loadConfig(), { delayMs: Number(process.env.AGENT_MOCK_DELAY_MS) || 0 });
   }
   const primary = createPrimaryModel();
-  const fallback = process.env.ANTHROPIC_API_KEY ? createFallbackOnlyModel() : undefined;
+  const fallback = fallbackConfig() ? createFallbackOnlyModel() : undefined;
   return withFallback(primary, fallback, { onFallback: hooks.onFallback });
 }
 
@@ -32,13 +33,17 @@ export function createPrimaryModel(): LanguageModel {
 }
 
 /**
- * Claude (Haiku by default, FALLBACK_MODEL overrides) with thinking off: the stored history drops reasoning parts
- * between turns (run-turn.ts), and a fallback turn must also stay inside the chat route's time budget.
+ * The fallback model alone (fallbackConfig): a second Gemini model on the same Google key (e.g.
+ * gemini-3.5-flash-lite), or Claude. Claude runs with thinking off: the stored history drops reasoning parts between
+ * turns (run-turn.ts), and a fallback turn must also stay inside the chat route's time budget. A Gemini fallback keeps
+ * the primary's defaults, which the stored history already handles.
  */
 export function createFallbackOnlyModel(): LanguageModel {
-  const env = fallbackEnv();
+  const cfg = fallbackConfig();
+  if (!cfg) throw new Error("no fallback model: set FALLBACK_MODEL (e.g. gemini-3.5-flash-lite) or ANTHROPIC_API_KEY");
+  if (cfg.provider === "google") return createGoogleGenerativeAI({ apiKey: cfg.apiKey })(cfg.model);
   return wrapLanguageModel({
-    model: createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })(env.FALLBACK_MODEL),
+    model: createAnthropic({ apiKey: cfg.apiKey })(cfg.model),
     middleware: defaultSettingsMiddleware({ settings: { providerOptions: { anthropic: { thinking: { type: "disabled" } } } } }),
   });
 }

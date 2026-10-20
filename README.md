@@ -35,7 +35,7 @@ npm run check:db   # tables reachable; RLS hides private tables from the publish
 | `npm run test:e2e` | E2E tests (Playwright, ~1.5 min, not in the Stop hook; CI runs them on every push). Starts its own mock-mode dev server on port 3100 (`.next-e2e`), so it can run next to `npm run dev`; rows it writes are tagged `e2e` and deleted at teardown |
 | `E2E_BASE_URL=<url> npx playwright test` | The `deployed` suite only (`*.deployed.spec.ts`): smoke, owner isolation, rep wall, one live E-001 turn. Deletes what it created by id. `E2E_REP_CODE=<code>` also tests the rep login (one of five tries per 15 min) |
 | `npm run db:clean-e2e` | Delete conversations left by e2e runs (`source = 'e2e'`) |
-| `npm run eval:agent` | Live agent evals against Gemini (needs `GOOGLE_GENERATIVE_AI_API_KEY`; not part of `npm test`). `EVAL_PROVIDER=anthropic` runs them on the fallback model (needs `ANTHROPIC_API_KEY`); the `eval-agent` GitHub workflow does either |
+| `npm run eval:agent` | Live agent evals against Gemini (needs `GOOGLE_GENERATIVE_AI_API_KEY`; not part of `npm test`). `EVAL_TARGET=fallback` runs them on the fallback model alone (`FALLBACK_MODEL`, e.g. `gemini-3.5-flash-lite`); the `eval-agent` GitHub workflow does either |
 | `npm run build` then `npm run check:build` | Production build, then check that the agent prompt file is in the chat route's file trace |
 | `npm run typecheck` | TypeScript check |
 | `npm run check:db` | Supabase connectivity + table check + value-of-use lookup against the DB |
@@ -53,7 +53,7 @@ The screen shows a "מצב הדגמה" badge and demo prompts (the six sample em
 
 ## Deploy (Vercel)
 - Region `fra1` (`vercel.json`), next to the Supabase project (eu-central-1). Node 22 (`engines`).
-- Environment variables (Production + Preview): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `ANTHROPIC_API_KEY`, `APP_SECRET` (32+ chars), `REP_ACCESS_CODE` (8+ chars); optional `AGENT_MODEL`, `FALLBACK_MODEL`. Never `AGENT_MODEL=mock`, `CONVERSATION_SOURCE` or `RATE_LIMIT_SCALE`.
+- Environment variables (Production + Preview): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `FALLBACK_MODEL=gemini-3.5-flash-lite`, `APP_SECRET` (32+ chars), `REP_ACCESS_CODE` (8+ chars); optional `AGENT_MODEL`, `ANTHROPIC_API_KEY` (with `FALLBACK_MODEL=claude-…`, or alone for Haiku). Never `AGENT_MODEL=mock`, `CONVERSATION_SOURCE` or `RATE_LIMIT_SCALE`.
 - On Vercel, `next.config.ts` checks these and **fails the build** with a list of what is missing or wrong (`deployEnvProblems` in `src/lib/env.ts`).
 - The chat route runs up to 120 s (`maxDuration`); a turn stops itself at 100 s with a Hebrew "busy" message.
 
@@ -62,7 +62,7 @@ The screen shows a "מצב הדגמה" badge and demo prompts (the six sample em
 - **Representatives:** `/rep` asks for the shared `REP_ACCESS_CODE` and sets a signed 12-hour cookie; `/api/rep/*` answers 401 without it. Per-rep sign-in (Supabase magic link) is the pilot step.
 - **Rate limits** on every API route, counted in Postgres (`hit_rate_limit`): loose per IP (a venue shares one IP), 30 chat turns per conversation per hour, 300 per day overall, 5 rep logins per 15 minutes. See `src/lib/security/rate-limit.ts`.
 - **Realtime:** topics are public broadcast channels carrying only a data-free ping; a conversation's topic is an HMAC of its id that only its owner receives.
-- **Model fallback:** Gemini, one retry on 429 / 503, then Claude Haiku with the same tools, prompt and number-guard, then "busy".
+- **Model fallback:** Gemini, one retry on 429 / 503, then the fallback model (`FALLBACK_MODEL`: a second Gemini model on the same key, or Claude) with the same tools, prompt and number-guard, then "busy".
 
 ## Claude Code / MCP
 `.mcp.json` configures two project MCP servers:

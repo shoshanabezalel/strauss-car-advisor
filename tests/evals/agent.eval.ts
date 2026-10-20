@@ -15,6 +15,7 @@ import {
 } from "@/lib/agent";
 import { createMockModel } from "@/lib/agent/mock-model";
 import { createFallbackOnlyModel, createPrimaryModel } from "@/lib/agent/model";
+import { fallbackConfig } from "@/lib/env";
 import type { CompareOptionsOutput } from "@/lib/agent/schemas";
 import { handleChatTurn, type ChatEvent } from "@/lib/chat/handle-turn";
 import { createMemoryStore } from "@/lib/chat/memory-store";
@@ -28,11 +29,14 @@ import { rateLimited } from "./rate-limit";
 // Live evals (`npm run eval:agent`): the real model drives the tools from a Hebrew chat. Not part of `npm test`.
 loadEnv({ path: ".env.local", quiet: true });
 // Live only: AGENT_MODEL=mock (local dev) would make these evals test the script, not the model.
-// EVAL_PROVIDER=anthropic runs the same cases on the fallback model alone (M7: the prompt was tuned on Gemini).
-const provider = process.env.EVAL_PROVIDER === "anthropic" ? "anthropic" : "google";
-const providerKey = provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-const hasKey = Boolean(providerKey) && process.env.AGENT_MODEL !== "mock";
-const createEvalModel = () => (provider === "anthropic" ? createFallbackOnlyModel() : createPrimaryModel());
+// EVAL_TARGET=fallback runs the same cases on the fallback model alone (FALLBACK_MODEL, e.g. gemini-3.5-flash-lite,
+// or Claude with ANTHROPIC_API_KEY): the prompt was tuned on the primary model (M7).
+const target = process.env.EVAL_TARGET === "fallback" ? "fallback" : "primary";
+const fallback = target === "fallback" ? fallbackConfig() : undefined;
+const hasKey =
+  (target === "fallback" ? Boolean(fallback) : Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY)) && process.env.AGENT_MODEL !== "mock";
+const evalModelName = target === "fallback" ? `fallback ${fallback?.model}` : `primary ${process.env.AGENT_MODEL || "default"}`;
+const createEvalModel = () => (target === "fallback" ? createFallbackOnlyModel() : createPrimaryModel());
 
 const config = loadConfig();
 const MAX_TURNS = 3;
@@ -79,7 +83,7 @@ const hasOptionNet = (t: AgentTurn) =>
 const firstLine = (text: string) => text.split("\n").find((l) => l.trim()) ?? "";
 const mentions = (text: string, n: number) => text.includes(n.toLocaleString("en-US")) || text.includes(String(n));
 
-describe.skipIf(!hasKey)(`agent evals (live model: ${provider})`, () => {
+describe.skipIf(!hasKey)(`agent evals (live model: ${evalModelName})`, () => {
   for (const e of config.employees.employees) {
     it(`${e.id}: reaches the sheet's net via chat, with no invented numbers`, async () => {
       const deps = newDeps();

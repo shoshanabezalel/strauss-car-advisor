@@ -41,3 +41,11 @@ describe("deployEnvProblems", () => {
     expect(() => assertDeployEnv({ ...good, AGENT_MODEL: "mock", APP_SECRET: "" })).toThrow(/AGENT_MODEL[\s\S]*APP_SECRET|APP_SECRET[\s\S]*AGENT_MODEL/);
   });
 });
+
+describe("deployEnvProblems: fallback model", () => {
+  it("a Gemini fallback needs nothing more; a Claude one needs its key; unknown providers are refused", () => {
+    expect(deployEnvProblems({ ...good, FALLBACK_MODEL: "gemini-3.5-flash-lite" })).toEqual([]);
+    expect(deployEnvProblems({ ...good, FALLBACK_MODEL: "claude-haiku-5-5" }).join(" ")).toMatch(/ANTHROPIC_API_KEY/);
+    expect(deployEnvProblems({ ...good, FALLBACK_MODEL: "gpt-5" }).join(" ")).toMatch(/FALLBACK_MODEL/);
+  });
+});

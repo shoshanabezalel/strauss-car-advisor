@@ -296,3 +296,16 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   staged them, and checked the staged state alone (other work stashed): typecheck, lint, 387 unit. The security
   commit was checked the same way (420 unit), then the final files were restored and compared byte for byte.
   Restored LF files showed as modified under `core.autocrlf` with an empty `git diff`; re-adding them stored nothing.
+### M7 — Configurable fallback model + fallback evals (20/10/2026)
+- **Why:** no Anthropic key for now. The user asked for a second Gemini model (Flash-Lite) as the fallback on the
+  same Google key, keeping the Haiku path for later.
+- **How:** listed the models the key can use (Google models API) instead of guessing an id; `gemini-3.5-flash-lite`
+  exists and is the primary's generation. `fallbackConfig` picks the provider from the `FALLBACK_MODEL` prefix;
+  refuses a missing key, an unknown prefix or the primary itself, also at Vercel build time. Evals: `EVAL_TARGET`
+  replaces yesterday's unpushed `EVAL_PROVIDER`.
+- **Tests first:** 6 red (fallbackConfig cases, a Google fallback model without an Anthropic key, the deploy check),
+  then 431 unit green, typecheck, lint.
+- **Evals on the fallback alone:** 7/9 in two runs, identical. All numbers correct; E-005 split updateProfile; A7
+  answered from history with no tool call and was blocked by the guard. The first run's log showed only failing
+  cases (Vitest hides passing tests' stdout by default now), so the logged run uses `--silent=false`. I did not
+  change the prompt: that affects the tuned primary, and it is the user's call.

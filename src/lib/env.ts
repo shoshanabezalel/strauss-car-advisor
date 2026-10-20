@@ -42,10 +42,12 @@ export function serverEnv() {
 /** AGENT_MODEL value that selects the scripted model (src/lib/agent/mock-model.ts). */
 export const MOCK_MODEL = "mock";
 
+const DEFAULT_AGENT_MODEL = "gemini-3.5-flash";
+
 /** What the live agent model needs. Separate from serverEnv so evals can run without the Supabase keys. */
 const AgentEnvSchema = z.object({
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),
-  AGENT_MODEL: z.string().min(1).default("gemini-3.5-flash"),
+  AGENT_MODEL: z.string().min(1).default(DEFAULT_AGENT_MODEL),
 });
 
 export function agentEnv() {
@@ -55,17 +57,34 @@ export function agentEnv() {
   });
 }
 
-/** The fallback model (fallback-model.ts): Claude Haiku unless FALLBACK_MODEL says otherwise. */
-const FallbackEnvSchema = z.object({
-  ANTHROPIC_API_KEY: z.string().min(1),
-  FALLBACK_MODEL: z.string().min(1).default("claude-haiku-5-5"),
-});
+export interface FallbackConfig {
+  provider: "google" | "anthropic";
+  model: string;
+  apiKey: string;
+}
 
-export function fallbackEnv() {
-  return FallbackEnvSchema.parse({
-    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || undefined,
-    FALLBACK_MODEL: process.env.FALLBACK_MODEL || undefined,
-  });
+/** The provider of a fallback model id, by prefix; each uses its own key. */
+const FALLBACK_PROVIDERS = [
+  { prefix: "gemini-", provider: "google", key: "GOOGLE_GENERATIVE_AI_API_KEY" },
+  { prefix: "claude-", provider: "anthropic", key: "ANTHROPIC_API_KEY" },
+] as const;
+const DEFAULT_ANTHROPIC_FALLBACK = "claude-haiku-5-5";
+
+/**
+ * The fallback model (fallback-model.ts), or undefined for none. FALLBACK_MODEL picks it, and its prefix picks the
+ * provider: `gemini-…` (e.g. gemini-3.5-flash-lite) runs on the same Google key as the primary, `claude-…` needs
+ * ANTHROPIC_API_KEY. Without FALLBACK_MODEL, an Anthropic key alone means Claude Haiku. A fallback equal to the
+ * primary model would only repeat the failing call, so it is refused, like a missing key or an unknown provider.
+ */
+export function fallbackConfig(env: Record<string, string | undefined> = process.env): FallbackConfig | undefined {
+  const model = env.FALLBACK_MODEL || (env.ANTHROPIC_API_KEY ? DEFAULT_ANTHROPIC_FALLBACK : undefined);
+  if (!model) return undefined;
+  const p = FALLBACK_PROVIDERS.find((x) => model.startsWith(x.prefix));
+  if (!p) throw new Error(`FALLBACK_MODEL=${model}: unknown provider (expected ${FALLBACK_PROVIDERS.map((x) => `${x.prefix}…`).join(" or ")})`);
+  const apiKey = env[p.key];
+  if (!apiKey) throw new Error(`FALLBACK_MODEL=${model} needs ${p.key}`);
+  if (model === (env.AGENT_MODEL || DEFAULT_AGENT_MODEL)) throw new Error(`FALLBACK_MODEL=${model} is the primary model; pick a different one`);
+  return { provider: p.provider, model, apiKey };
 }
 
 /** APP_SECRET, required by the rep session and the conversation topics. A clear error instead of a weak default. */
@@ -111,6 +130,11 @@ export function deployEnvProblems(env: Record<string, string | undefined>): stri
   if (env.CONVERSATION_SOURCE === "e2e") problems.push("CONVERSATION_SOURCE=e2e is for the e2e server only");
   if ((env.REP_ACCESS_CODE ?? "").length < MIN_REP_CODE) problems.push(`REP_ACCESS_CODE must be at least ${MIN_REP_CODE} characters`);
   if ((env.APP_SECRET ?? "").length < MIN_APP_SECRET) problems.push(`APP_SECRET must be at least ${MIN_APP_SECRET} characters`);
+  try {
+    fallbackConfig(env);
+  } catch (err) {
+    problems.push((err as Error).message);
+  }
   return problems;
 }
 
