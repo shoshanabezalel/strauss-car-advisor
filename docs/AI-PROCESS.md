@@ -346,3 +346,6 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   deployment records to find the app URL, so I asked instead of guessing.
 - Run 39481411855: **5/5 pass** in 42 s. The fallback check answered on the deploy's own `FALLBACK_MODEL`
   (gemini-3.8-flash, 2.3 s); E-001 reached 11,693 ₪ through the live primary; 2 test conversations deleted.
+- **Spending cap (user, 20/10):** Gemini is prepaid with auto-reload off, so the credit balance is the hard cap and
+  no Google Cloud budget alert is needed. Primary and fallback share that key and that balance. When it runs out,
+  calls fail; the rate limits (30 turns / h per conversation, 300 / day) slow spending down before that.

@@ -507,7 +507,8 @@ from public / anon / authenticated (Supabase grants it by default). The only adv
 - [x] M7: rate limiting on `POST /api/chat` and every other route: **fixed** (§7e). Decided with the user at plan
   approval: judges at the venue share one Wi-Fi IP, so per-IP limits are deliberately loose (chat 60/min, 600/h;
   other routes ×6 the original plan) and the real protection is **30 turns / h per conversation and 300 / day
-  overall**. Rep login stays at 5 / 15 min per IP (brute-force guard). The provider budget caps are the backstop.
+  overall**. Rep login stays at 5 / 15 min per IP (brute-force guard). The hard spending cap is Gemini prepay with
+  auto-reload off (20/10): when the credit runs out, calls fail and the chat says "busy".
 - [x] M7: **production model and fallback** — **fixed** (§7d). No Anthropic key for now (20/10), so the fallback is
   configurable: `FALLBACK_MODEL=gemini-3.5-flash-lite` on the same Google key; Haiku still works once
   `ANTHROPIC_API_KEY` is set. Fallback evals (20/10, [log](evals/2026-10-20-fallback-flash-lite.md)): **7/9**, twice.
@@ -523,7 +524,8 @@ from public / anon / authenticated (Supabase grants it by default). The only adv
   **It is the documented default since 20/10**, replacing Flash-Lite (7/9). Lesson: a listed model may not be
   callable, so the deployed suite now checks the deploy's fallback with one real call (§7e).
 - [x] Fallback A7 behaviour — **fixed by the model choice**, not the prompt: gemini-3.8-flash passes A7.
-  - Gemini on the paid tier, with a budget cap set in Google Cloud billing.
+  - Gemini on the paid tier. Spending is capped by **prepay with auto-reload off** (user, 20/10), so no Google Cloud
+    budget alert is needed.
   - On 429 / 503: retry once, then run the same turn on Claude Haiku. The tools, prompt and number-guard stay the
     same; only the `LanguageModel` changes.
   - If both fail: a fixed Hebrew "busy, try again" message with no digits, and the turn stores nothing (as today).
