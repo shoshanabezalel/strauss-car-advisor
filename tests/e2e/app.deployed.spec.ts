@@ -61,6 +61,19 @@ test("the rep screen is behind the access code", async ({ page, request }) => {
   }
 });
 
+// A listed model can still be unavailable (gemini-2.5-flash: 404 on 20/10). The deploy's own FALLBACK_MODEL must
+// answer one real call. Needs the rep session (the endpoint costs an LLM call), so E2E_REP_CODE is required here:
+// a skipped check would hide a broken fallback until the primary is busy.
+test("the deploy's fallback model answers a real call", async ({ page }) => {
+  expect(process.env.E2E_REP_CODE, "set E2E_REP_CODE to the deploy's rep access code").toBeTruthy();
+  await loginRep(page);
+  const res = await page.context().request.post("/api/health/fallback");
+  const body = (await res.json()) as { ok: boolean; model?: string; error?: string; ms?: number };
+  console.log(`[e2e deployed] fallback ${body.model}: ${body.ok ? `ok in ${body.ms} ms` : body.error}`);
+  expect(res.status(), JSON.stringify(body)).toBe(200);
+  expect(body.ok).toBe(true);
+});
+
 test("E-001 through the live model reaches the sheet's net", async ({ page }) => {
   test.setTimeout(240_000);
   await page.goto("/employee");

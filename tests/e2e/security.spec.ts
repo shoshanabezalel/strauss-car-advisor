@@ -53,6 +53,8 @@ test.describe("conversation owner", () => {
 test.describe("rep access code", () => {
   test("rep API without a session → 401", async ({ request }) => {
     expect((await request.get("/api/rep/questions")).status()).toBe(401);
+    // the live fallback check makes a real LLM call: never without a rep session
+    expect((await request.post("/api/health/fallback")).status()).toBe(401);
     const answer = await request.post("/api/rep/answer", {
       data: { questionId: crypto.randomUUID(), answer: { field: "group", value: "א" } },
     });

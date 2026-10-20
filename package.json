@@ -19,7 +19,8 @@
     "check:db": "tsx scripts/check-db.ts",
     "import:vou": "tsx scripts/import-vou.ts",
     "db:clean-e2e": "tsx scripts/clean-e2e.ts",
-    "check:build": "tsx scripts/check-build.ts"
+    "check:build": "tsx scripts/check-build.ts",
+    "check:fallback": "tsx scripts/check-fallback.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "4.0.82",

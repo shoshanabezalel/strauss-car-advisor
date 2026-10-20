@@ -32,6 +32,8 @@ export const LIMITS = {
   repAnswerIp: { name: "repa:ip", windowSec: MINUTE, max: 180 },
   /** Brute-force guard on the shared code: not loosened for the venue. */
   repLoginIp: { name: "replogin:ip", windowSec: 15 * MINUTE, max: 5 },
+  /** The live fallback check makes a real LLM call per hit; only the deployed suite needs it. */
+  fallbackCheckIp: { name: "fbcheck:ip", windowSec: 10 * MINUTE, max: 5 },
 } satisfies Record<string, RateLimit>;
 
 /** Digit-free, like every fixed Hebrew message. */

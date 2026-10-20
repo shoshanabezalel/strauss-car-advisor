@@ -113,6 +113,8 @@ describe("limits table (TECH-DESIGN §10: venue Wi-Fi shares one IP, so per-IP i
     expect(LIMITS.repQuestionsIp).toMatchObject({ windowSec: 60, max: 360 });
     expect(LIMITS.repAnswerIp).toMatchObject({ windowSec: 60, max: 180 });
     expect(LIMITS.repLoginIp).toMatchObject({ windowSec: 900, max: 5 });
+    // a real LLM call per hit: tight, it's only for the deployed suite
+    expect(LIMITS.fallbackCheckIp).toMatchObject({ windowSec: 600, max: 5 });
   });
 
   it("names are unique", () => {
