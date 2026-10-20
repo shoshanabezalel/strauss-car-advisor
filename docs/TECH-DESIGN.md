@@ -511,7 +511,10 @@ from public / anon / authenticated (Supabase grants it by default). The only adv
 - [ ] Fallback A7 behaviour. Tried 20/10 (user's request): a prompt line "after a representative's answer, call
   compareOptions again before quoting any number". Primary still 9/9; Flash-Lite still fails A7 and drops to
   5/9 and 4/9, against 7/9 without the line the same day ([log](evals/2026-10-20-prompt-rep-recompare.md)). **Reverted**
-  (user, 20/10): it brought nothing on the primary and hurt the fallback. Next: try another fallback model.
+  (user, 20/10): it brought nothing on the primary and hurt the fallback. Then tried `gemini-2.5-flash` as the
+  fallback: **404, no longer available to new users** (though the models API lists it), 0/9
+  ([log](evals/2026-10-20-fallback-gemini-2.5-flash.md)). `gemini-3.5-flash-lite` stays the documented fallback.
+  Lesson: a listed model may not be callable; check a fallback with a live call before relying on it.
   - Gemini on the paid tier, with a budget cap set in Google Cloud billing.
   - On 429 / 503: retry once, then run the same turn on Claude Haiku. The tools, prompt and number-guard stay the
     same; only the `LanguageModel` changes.

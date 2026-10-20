@@ -325,3 +325,9 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
     id, split saves) and doesn't fix A7. Every failure was blocked by the guard; nothing wrong was shown.
   - Reported to the user with a recommendation, not reverted on my own: the agreed rule was about the primary.
     The user then asked to revert it: only the prompt line and its test were removed; the docs keep the record.
+- **CI after the fix:** pushed; run 39473246162 green, `check` and `e2e` (22 Playwright tests against Supabase,
+  mock model).
+- **gemini-2.5-flash as the fallback** (user's request, "if it beats Flash-Lite, make it the default"): 0/9 in two
+  runs, every call a 404 "no longer available to new users", although the models API lists it. Not a quality
+  result, so nothing to compare and no default change. I listed models yesterday to avoid guessing an id, and
+  that was still not enough: a listing is not proof a model can be called.
