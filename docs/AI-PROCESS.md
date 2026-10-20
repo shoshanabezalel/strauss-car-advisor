@@ -324,3 +324,4 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
     then restored): **7/9**. The line itself makes Flash-Lite worse (current car added as an option, a made-up car
     id, split saves) and doesn't fix A7. Every failure was blocked by the guard; nothing wrong was shown.
   - Reported to the user with a recommendation, not reverted on my own: the agreed rule was about the primary.
+    The user then asked to revert it: only the prompt line and its test were removed; the docs keep the record.
