@@ -508,7 +508,8 @@ from public / anon / authenticated (Supabase grants it by default). The only adv
   approval: judges at the venue share one Wi-Fi IP, so per-IP limits are deliberately loose (chat 60/min, 600/h;
   other routes ×6 the original plan) and the real protection is **30 turns / h per conversation and 300 / day
   overall**. Rep login stays at 5 / 15 min per IP (brute-force guard). The hard spending cap is Gemini prepay with
-  auto-reload off (20/10): when the credit runs out, calls fail and the chat says "busy".
+  auto-reload off (20/10): when the credit runs out, calls fail and the chat shows a Hebrew error ("busy" if
+  Google answers 429, the generic failure message otherwise; not verified which).
 - [x] M7: **production model and fallback** — **fixed** (§7d). No Anthropic key for now (20/10), so the fallback is
   configurable: `FALLBACK_MODEL=gemini-3.5-flash-lite` on the same Google key; Haiku still works once
   `ANTHROPIC_API_KEY` is set. Fallback evals (20/10, [log](evals/2026-10-20-fallback-flash-lite.md)): **7/9**, twice.
