@@ -26,6 +26,11 @@ describe("system prompt", () => {
     expect(prompt).toMatch(/getCatalog with scope "all" once/i);
   });
 
+  // 20/10 fallback evals (A7): Flash-Lite quoted numbers from the history after a rep answer, and the guard blocked it.
+  it("after a representative's answer, calls compareOptions again before quoting any number", () => {
+    expect(prompt).toMatch(/after a representative's answer[^\n]*call compareOptions again before quoting any number/i);
+  });
+
   it("phrases the difference as עלייה / ירידה, never with a minus sign", () => {
     expect(prompt).toMatch(/never a minus sign/i);
     expect(prompt).toContain("direction");

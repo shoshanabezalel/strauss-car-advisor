@@ -340,6 +340,9 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
 - The chat route passes `maxRetries: 0` (the wrapper retries; no stacking with the SDK's 2) and
   `abortSignal: AbortSignal.timeout(100 s)`; an abort is reported as `busy`. `maxDuration = 120` (Fluid compute
   allows 300).
+- GET route handlers (`/api/conversation`, `/api/rep/questions`) start with `await connection()`: with Cache
+  Components a GET handler is prerendered at build until it touches the request, and `chatDeps()` needs server env
+  a build doesn't have (CI build failure, 20/10).
 - Evals: `createPrimaryModel()` / `createFallbackOnlyModel()` measure each model alone (`EVAL_TARGET=primary|fallback`).
 
 ## 7e. Security (M7)
@@ -505,8 +508,11 @@ from public / anon / authenticated (Supabase grants it by default). The only adv
   `ANTHROPIC_API_KEY` is set. Fallback evals (20/10, [log](evals/2026-10-20-fallback-flash-lite.md)): **7/9**, twice.
   Every number shown was correct; E-005 used two updateProfile calls, and in A7 it answered from history without
   calling compareOptions, so the guard blocked the reply (safe, but a failed turn).
-- [ ] Fallback A7 behaviour: a prompt line ("after a representative's answer, call compareOptions before quoting
-  numbers") or another fallback model. Open: the user decides.
+- [ ] Fallback A7 behaviour. Tried 20/10 (user's request): a prompt line "after a representative's answer, call
+  compareOptions again before quoting any number". Primary still 9/9; Flash-Lite still fails A7 and drops to
+  5/9 and 4/9, against 7/9 without the line the same day ([log](evals/2026-10-20-prompt-rep-recompare.md)). The
+  line is in the prompt (the user's rule: revert only on a primary regression). Open: keep it, revert it, or try
+  another fallback model; the user decides.
   - Gemini on the paid tier, with a budget cap set in Google Cloud billing.
   - On 429 / 503: retry once, then run the same turn on Claude Haiku. The tools, prompt and number-guard stay the
     same; only the `LanguageModel` changes.

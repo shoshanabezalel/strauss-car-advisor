@@ -309,3 +309,18 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   answered from history with no tool call and was blocked by the guard. The first run's log showed only failing
   cases (Vitest hides passing tests' stdout by default now), so the logged run uses `--silent=false`. I did not
   change the prompt: that affects the tuned primary, and it is the user's call.
+### M7 — First CI run, recompare prompt line (20/10/2026)
+- **Pushed** the 8 M7 commits. **The first CI run failed at `npm run build`** (lint, typecheck, unit passed; e2e
+  skipped). With Cache Components a GET route handler is prerendered at build until it touches the request; my M7
+  routes call `chatDeps()` (server env) before that. Locally `.env.local` had the keys, so the build passed and
+  hid it. Reproduced locally with an empty `SUPABASE_SERVICE_ROLE_KEY`, fixed with `await connection()` first in
+  both GET handlers (the documented opt-out), rebuilt green the same way.
+- **Prompt line** (user's request): "after a representative's answer, call compareOptions again before quoting any
+  number". Test first (1 red: the rule is in the prompt; the no-digits test covers the line). Rule from the user:
+  revert if the primary regresses on any case.
+  - Primary: **9/9**, no regression, so the line stays.
+  - Flash-Lite: 5/9, then 4/9, still failing A7. Two runs below yesterday's 7/9 looked like an effect, but a
+    different day is not a control, so I ran Flash-Lite once more on the HEAD prompt (line removed temporarily,
+    then restored): **7/9**. The line itself makes Flash-Lite worse (current car added as an option, a made-up car
+    id, split saves) and doesn't fix A7. Every failure was blocked by the guard; nothing wrong was shown.
+  - Reported to the user with a recommendation, not reverted on my own: the agreed rule was about the primary.
