@@ -1,0 +1,58 @@
+# The deployed suite (tests/e2e/*.deployed.spec.ts) against the public URL: the M7 exit criterion. Manual only: it
+# makes real LLM calls (one E-001 turn + the fallback check) and uses two of the five rep logins per 15 minutes.
+# Runs here because NetFree blocks the deployed site from the dev machine.
+name: e2e-deployed
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "The deployed app's URL, e.g. https://strauss-car-advisor.vercel.app (not the vercel.com dashboard)"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-deployed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      E2E_BASE_URL: ${{ inputs.base_url }}
+      # The deploy's REP_ACCESS_CODE: the rep wall and the live fallback check log in with it.
+      E2E_REP_CODE: ${{ secrets.E2E_REP_CODE }}
+      # Service role, only to delete the conversations the suite created (scripts/clean-e2e.ts).
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Check inputs and secrets
+        run: |
+          case "$E2E_BASE_URL" in
+            https://vercel.com/*) echo "::error::base_url is the Vercel dashboard. Use the deployment's own URL (Vercel → project → Domains)."; exit 1 ;;
+            https://*) ;;
+            *) echo "::error::base_url must start with https://"; exit 1 ;;
+          esac
+          for name in E2E_REP_CODE NEXT_PUBLIC_SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!name}" ]; then echo "::error::Repository secret $name is not set."; exit 1; fi
+          done
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$E2E_BASE_URL/")
+          echo "GET $E2E_BASE_URL/ → $code"
+          if [ "$code" != "200" ]; then echo "::error::The deployed app did not answer 200 (got $code). Is the URL right and the deploy public?"; exit 1; fi
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # No retries: each retry repeats live LLM calls and spends rep logins (5 per 15 min).
+      - run: npx playwright test --retries=0 --reporter=list
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-deployed-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

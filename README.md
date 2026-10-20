@@ -33,7 +33,7 @@ npm run check:db   # tables reachable; RLS hides private tables from the publish
 | `npm run dev` | Dev server at http://localhost:3000 |
 | `npm test` | Unit tests (Vitest) |
 | `npm run test:e2e` | E2E tests (Playwright, ~1.5 min, not in the Stop hook; CI runs them on every push). Starts its own mock-mode dev server on port 3100 (`.next-e2e`), so it can run next to `npm run dev`; rows it writes are tagged `e2e` and deleted at teardown |
-| `E2E_BASE_URL=<url> npx playwright test` | The `deployed` suite only (`*.deployed.spec.ts`): smoke, owner isolation, rep wall, **the deploy's fallback model answers one real call**, one live E-001 turn. Deletes what it created by id. Needs `E2E_REP_CODE=<the deploy's rep code>` (the fallback check fails without it; each run uses two of the five logins per 15 min) |
+| `E2E_BASE_URL=<url> npx playwright test` | The `deployed` suite only (`*.deployed.spec.ts`): smoke, owner isolation, rep wall, **the deploy's fallback model answers one real call**, one live E-001 turn. Deletes what it created by id. Needs `E2E_REP_CODE=<the deploy's rep code>` (the fallback check fails without it; each run uses two of the five logins per 15 min). Where the site is blocked locally (NetFree), run the `e2e-deployed` GitHub workflow instead: input `base_url`, repo secret `E2E_REP_CODE` |
 | `npm run db:clean-e2e` | Delete conversations left by e2e runs (`source = 'e2e'`) |
 | `npm run eval:agent` | Live agent evals against Gemini (needs `GOOGLE_GENERATIVE_AI_API_KEY`; not part of `npm test`). `EVAL_TARGET=fallback` runs them on the fallback model alone (`FALLBACK_MODEL`, e.g. `gemini-3.8-flash`); the `eval-agent` GitHub workflow does either |
 | `npm run build` then `npm run check:build` | Production build, then check that the agent prompt file is in the chat route's file trace |
@@ -87,7 +87,7 @@ src/app/api/         /api/chat (NDJSON stream), /api/conversation, /api/profile,
 src/lib/supabase/    browser / server / admin clients
 supabase/migrations/ DB schema
 scripts/             data conversion, DB check, build check, e2e cleanup, MCP launcher
-.github/workflows/   ci (lint, types, unit, build, e2e on push) · eval-agent (manual live evals)
+.github/workflows/   ci (lint, types, unit, build, e2e on push) · eval-agent (manual live evals) · e2e-deployed (manual, public URL)
 tests/unit/          Vitest
 tests/e2e/           Playwright
 ```
