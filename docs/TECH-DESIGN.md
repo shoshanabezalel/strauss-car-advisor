@@ -546,5 +546,7 @@ from public / anon / authenticated (Supabase grants it by default). The only adv
 - [x] M7: `POST /api/profile` and `POST /api/compare` — **fixed**: same owner check and rate limits (§7e).
 - [x] M7: deploy (decided 19/10): Vercel `fra1` next to Supabase eu-central-1, env checked at build, mock refused,
   prompt trace checked (`check:build`), `maxDuration` 120 on chat. CI on every push (unit + e2e in mock mode).
-- [ ] M7 exit: the deployed suite green on the public URL (after the user's Vercel / Supabase steps), and the Haiku
-  evals run.
+- [x] M7 exit (20/10): the deployed suite **5/5 green** on https://strauss-car-advisor-smoky.vercel.app, run from
+  GitHub Actions (`e2e-deployed` workflow, run 39481411855; NetFree blocks the site locally): smoke, live mode +
+  owner isolation, rep wall + login, the deploy's fallback `gemini-3.8-flash` answering (2.3 s), E-001 through the
+  live primary at the sheet's net. The Haiku evals are replaced by the Gemini fallback evals (no Anthropic key).

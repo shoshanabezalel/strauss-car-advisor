@@ -339,3 +339,10 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   that one was never seen red. Then 435 unit, the security spec green, and the check against the real API:
   gemini-3.8-flash ok (3.3 s), gemini-3.5-flash-lite ok (1.5 s), gemini-2.5-flash FAIL 404. A first `tsx -e`
   probe printed nothing (it doesn't wait for a dynamic import), so the probe became `npm run check:fallback`.
+### M7 ticked — deployed suite green on the public URL (20/10/2026)
+- NetFree blocks the deployed site from the dev machine, so the deployed suite runs from GitHub Actions: a new
+  `e2e-deployed` workflow (input `base_url`, secret `E2E_REP_CODE`; checks the URL answers 200 first, refuses the
+  vercel.com dashboard link, no retries). The first link the user sent was the dashboard; GitHub had no Vercel
+  deployment records to find the app URL, so I asked instead of guessing.
+- Run 39481411855: **5/5 pass** in 42 s. The fallback check answered on the deploy's own `FALLBACK_MODEL`
+  (gemini-3.8-flash, 2.3 s); E-001 reached 11,693 ₪ through the live primary; 2 test conversations deleted.
