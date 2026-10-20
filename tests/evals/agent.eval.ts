@@ -29,7 +29,7 @@ import { rateLimited } from "./rate-limit";
 // Live evals (`npm run eval:agent`): the real model drives the tools from a Hebrew chat. Not part of `npm test`.
 loadEnv({ path: ".env.local", quiet: true });
 // Live only: AGENT_MODEL=mock (local dev) would make these evals test the script, not the model.
-// EVAL_TARGET=fallback runs the same cases on the fallback model alone (FALLBACK_MODEL, e.g. gemini-3.5-flash-lite,
+// EVAL_TARGET=fallback runs the same cases on the fallback model alone (FALLBACK_MODEL, e.g. gemini-3.8-flash,
 // or Claude with ANTHROPIC_API_KEY): the prompt was tuned on the primary model (M7).
 const target = process.env.EVAL_TARGET === "fallback" ? "fallback" : "primary";
 const fallback = target === "fallback" ? fallbackConfig() : undefined;

@@ -331,3 +331,11 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   runs, every call a 404 "no longer available to new users", although the models API lists it. Not a quality
   result, so nothing to compare and no default change. I listed models yesterday to avoid guessing an id, and
   that was still not enough: a listing is not proof a model can be called.
+- **gemini-3.8-flash** (the model the 404 named): **9/9 in both runs**, A7 included (it called compareOptions), so
+  it beat Flash-Lite and became the documented `FALLBACK_MODEL` (the user updates Vercel). Slower: ~195 s per run
+  against ~38 s for Flash-Lite and ~125 s for the primary.
+- **Live fallback check** (user's request), test first: 5 unit red (the check: answers / 404 with status / empty
+  reply / no retries; the new rate limit). I did not run the new e2e 401 assertion before writing the route, so
+  that one was never seen red. Then 435 unit, the security spec green, and the check against the real API:
+  gemini-3.8-flash ok (3.3 s), gemini-3.5-flash-lite ok (1.5 s), gemini-2.5-flash FAIL 404. A first `tsx -e`
+  probe printed nothing (it doesn't wait for a dynamic import), so the probe became `npm run check:fallback`.

@@ -72,7 +72,7 @@ const DEFAULT_ANTHROPIC_FALLBACK = "claude-haiku-5-5";
 
 /**
  * The fallback model (fallback-model.ts), or undefined for none. FALLBACK_MODEL picks it, and its prefix picks the
- * provider: `gemini-…` (e.g. gemini-3.5-flash-lite) runs on the same Google key as the primary, `claude-…` needs
+ * provider: `gemini-…` (e.g. gemini-3.8-flash) runs on the same Google key as the primary, `claude-…` needs
  * ANTHROPIC_API_KEY. Without FALLBACK_MODEL, an Anthropic key alone means Claude Haiku. A fallback equal to the
  * primary model would only repeat the failing call, so it is refused, like a missing key or an unknown provider.
  */

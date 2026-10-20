@@ -34,13 +34,13 @@ export function createPrimaryModel(): LanguageModel {
 
 /**
  * The fallback model alone (fallbackConfig): a second Gemini model on the same Google key (e.g.
- * gemini-3.5-flash-lite), or Claude. Claude runs with thinking off: the stored history drops reasoning parts between
+ * gemini-3.8-flash), or Claude. Claude runs with thinking off: the stored history drops reasoning parts between
  * turns (run-turn.ts), and a fallback turn must also stay inside the chat route's time budget. A Gemini fallback keeps
  * the primary's defaults, which the stored history already handles.
  */
 export function createFallbackOnlyModel(): LanguageModel {
   const cfg = fallbackConfig();
-  if (!cfg) throw new Error("no fallback model: set FALLBACK_MODEL (e.g. gemini-3.5-flash-lite) or ANTHROPIC_API_KEY");
+  if (!cfg) throw new Error("no fallback model: set FALLBACK_MODEL (e.g. gemini-3.8-flash) or ANTHROPIC_API_KEY");
   if (cfg.provider === "google") return createGoogleGenerativeAI({ apiKey: cfg.apiKey })(cfg.model);
   return wrapLanguageModel({
     model: createAnthropic({ apiKey: cfg.apiKey })(cfg.model),

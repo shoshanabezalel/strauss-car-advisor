@@ -33,10 +33,11 @@ npm run check:db   # tables reachable; RLS hides private tables from the publish
 | `npm run dev` | Dev server at http://localhost:3000 |
 | `npm test` | Unit tests (Vitest) |
 | `npm run test:e2e` | E2E tests (Playwright, ~1.5 min, not in the Stop hook; CI runs them on every push). Starts its own mock-mode dev server on port 3100 (`.next-e2e`), so it can run next to `npm run dev`; rows it writes are tagged `e2e` and deleted at teardown |
-| `E2E_BASE_URL=<url> npx playwright test` | The `deployed` suite only (`*.deployed.spec.ts`): smoke, owner isolation, rep wall, one live E-001 turn. Deletes what it created by id. `E2E_REP_CODE=<code>` also tests the rep login (one of five tries per 15 min) |
+| `E2E_BASE_URL=<url> npx playwright test` | The `deployed` suite only (`*.deployed.spec.ts`): smoke, owner isolation, rep wall, **the deploy's fallback model answers one real call**, one live E-001 turn. Deletes what it created by id. Needs `E2E_REP_CODE=<the deploy's rep code>` (the fallback check fails without it; each run uses two of the five logins per 15 min) |
 | `npm run db:clean-e2e` | Delete conversations left by e2e runs (`source = 'e2e'`) |
-| `npm run eval:agent` | Live agent evals against Gemini (needs `GOOGLE_GENERATIVE_AI_API_KEY`; not part of `npm test`). `EVAL_TARGET=fallback` runs them on the fallback model alone (`FALLBACK_MODEL`, e.g. `gemini-3.5-flash-lite`); the `eval-agent` GitHub workflow does either |
+| `npm run eval:agent` | Live agent evals against Gemini (needs `GOOGLE_GENERATIVE_AI_API_KEY`; not part of `npm test`). `EVAL_TARGET=fallback` runs them on the fallback model alone (`FALLBACK_MODEL`, e.g. `gemini-3.8-flash`); the `eval-agent` GitHub workflow does either |
 | `npm run build` then `npm run check:build` | Production build, then check that the agent prompt file is in the chat route's file trace |
+| `npm run check:fallback` | One real call to the configured fallback model (`FALLBACK_MODEL`) from this machine; fails if it doesn't answer (a listed model can still be unavailable) |
 | `npm run typecheck` | TypeScript check |
 | `npm run check:db` | Supabase connectivity + table check + value-of-use lookup against the DB |
 | `npm run import:vou` | Import `data/raw/vou-2026.csv` into `value_of_use` (`-- --dry-run` parses only) |
@@ -53,7 +54,7 @@ The screen shows a "מצב הדגמה" badge and demo prompts (the six sample em
 
 ## Deploy (Vercel)
 - Region `fra1` (`vercel.json`), next to the Supabase project (eu-central-1). Node 22 (`engines`).
-- Environment variables (Production + Preview): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `FALLBACK_MODEL=gemini-3.5-flash-lite`, `APP_SECRET` (32+ chars), `REP_ACCESS_CODE` (8+ chars); optional `AGENT_MODEL`, `ANTHROPIC_API_KEY` (with `FALLBACK_MODEL=claude-…`, or alone for Haiku). Never `AGENT_MODEL=mock`, `CONVERSATION_SOURCE` or `RATE_LIMIT_SCALE`.
+- Environment variables (Production + Preview): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `FALLBACK_MODEL=gemini-3.8-flash`, `APP_SECRET` (32+ chars), `REP_ACCESS_CODE` (8+ chars); optional `AGENT_MODEL`, `ANTHROPIC_API_KEY` (with `FALLBACK_MODEL=claude-…`, or alone for Haiku). Never `AGENT_MODEL=mock`, `CONVERSATION_SOURCE` or `RATE_LIMIT_SCALE`.
 - On Vercel, `next.config.ts` checks these and **fails the build** with a list of what is missing or wrong (`deployEnvProblems` in `src/lib/env.ts`).
 - The chat route runs up to 120 s (`maxDuration`); a turn stops itself at 100 s with a Hebrew "busy" message.
 

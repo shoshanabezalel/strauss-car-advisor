@@ -324,8 +324,9 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
   3. no fallback configured, or it is busy too → `ModelBusyError` → chat `error: busy` with a fixed Hebrew message
      (no digits); the turn stores nothing, as before. Other errors pass through unchanged (`failed`).
 - Fallback (`fallbackConfig` in `env.ts`, decided 20/10): `FALLBACK_MODEL`'s prefix picks the provider.
-  - `gemini-…` (e.g. `gemini-3.5-flash-lite`): a second Gemini model on the **same Google key**, with the primary's
-    defaults. This is the deploy setting while there is no Anthropic key.
+  - `gemini-…` (documented default `gemini-3.8-flash`, 9/9 twice on 20/10): a second Gemini model on the **same
+    Google key**, with the primary's defaults. This is the deploy setting while there is no Anthropic key. Slower
+    than the primary in the evals (~22 s vs ~14 s per case), well inside the 100 s turn budget.
   - `claude-…`: `@ai-sdk/anthropic` 4.0.82 (same `@ai-sdk/provider` as `ai`), needs `ANTHROPIC_API_KEY`. Without
     `FALLBACK_MODEL`, an Anthropic key alone means `claude-haiku-5-5`. Thinking is **disabled** on Claude (allowed
     on Haiku 5.5 at effort ≤ high): the stored history drops reasoning parts between turns (`toolMessagesOnly`),
@@ -366,6 +367,10 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
 - **Realtime topic**: `conversation:<HMAC(APP_SECRET, id)[0..32]>` (`conversation-topic.ts`, server only), sent to
   the owner as `topic` by `GET /api/conversation`; the client subscribes to what it receives. `rep-queue` stays a
   fixed public topic (a ping only triggers a refetch, which needs the rep cookie).
+- **Live fallback check** (`agent/fallback-check.ts`): `POST /api/health/fallback` makes one real call to the
+  configured fallback alone (no retries, 20 s timeout) → 200 `{ ok, provider, model, ms }` or 503 with the
+  provider's error. Rep session only, 5 per 10 min per IP (each hit costs an LLM call). The deployed suite calls
+  it and **fails** without `E2E_REP_CODE` instead of skipping. Locally: `npm run check:fallback`.
 - **Deploy guard**: `deployEnvProblems` / `assertDeployEnv` (`env.ts`), called by `next.config.ts` when `VERCEL` is
   set: the four Supabase / Google keys, no `AGENT_MODEL=mock`, no `CONVERSATION_SOURCE=e2e`, `REP_ACCESS_CODE` ≥ 8,
   `APP_SECRET` ≥ 32. `npm run check:build` asserts the chat route's `.nft.json` traces `system-prompt.md`.
@@ -508,13 +513,16 @@ from public / anon / authenticated (Supabase grants it by default). The only adv
   `ANTHROPIC_API_KEY` is set. Fallback evals (20/10, [log](evals/2026-10-20-fallback-flash-lite.md)): **7/9**, twice.
   Every number shown was correct; E-005 used two updateProfile calls, and in A7 it answered from history without
   calling compareOptions, so the guard blocked the reply (safe, but a failed turn).
-- [ ] Fallback A7 behaviour. Tried 20/10 (user's request): a prompt line "after a representative's answer, call
+- Fallback A7 history. Tried 20/10 (user's request): a prompt line "after a representative's answer, call
   compareOptions again before quoting any number". Primary still 9/9; Flash-Lite still fails A7 and drops to
   5/9 and 4/9, against 7/9 without the line the same day ([log](evals/2026-10-20-prompt-rep-recompare.md)). **Reverted**
   (user, 20/10): it brought nothing on the primary and hurt the fallback. Then tried `gemini-2.5-flash` as the
   fallback: **404, no longer available to new users** (though the models API lists it), 0/9
-  ([log](evals/2026-10-20-fallback-gemini-2.5-flash.md)). `gemini-3.5-flash-lite` stays the documented fallback.
-  Lesson: a listed model may not be callable; check a fallback with a live call before relying on it.
+  ([log](evals/2026-10-20-fallback-gemini-2.5-flash.md)). Then `gemini-3.8-flash` (the model Google's 404 pointed to):
+  **9/9 in two runs**, A7 included (it called compareOptions) ([log](evals/2026-10-20-fallback-gemini-3.8-flash.md)).
+  **It is the documented default since 20/10**, replacing Flash-Lite (7/9). Lesson: a listed model may not be
+  callable, so the deployed suite now checks the deploy's fallback with one real call (§7e).
+- [x] Fallback A7 behaviour — **fixed by the model choice**, not the prompt: gemini-3.8-flash passes A7.
   - Gemini on the paid tier, with a budget cap set in Google Cloud billing.
   - On 429 / 503: retry once, then run the same turn on Claude Haiku. The tools, prompt and number-guard stay the
     same; only the `LanguageModel` changes.
