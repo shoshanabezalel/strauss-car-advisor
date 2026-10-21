@@ -411,3 +411,11 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
 - Live eval on a synthetic payslip (fake name, ID 000000000, fake bank; employer rates differ from the employee's):
   3/3 on the primary, PNG and PDF exact, a lunch menu → `not_payslip`. The fallback run was skipped: no
   `FALLBACK_MODEL` in the local env.
+- After the gaps push: rebased on main (conflicts only in PLAN, TECH-DESIGN, AI-PROCESS: both sides kept), then
+  the rate limit (10 / min per IP + the daily LLM cap, checked before the upload is read) and the prompt line, each
+  test first. `payslipLimits` sits in its own file: `upload.ts` is imported by the browser card.
+- Final checks: 519 unit, typecheck, lint, live evals 13/13 (10 agent + 3 payslip) on the primary. E2E on port
+  3001: 28/32 on the first run, the 4 failures all chat turns in employee.spec waiting past 15 s on a cold dev
+  server; the rerun of employee.spec + payslip.spec was 11/11.
+- For the record: before the gaps session finished, this session ran no e2e and no dev server (the user's rule),
+  so the local e2e flakiness noted under G had another cause.
