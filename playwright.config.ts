@@ -2,7 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 import { E2E_REP_CODE } from "./tests/e2e/helpers";
 
 // Its own port and distDir, so e2e can run next to `npm run dev` (Next allows one dev server per distDir).
-const PORT = 3100;
+// E2E_PORT: a second checkout (git worktree) runs its own e2e server next to this one.
+const PORT = Number(process.env.E2E_PORT) || 3100;
 // 127.0.0.1, not localhost: the server binds to IPv4 loopback only, and localhost may resolve to ::1.
 const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
 
