@@ -96,14 +96,15 @@ export function createMemoryStore(): ConversationStore {
     gapLog(conversationId) {
       return { log: (g) => this.recordGaps(conversationId, [g]) };
     },
-    async listGapRows() {
-      return structuredClone([...gaps.values()]);
+    async listGapRows(source) {
+      return structuredClone([...gaps.values()].filter((g) => rows.get(g.conversationId)?.source === source));
     },
-    async listGapGroups() {
-      return groupGaps([...gaps.values()], [...gapStatus.values()]);
+    async listGapGroups(source) {
+      const statuses = [...gapStatus.entries()].filter(([k]) => k.startsWith(`${source}|`)).map(([, s]) => s);
+      return groupGaps(await this.listGapRows(source), statuses);
     },
-    async setGapResolved(type, topic, resolved) {
-      const key = `${type}|${topic}`;
+    async setGapResolved(source, type, topic, resolved) {
+      const key = `${source}|${type}|${topic}`;
       if (resolved) gapStatus.set(key, { type, topic, resolvedAt: new Date().toISOString() });
       else gapStatus.delete(key);
     },

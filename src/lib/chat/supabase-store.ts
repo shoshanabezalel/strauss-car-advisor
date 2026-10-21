@@ -192,18 +192,24 @@ export function createSupabaseStore(db: SupabaseClient): ConversationStore {
       return { log: (g) => this.recordGaps(conversationId, [g]) };
     },
 
-    async listGapRows() {
+    async listGapRows(source) {
+      // Only gaps from conversations of this source: test (e2e) data never shows in the production view.
       const rows = check(
-        await db.from("information_gaps").select("conversation_id, type, topic, description, vehicle, created_at, last_seen_at").order("last_seen_at", { ascending: false }).limit(5000),
+        await db
+          .from("information_gaps")
+          .select("conversation_id, type, topic, description, vehicle, created_at, last_seen_at, conversations!inner(source)")
+          .eq("conversations.source", source)
+          .order("last_seen_at", { ascending: false })
+          .limit(5000),
         "gaps select",
       );
-      return (rows as GapDbRow[]).map(toGapRow);
+      return (rows as unknown as GapDbRow[]).map(toGapRow);
     },
 
-    async listGapGroups() {
+    async listGapGroups(source) {
       const [rows, statuses] = await Promise.all([
-        this.listGapRows(),
-        db.from("information_gap_status").select("type, topic, resolved_at"),
+        this.listGapRows(source),
+        db.from("information_gap_status").select("type, topic, resolved_at").eq("source", source),
       ]);
       const st = (check(statuses, "gap status select") as { type: GapType; topic: string; resolved_at: string }[]).map(
         (s): GapStatus => ({ type: s.type, topic: s.topic, resolvedAt: s.resolved_at }),
@@ -211,11 +217,11 @@ export function createSupabaseStore(db: SupabaseClient): ConversationStore {
       return groupGaps(rows, st);
     },
 
-    async setGapResolved(type, topic, resolved) {
+    async setGapResolved(source, type, topic, resolved) {
       if (resolved) {
-        check(await db.from("information_gap_status").upsert({ type, topic, resolved_at: new Date().toISOString() }), "gap status upsert");
+        check(await db.from("information_gap_status").upsert({ source, type, topic, resolved_at: new Date().toISOString() }), "gap status upsert");
       } else {
-        check(await db.from("information_gap_status").delete().eq("type", type).eq("topic", topic), "gap status delete");
+        check(await db.from("information_gap_status").delete().eq("source", source).eq("type", type).eq("topic", topic), "gap status delete");
       }
     },
   };

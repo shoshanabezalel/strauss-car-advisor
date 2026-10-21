@@ -1,6 +1,7 @@
 /**
- * Delete conversations created by e2e runs (source = 'e2e'). Messages, profiles, rep questions and comparisons
- * go with them (on delete cascade). Also run by Playwright's global teardown.
+ * Delete conversations created by e2e runs (source = 'e2e'). Messages, profiles, rep questions, comparisons and
+ * information gaps go with them (on delete cascade); the e2e "טופל" status rows are deleted too (they belong to
+ * no conversation). Also run by Playwright's global teardown.
  *
  * Usage: npm run db:clean-e2e
  */
@@ -16,8 +17,11 @@ function serviceClient() {
 }
 
 export async function cleanE2e(): Promise<number> {
-  const { data, error } = await serviceClient().from("conversations").delete().eq("source", "e2e").select("id");
+  const db = serviceClient();
+  const { data, error } = await db.from("conversations").delete().eq("source", "e2e").select("id");
   if (error) throw new Error(`cleanup failed: ${error.message}`);
+  const status = await db.from("information_gap_status").delete().eq("source", "e2e");
+  if (status.error) throw new Error(`gap status cleanup failed: ${status.error.message}`);
   return data.length;
 }
 

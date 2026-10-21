@@ -72,10 +72,14 @@ export interface ConversationStore {
   recordGaps(conversationId: string, gaps: GapInput[]): Promise<void>;
   /** The agent's logInformationGap for this conversation. */
   gapLog(conversationId: string): GapLog;
-  /** Every gap row (the summary works on rows). */
-  listGapRows(): Promise<GapRow[]>;
+  /**
+   * Gap reads and טופל are per conversation source, so test data stays out of the production view: the app sees
+   * `app` conversations, the e2e server sees `e2e` ones (the server's CONVERSATION_SOURCE).
+   */
+  /** Gap rows of this source's conversations (the summary works on rows). */
+  listGapRows(source: ConversationSource): Promise<GapRow[]>;
   /** One line per (type, topic) with the conversation count, last seen and טופל (groupGaps). */
-  listGapGroups(): Promise<GapGroup[]>;
-  /** טופל on / off for a (type, topic) group. */
-  setGapResolved(type: GapType, topic: string, resolved: boolean): Promise<void>;
+  listGapGroups(source: ConversationSource): Promise<GapGroup[]>;
+  /** טופל on / off for a (type, topic) group, for this source only. */
+  setGapResolved(source: ConversationSource, type: GapType, topic: string, resolved: boolean): Promise<void>;
 }

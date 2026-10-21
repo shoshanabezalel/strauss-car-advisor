@@ -20,7 +20,7 @@ describe("memory store: information gaps", () => {
     await store.recordGaps(a, [part]);
     await store.recordGaps(b, [part]);
 
-    const groups = await store.listGapGroups();
+    const groups = await store.listGapGroups("app");
     expect(groups.find((g) => g.topic === part.topic)).toMatchObject({ type: "referred_to_rep", count: 2, lastSeen: "2026-10-21T09:00:00.000Z", resolved: false, vehicle: "BYD ATTO 3" });
     expect(groups.find((g) => g.topic === vehicle.topic)).toMatchObject({ count: 1, lastSeen: "2026-10-21T08:00:00.000Z" });
   });
@@ -31,23 +31,23 @@ describe("memory store: information gaps", () => {
     const a = await store.create("app");
     await store.recordGaps(a, [part]);
     vi.setSystemTime(new Date("2026-10-21T08:30:00Z"));
-    await store.setGapResolved(part.type, part.topic, true);
-    expect((await store.listGapGroups())[0].resolved).toBe(true);
+    await store.setGapResolved("app", part.type, part.topic, true);
+    expect((await store.listGapGroups("app"))[0].resolved).toBe(true);
 
     vi.setSystemTime(new Date("2026-10-21T09:00:00Z"));
     await store.recordGaps(await store.create("app"), [part]);
-    expect((await store.listGapGroups())[0]).toMatchObject({ resolved: false, count: 2 });
+    expect((await store.listGapGroups("app"))[0]).toMatchObject({ resolved: false, count: 2 });
 
-    await store.setGapResolved(part.type, part.topic, true);
-    await store.setGapResolved(part.type, part.topic, false);
-    expect((await store.listGapGroups())[0].resolved).toBe(false);
+    await store.setGapResolved("app", part.type, part.topic, true);
+    await store.setGapResolved("app", part.type, part.topic, false);
+    expect((await store.listGapGroups("app"))[0].resolved).toBe(false);
   });
 
   it("gapLog(conversation) records one agent gap for that conversation", async () => {
     const store = createMemoryStore();
     const a = await store.create("app");
     await store.gapLog(a).log({ type: "no_data", topic: "rules", description: "כיסוי ביטוחי בחופשת לידה" });
-    expect(await store.listGapGroups()).toEqual([expect.objectContaining({ type: "no_data", topic: "rules", count: 1 })]);
+    expect(await store.listGapGroups("app")).toEqual([expect.objectContaining({ type: "no_data", topic: "rules", count: 1 })]);
   });
 });
 
@@ -81,5 +81,26 @@ describe("groupGaps", () => {
       "tax:1:false",
       "rules:3:true",
     ]);
+  });
+});
+
+// Test data stays out of the production view: gaps and טופל are read and written per conversation source.
+describe("memory store: gaps by source", () => {
+  it("each source sees only its own conversations' gaps", async () => {
+    const store = createMemoryStore();
+    await store.recordGaps(await store.create("app"), [part]);
+    await store.recordGaps(await store.create("e2e"), [part, vehicle]);
+    expect((await store.listGapGroups("app")).map((g) => `${g.topic}:${g.count}`)).toEqual([`${part.topic}:1`]);
+    expect((await store.listGapGroups("e2e")).map((g) => g.topic).sort()).toEqual([part.topic, vehicle.topic].sort());
+    expect((await store.listGapRows("app")).every((r) => r.topic === part.topic)).toBe(true);
+  });
+
+  it("טופל set by one source never resolves another source's group", async () => {
+    const store = createMemoryStore();
+    await store.recordGaps(await store.create("app"), [part]);
+    await store.recordGaps(await store.create("e2e"), [part]);
+    await store.setGapResolved("e2e", part.type, part.topic, true);
+    expect((await store.listGapGroups("e2e"))[0].resolved).toBe(true);
+    expect((await store.listGapGroups("app"))[0].resolved).toBe(false);
   });
 });

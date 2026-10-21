@@ -161,7 +161,7 @@ describe("handleChatTurn: busy and fallback", () => {
 describe("handleChatTurn: information gaps", () => {
   it("E-001 (catalog-default participation for the new car) records a referred_to_rep gap for this conversation", async () => {
     const { result } = await send(openingMessage(config, e1));
-    const groups = await store.listGapGroups();
+    const groups = await store.listGapGroups("app");
     const carId = (e1.alternative as { carId: string }).carId;
     expect(groups).toEqual([expect.objectContaining({ type: "referred_to_rep", topic: `participation/${carId}`, count: 1 })]);
     expect(result!.blocked).toBe(false);
