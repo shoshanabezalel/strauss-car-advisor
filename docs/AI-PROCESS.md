@@ -448,3 +448,19 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   table, and the live model's reply is its own text). Added, the user's pick: a closed toggle under the reply, built
   in code and stored with the reply. E2E on the rerun 21/22, the one failure a cold-start payslip route that passed
   4/4 on its own rerun.
+
+### F7 — Onboarding tour, in a worktree next to the engine session (22/10/2026)
+- Built from docs/TOUR.md on branch `tour` (worktree, dev on port 3002), because another session is editing the
+  engine, prompt and comparison explanation on main; `comparison.tsx` got only its `data-tour` attribute.
+- No tour library: steps and texts in `src/lib/tour/steps.ts`, pure logic (selector per breakpoint, centered
+  fallback, bubble placement, try/catch storage) in `src/lib/tour/tour.ts`, unit-tested in node. A unit test parses
+  the two tables in TOUR.md, so the texts can't drift from the approved doc.
+- Seen flag is set when the tour first shows, so skip, Esc or a reload never brings it back by itself.
+- Lint rejected starting the tour with setState in an effect; it starts on the next animation frame instead, and the
+  seen check sits inside the frame callback, so React Strict Mode's double effect can't mark it seen without showing.
+- What went wrong: the browser check on a phone showed step 4 spotlighting a 32px sliver. Not the tour: the
+  profile card's `self-start` shrank it to content width in the mobile flex column (on main since M6). Fixed with
+  `lg:self-start` in its own commit.
+- E2E written but not run (another session owns e2e): `tour.spec.ts` starts from empty storage; every other spec
+  gets a default storageState with the tour seen (`tourSeenState` in helpers, unit-checked against `markSeen`). The
+  two `browser.newContext()` specs need no seed: one only asserts visibility and counts, the other makes API calls.

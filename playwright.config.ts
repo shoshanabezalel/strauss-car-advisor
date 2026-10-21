@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { E2E_REP_CODE } from "./tests/e2e/helpers";
+import { E2E_REP_CODE, tourSeenState } from "./tests/e2e/helpers";
 
 // Its own port and distDir, so e2e can run next to `npm run dev` (Next allows one dev server per distDir).
 // E2E_PORT: a second checkout (git worktree) runs its own e2e server next to this one.
@@ -21,6 +21,8 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   use: {
     baseURL,
+    // The onboarding tour opens on a first visit; only tour.spec.ts starts from empty storage.
+    storageState: tourSeenState(new URL(baseURL).origin),
     locale: "he-IL",
     trace: "on-first-retry",
   },

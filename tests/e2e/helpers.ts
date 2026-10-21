@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { seenKey, TOUR_SCREENS, TOUR_SEEN } from "../../src/lib/tour/tour";
 
 /** The local e2e server's rep access code (playwright.config.ts). Against a deployed URL: E2E_REP_CODE, if set. */
 export const E2E_REP_CODE = process.env.E2E_REP_CODE ?? "e2e-rep-code-1234";
@@ -9,4 +10,12 @@ export async function loginRep(page: Page, code = E2E_REP_CODE) {
   await page.getByTestId("rep-code").fill(code);
   await page.getByTestId("rep-login-submit").click();
   await expect(page.getByTestId("rep-queue")).toBeVisible();
+}
+
+/** Storage state with the onboarding tour already seen on every screen, so it doesn't cover pages in other specs. */
+export function tourSeenState(origin: string) {
+  return {
+    cookies: [],
+    origins: [{ origin, localStorage: TOUR_SCREENS.map((s) => ({ name: seenKey(s), value: TOUR_SEEN })) }],
+  };
 }

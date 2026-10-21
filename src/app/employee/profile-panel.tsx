@@ -111,7 +111,7 @@ export function ProfilePanel({
   const busy = disabled || saving;
 
   return (
-    <Card data-testid="profile-panel" className="self-start">
+    <Card data-testid="profile-panel" className="lg:self-start">
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2 text-base">
           הפרטים שלי
