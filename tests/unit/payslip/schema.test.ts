@@ -25,7 +25,7 @@ describe("payslip extraction schema", () => {
   });
 
   it("rejects a missing field, a string number and an unknown document kind", () => {
-    const { bonus: _bonus, ...noBonus } = e1Fields;
+    const noBonus = Object.fromEntries(Object.entries(e1Fields).filter(([k]) => k !== "bonus"));
     expect(parseExtraction({ document: "payslip", fields: noBonus })).toBeNull();
     expect(parseExtraction(ok({ baseSalary: "18500" }))).toBeNull();
     expect(parseExtraction({ ...ok(), document: "invoice" })).toBeNull();
