@@ -419,3 +419,9 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   server; the rerun of employee.spec + payslip.spec was 11/11.
 - For the record: before the gaps session finished, this session ran no e2e and no dev server (the user's rule),
   so the local e2e flakiness noted under G had another cause.
+- **The user's real payslip** (hourly, part-time) exposed what one synthetic layout hid: the salary line was
+  "ממ שוטף", the pension rate wasn't printed (only the deduction and שכר לגמל), and the study fund was 0.00. Fixes,
+  tests first: salary-line labels in the prompt; the model returns fund amounts as printed and the code computes the
+  rate; 0.00 → 0; absent commissions / bonus → 0 with a hint (the user's pick when asked). A second synthetic layout
+  (hourly, amounts only) joined the eval: 5/5 twice on the primary. Lesson: one sample layout was not a test of
+  reading payslips.

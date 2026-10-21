@@ -441,9 +441,18 @@ credit points) is normal chat, never a gap.
 - Logic in `src/lib/payslip/`: `upload.ts` (checks + messages), `extract.ts` (`generateText` with
   `Output.object`, the file as a file part, `createAgentModel()` so the same retry and fallback; the prompt is a
   constant there so the deploy needs no tracing entry), `schema.ts` (contract + sanitize), `mock.ts` (mock mode).
-- **Contract**: `{ document: payslip | not_payslip | unreadable, fields: { baseSalary, commissions, bonus,
-  pensionPct, studyFundPct, creditPoints } }`, every field `number | null`, strict objects: the model is offered no
-  name / ID / bank field, and an answer with an extra key is `unreadable` (nothing filled).
+- **Contract** (printed values only): `{ document: payslip | not_payslip | unreadable, fields: { baseSalary,
+  commissions, bonus, pensionPct, pensionDeduction, pensionWage, studyFundPct, studyFundDeduction, studyFundWage,
+  creditPoints }, absentLines: ("commissions" | "bonus")[] }`, every field `number | null`, strict objects: the
+  model is offered no name / ID / bank field, and an answer with an extra key is `unreadable` (nothing filled).
+  The screen gets the six profile fields plus `notes` per field (`computed` / `not_on_payslip`).
+- **Layouts** (real hourly payslip, 21/10): the base salary is the main regular salary line, whatever its label
+  (שכר יסוד, משכורת, שכר בסיס, שכר שעתי, ממ שוטף, or the first regular line), never travel, allowances or one-offs.
+- **Fund rates from amounts**: when no rate is printed, the code (never the model) computes employee deduction /
+  fund wage (שכר לגמל) × 100, rounded to 2 decimals, then range-checks it; a deduction printed as 0.00 is 0%. A
+  printed rate wins. Card hint: "חושב מהסכומים בתלוש".
+- **Absent lines** (user decision 21/10): commissions or bonus with no line on a readable payslip → 0 with the hint
+  "לא מופיע בתלוש"; a line that is there but unreadable stays null ("לא זוהה — יש למלא").
 - **No guessing**: a value outside `rules.payslip.ranges` (data, checked against the 6 references and the A7 script,
   bounds inclusive; credit points in steps of 0.25) becomes null, never clamped. Percents as printed, the
   **employee's** rate (the Excel columns are "פנסיה עובד %" / "קרן השתלמות עובד %"). Commissions and bonus are this
