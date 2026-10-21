@@ -23,6 +23,7 @@ import { answerRepQuestion } from "@/lib/chat/rep-answer";
 import { loadConfig, type SampleEmployee } from "@/lib/config";
 import { noopNotifier } from "@/lib/realtime/notifier";
 import { createMemoryVouSource } from "@/lib/vou";
+import { createMemoryGapLog } from "@/lib/gaps/types";
 import { loadVouRecords } from "../unit/vou/fixture";
 import { rateLimited } from "./rate-limit";
 
@@ -177,5 +178,17 @@ describe.skipIf(!hasKey)(`agent evals (live model: ${evalModelName})`, () => {
     expect(t.blocked).toBe(false);
     const called = t.toolCalls.map((c) => c.toolName);
     expect(called.some((n) => ["searchValueOfUse", "getValueOfUse", "askRepresentative", "getCatalog"].includes(n))).toBe(true);
+  });
+
+  // G: a question the rules don't cover → the agent says it has no information and logs a no_data gap.
+  it("no data: says it has no information and logs an information gap", async () => {
+    const gapLog = createMemoryGapLog();
+    const deps = { ...newDeps(), gapLog };
+    const [t] = await chat("האם הרכב הצמוד מכוסה בביטוח כשאני בחופשת לידה, ומי משלם על הדלק בתקופה הזו?", deps, () => true);
+    expect(t.blocked).toBe(false);
+    expect(t.toolCalls.map((c) => c.toolName)).toContain("logInformationGap");
+    expect(gapLog.gaps).toEqual([expect.objectContaining({ type: "no_data" })]);
+    expect(gapLog.gaps[0].description).not.toMatch(/\d/);
+    expect(t.text).toMatch(/אין לי מידע|אין בידי מידע|אין לי נתונים|לא יודע|אין מידע/);
   });
 });

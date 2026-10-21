@@ -2,6 +2,7 @@ import type { ModelMessage } from "ai";
 import { checkNumbers, deriveNotices, knownNames, type AgentState, type Notice } from "@/lib/agent";
 import type { ToolOutput } from "@/lib/agent/notices";
 import type { Config } from "@/lib/config";
+import { recordTurnGaps } from "@/lib/gaps/record";
 import type { Notifier } from "@/lib/realtime/notifier";
 import type { CompareOutput, ConversationStatus, ConversationStore } from "./store";
 
@@ -40,6 +41,7 @@ export interface DirectTurn {
 export async function persistDirectTurn(t: DirectTurn): Promise<{ reply: string; notices: Notice[] }> {
   const { store, config, conversationId: id, state, calls, compared } = t;
   const outputs: ToolOutput[] = calls.map(({ toolName, output }) => ({ toolName, output }));
+  const callId = (i: number) => `${t.callIdPrefix}-${i}`;
 
   let reply = t.reply;
   const guard = checkNumbers(reply, {
@@ -53,7 +55,6 @@ export async function persistDirectTurn(t: DirectTurn): Promise<{ reply: string;
   }
   const notices: Notice[] = [...(t.extraNotices ?? []), ...deriveNotices(outputs)];
 
-  const callId = (i: number) => `${t.callIdPrefix}-${i}`;
   const history: ModelMessage[] = calls.length
     ? [
         { role: "assistant", content: calls.map((c, i) => ({ type: "tool-call" as const, toolCallId: callId(i), toolName: c.toolName, input: c.input })) },
@@ -76,6 +77,8 @@ export async function persistDirectTurn(t: DirectTurn): Promise<{ reply: string;
     { message: { role: "assistant", content: reply }, meta: { notices, blocked: false } },
   ]);
   if (t.status) await store.setStatus(id, t.status);
+  const ids = calls.map((c, i) => ({ ...c, toolCallId: callId(i) }));
+  await recordTurnGaps(store, id, { toolCalls: ids, toolOutputs: ids }, config);
   await t.notifier.conversation(id);
   return { reply, notices };
 }

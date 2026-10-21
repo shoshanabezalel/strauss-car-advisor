@@ -3,6 +3,7 @@ import { createAgentState, createToolHandlers, runAgentTurn, type AgentEvent, ty
 import { ModelBusyError } from "@/lib/agent/model-errors";
 import type { Config } from "@/lib/config";
 import { noopNotifier, type Notifier } from "@/lib/realtime/notifier";
+import { recordTurnGaps } from "@/lib/gaps/record";
 import { ownsConversation } from "@/lib/security/owner";
 import type { VouSource } from "@/lib/vou";
 import { toComparisonView, type ComparisonView } from "./comparison-view";
@@ -77,7 +78,7 @@ export async function handleChatTurn(input: ChatTurnInput): Promise<void> {
     const turn = await runAgentTurn({
       model,
       messages: [...history, user],
-      deps: { config, vouSource, state, repQueue: store.repQueue(id) },
+      deps: { config, vouSource, state, repQueue: store.repQueue(id), gapLog: store.gapLog(id) },
       onEvent: emit,
       maxRetries,
       abortSignal,
@@ -100,6 +101,7 @@ export async function handleChatTurn(input: ChatTurnInput): Promise<void> {
       ...replies.map((message, i) => (i === last ? { message, meta: { notices: turn.notices, blocked: turn.blocked } } : { message })),
     ]);
     await store.saveState(id, state);
+    await recordTurnGaps(store, id, turn, config);
 
     if (compared) await store.saveComparison(id, compared);
     if (turn.notices.some((n) => n.kind === "rep_question_open")) {

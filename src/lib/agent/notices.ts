@@ -5,6 +5,8 @@ import type { z } from "zod";
 import type { CompareOptionsOutput, GetValueOfUseOutput, RepField, UpdateProfileOutput } from "./schemas";
 
 export interface ToolOutput {
+  /** Pairs the output with its call (information gaps, src/lib/gaps/derive.ts). */
+  toolCallId?: string;
   toolName: string;
   output: unknown;
 }

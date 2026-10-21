@@ -4,6 +4,7 @@ import type { Config, Situation } from "@/lib/config";
 import { allowedCars, checkEligibility, compareOptions, missingProfileFields, type EmployeeProfile, type OptionResult } from "@/lib/engine";
 import { displayDiff, roundShekel } from "@/lib/format/money";
 import { getValueOfUse, searchValueOfUse, type VouSource } from "@/lib/vou";
+import { LogInformationGapInput, LogInformationGapOutput, noopGapLog, type GapLog } from "@/lib/gaps/types";
 import type { AgentEventSink } from "./events";
 import * as S from "./schemas";
 import type { AgentState, RepQueue } from "./state";
@@ -13,6 +14,8 @@ export interface AgentDeps {
   vouSource: VouSource;
   state: AgentState;
   repQueue: RepQueue;
+  /** Where logInformationGap writes (G). Omitted in tests that don't care: then nothing is stored. */
+  gapLog?: GapLog;
 }
 
 export const TOOL_NAMES = [
@@ -23,6 +26,7 @@ export const TOOL_NAMES = [
   "updateProfile",
   "compareOptions",
   "askRepresentative",
+  "logInformationGap",
 ] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
 
@@ -36,6 +40,7 @@ export interface ToolHandlers {
   updateProfile: Handler<typeof S.UpdateProfileInput, typeof S.UpdateProfileOutput>;
   compareOptions: Handler<typeof S.CompareOptionsInput, typeof S.CompareOptionsOutput>;
   askRepresentative: Handler<typeof S.AskRepresentativeInput, typeof S.AskRepresentativeOutput>;
+  logInformationGap: Handler<typeof LogInformationGapInput, typeof LogInformationGapOutput>;
 }
 
 /**
@@ -63,7 +68,7 @@ function amounts(r: OptionResult) {
 
 /** Plain handlers: Zod-parse the input, call the engine / lookup, Zod-parse the output. No calculation here. */
 export function createToolHandlers(deps: AgentDeps, { origin = "agent" }: { origin?: ToolOrigin } = {}): ToolHandlers {
-  const { config, vouSource, state, repQueue } = deps;
+  const { config, vouSource, state, repQueue, gapLog = noopGapLog } = deps;
   const { rules } = config;
 
   /** A car option without participation takes the representative's confirmed value, else the engine's catalog default. */
@@ -168,6 +173,12 @@ export function createToolHandlers(deps: AgentDeps, { origin = "agent" }: { orig
       }
       return S.AskRepresentativeOutput.parse(await repQueue.ask(q));
     },
+
+    async logInformationGap(input) {
+      const g = LogInformationGapInput.parse(input);
+      await gapLog.log({ type: "no_data", topic: g.topic, description: g.description });
+      return LogInformationGapOutput.parse({ ok: true });
+    },
   };
 }
 
@@ -183,6 +194,8 @@ const DESCRIPTIONS: Record<ToolName, string> = {
     "Net today vs each requested option. Quote numbers only from display. Omit participation for a new car: the tool applies the representative's answer or the catalog default.",
   askRepresentative:
     'Send a question to the car representative for company data the employee cannot know. field "participation" needs the carId; "current" for an unknown current car or one not in the catalog.',
+  logInformationGap:
+    "Record that the tools and rules have no information to answer the employee. A short neutral description of what is missing: no names, no personal details, no digits.",
 };
 
 /** Model-facing input schemas: no rep-only fields, flat updateProfile (schemas.ts, "model-facing inputs"). */
@@ -197,6 +210,7 @@ const inputs = (config: Config): Record<ToolName, z.ZodType> => ({
   }),
   compareOptions: S.AgentCompareOptionsInput,
   askRepresentative: S.AskRepresentativeInput,
+  logInformationGap: LogInformationGapInput,
 });
 
 /** The same handlers as AI SDK tools. `onEvent` reports each call's progress (never its output). */

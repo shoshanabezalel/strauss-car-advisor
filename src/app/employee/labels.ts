@@ -13,6 +13,7 @@ export const TOOL_LABELS: Record<ToolName, string> = {
   updateProfile: "שומר את הפרטים",
   compareOptions: "מחשב השוואה",
   askRepresentative: "שולח שאלה לנציג/ת",
+  logInformationGap: "רושם פער מידע",
 };
 
 export const STATUS_LABELS: Record<Extract<AgentEvent, { type: "status" }>["status"], string> = {

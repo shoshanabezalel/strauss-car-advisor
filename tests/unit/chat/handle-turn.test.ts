@@ -1,6 +1,6 @@
 import { APICallError } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BLOCKED_REPLY, missingDataMessage, openingMessage, UNKNOWN_PARTICIPATION_MESSAGE } from "@/lib/agent";
 import { withFallback } from "@/lib/agent/fallback-model";
 import { createMockModel } from "@/lib/agent/mock-model";
@@ -154,5 +154,26 @@ describe("handleChatTurn: busy and fallback", () => {
     const fallbackAt = events.findIndex((e) => e.type === "status" && e.status === "fallback");
     expect(fallbackAt).toBeGreaterThan(-1);
     expect(fallbackAt).toBeLessThan(events.indexOf(result));
+  });
+});
+
+// G: information gaps are recorded from the turn's tool outputs, in code.
+describe("handleChatTurn: information gaps", () => {
+  it("E-001 (catalog-default participation for the new car) records a referred_to_rep gap for this conversation", async () => {
+    const { result } = await send(openingMessage(config, e1));
+    const groups = await store.listGapGroups();
+    const carId = (e1.alternative as { carId: string }).carId;
+    expect(groups).toEqual([expect.objectContaining({ type: "referred_to_rep", topic: `participation/${carId}`, count: 1 })]);
+    expect(result!.blocked).toBe(false);
+  });
+
+  it("a failure to record gaps never fails the turn", async () => {
+    store.recordGaps = async () => {
+      throw new Error("db down");
+    };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { result } = await send(openingMessage(config, e1));
+    expect(result?.comparison?.rows[1].amounts.net).toBe(e1.expected.netAlt);
+    warn.mockRestore();
   });
 });

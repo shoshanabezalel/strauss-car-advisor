@@ -47,7 +47,7 @@ describe("mock model: A7 challenge script", () => {
       [{ role: "user", content: challengeOpeningMessage(config) }, ...first.responseMessages, { role: "user", content: ASK_REP_MESSAGE }],
       d,
     );
-    expect(t.toolCalls).toEqual([{ toolName: "askRepresentative", input: expect.objectContaining({ field: "participation", carId: a7.repAnswer.carId }) }]);
+    expect(t.toolCalls).toEqual([{ toolCallId: expect.any(String), toolName: "askRepresentative", input: expect.objectContaining({ field: "participation", carId: a7.repAnswer.carId }) }]);
     expect(d.repQueue.questions[0]).toMatchObject({ field: "participation", carId: a7.repAnswer.carId });
     expect(t.notices.some((n) => n.kind === "rep_question_open")).toBe(true);
     expect(t.blocked).toBe(false);

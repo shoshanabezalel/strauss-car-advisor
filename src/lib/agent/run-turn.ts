@@ -11,7 +11,7 @@ export interface AgentTurn {
   text: string;
   blocked: boolean;
   attempts: number;
-  toolCalls: { toolName: string; input: unknown }[];
+  toolCalls: { toolCallId: string; toolName: string; input: unknown }[];
   toolOutputs: ToolOutput[];
   /** Tool calls the tools rejected (the model saw the error). Logged by the evals. */
   toolErrors: { toolName: string; error: string }[];
@@ -93,8 +93,8 @@ export async function runAgentTurn({ model, messages, deps, maxSteps = 8, maxRet
       abortSignal,
     });
     for (const step of result.steps) {
-      for (const c of step.toolCalls) toolCalls.push({ toolName: c.toolName, input: c.input });
-      for (const r of step.toolResults) toolOutputs.push({ toolName: r.toolName, output: r.output });
+      for (const c of step.toolCalls) toolCalls.push({ toolCallId: c.toolCallId, toolName: c.toolName, input: c.input });
+      for (const r of step.toolResults) toolOutputs.push({ toolCallId: r.toolCallId, toolName: r.toolName, output: r.output });
       for (const p of step.content) {
         if (p.type === "tool-error") toolErrors.push({ toolName: p.toolName, error: p.error instanceof Error ? p.error.message : String(p.error) });
       }

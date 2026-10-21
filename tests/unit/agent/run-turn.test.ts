@@ -58,7 +58,7 @@ describe("runAgentTurn", () => {
     const model = mockModel([compareAtto, { text: GOOD }]);
     const turn = await runAgentTurn({ model, messages: user("מה יקרה אם אעבור ל-ATTO 3?"), deps: deps() });
     expect(turn).toMatchObject({ text: GOOD, blocked: false, attempts: 1, guard: { ok: true, invented: [] } });
-    expect(turn.toolCalls).toEqual([{ toolName: "compareOptions", input: compareAtto.input }]);
+    expect(turn.toolCalls).toEqual([{ toolCallId: expect.any(String), toolName: "compareOptions", input: compareAtto.input }]);
     expect(turn.toolOutputs[0].toolName).toBe("compareOptions");
     expect(turn.notices).toContainEqual({ kind: "participation_unconfirmed", carId: attoId });
   });
