@@ -34,6 +34,8 @@ export const LIMITS = {
   repGapsIp: { name: "repgaps:ip", windowSec: MINUTE, max: 360 },
   /** "ניתוח AI" on the gaps tab: an LLM call per hit. */
   gapAnalysisIp: { name: "gapai:ip", windowSec: 10 * MINUTE, max: 10 },
+  /** Payslip upload (F6): a vision LLM call per hit; it also counts in chatGlobalDay. */
+  payslipIp: { name: "payslip:ip", windowSec: MINUTE, max: 10 },
   /** Brute-force guard on the shared code: not loosened for the venue. */
   repLoginIp: { name: "replogin:ip", windowSec: 15 * MINUTE, max: 5 },
   /** The live fallback check makes a real LLM call per hit; only the deployed suite needs it. */

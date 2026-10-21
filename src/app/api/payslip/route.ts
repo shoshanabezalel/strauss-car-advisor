@@ -1,9 +1,13 @@
 import { createAgentModel, isMockMode } from "@/lib/agent/model";
 import { loadConfig } from "@/lib/config";
+import { serverEnv } from "@/lib/env";
 import { createModelExtractor } from "@/lib/payslip/extract";
 import { createMockExtractor } from "@/lib/payslip/mock";
+import { payslipLimits } from "@/lib/payslip/limits";
 import { handlePayslipUpload } from "@/lib/payslip/upload";
 import { NO_STORE } from "@/lib/security/http";
+import { clientIp, createSupabaseRateLimiter, enforceLimits, rateLimitScale } from "@/lib/security/rate-limit";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // One vision call, plus one retry and the fallback model (fallback-model.ts); the read stops at READ_BUDGET_MS.
 export const maxDuration = 60;
@@ -12,8 +16,16 @@ const READ_BUDGET_MS = 45_000;
 /**
  * POST /api/payslip (F6): multipart with one `file` → the six salary fields for the employee to confirm.
  * Nothing is saved here: confirmed values go through POST /api/profile like any edit. The file is never stored.
+ * The DB is used only for the rate-limit counters, checked before the upload is read.
  */
 export async function POST(request: Request) {
+  const limited = await enforceLimits(
+    createSupabaseRateLimiter(createAdminClient()),
+    payslipLimits(clientIp(request)),
+    rateLimitScale(serverEnv().RATE_LIMIT_SCALE),
+  );
+  if (limited) return limited;
+
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
   const config = loadConfig();

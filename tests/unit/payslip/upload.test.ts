@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Extractor } from "@/lib/payslip/extract";
+import { payslipLimits } from "@/lib/payslip/limits";
 import { handlePayslipUpload, MAX_PAYSLIP_BYTES } from "@/lib/payslip/upload";
+import { createMemoryRateLimiter, enforceLimits, LIMITS, RATE_LIMIT_MESSAGE } from "@/lib/security/rate-limit";
 
 // F6: checks before the model call, Hebrew messages, and nothing kept or logged.
 const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -73,6 +75,27 @@ describe("handlePayslipUpload", () => {
     expect(logged).not.toContain("SECRET");
     expect(logs[0].mock.calls.flat().some((a) => a instanceof Error || (typeof a === "object" && a !== null))).toBe(false);
     expect(JSON.stringify(res.body)).not.toContain(b64.slice(0, 16));
+  });
+});
+
+describe("payslip rate limits", () => {
+  it("10 reads a minute per IP, then 429 with the Hebrew message; each read also counts in the daily LLM cap", async () => {
+    const limiter = createMemoryRateLimiter(() => 0);
+    const hit = vi.spyOn(limiter, "hit");
+    for (let i = 0; i < LIMITS.payslipIp.max; i++) expect(await enforceLimits(limiter, payslipLimits("1.2.3.4"))).toBeNull();
+    const refused = await enforceLimits(limiter, payslipLimits("1.2.3.4"));
+    expect(refused?.status).toBe(429);
+    expect((await refused!.json()).message).toBe(RATE_LIMIT_MESSAGE);
+    expect(await enforceLimits(limiter, payslipLimits("5.6.7.8"))).toBeNull();
+    expect(hit).toHaveBeenCalledWith(`${LIMITS.chatGlobalDay.name}:all`, LIMITS.chatGlobalDay.windowSec, LIMITS.chatGlobalDay.max);
+    expect(LIMITS.payslipIp).toMatchObject({ windowSec: 60, max: 10 });
+  });
+
+  it("the route checks the limits before reading the upload", () => {
+    const route = readFileSync("src/app/api/payslip/route.ts", "utf8");
+    const limitAt = route.indexOf("payslipLimits(");
+    expect(limitAt).toBeGreaterThan(-1);
+    expect(limitAt).toBeLessThan(route.indexOf("formData("));
   });
 });
 
