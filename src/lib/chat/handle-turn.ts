@@ -6,7 +6,7 @@ import { noopNotifier, type Notifier } from "@/lib/realtime/notifier";
 import { recordTurnGaps } from "@/lib/gaps/record";
 import { ownsConversation } from "@/lib/security/owner";
 import type { VouSource } from "@/lib/vou";
-import { toComparisonView, type ComparisonView } from "./comparison-view";
+import { breakdownOf, toComparisonView, type Breakdown, type ComparisonView } from "./comparison-view";
 import { toModelHistory } from "./history";
 import { applyRepAnswer, recompute } from "./rep-answer";
 import type { CompareOutput, ConversationSource, ConversationStore } from "./store";
@@ -22,6 +22,7 @@ export type ChatEvent =
       blocked: boolean;
       notices: Notice[];
       comparison?: ComparisonView;
+      breakdown?: Breakdown;
     }
   | { type: "error"; error: "not_found" | "failed" | "busy"; message: string };
 
@@ -94,11 +95,16 @@ export async function handleChatTurn(input: ChatTurnInput): Promise<void> {
       if (compared) compared = (await recompute(rep, compared)).output;
     }
 
+    const view = compared ? toComparisonView(compared, config) : undefined;
+    const lines = view ? breakdownOf(view) : [];
+    const breakdown = lines.length ? lines : undefined;
     const replies = turn.responseMessages;
     const last = replies.length - 1;
     await store.appendMessages(id, [
       { message: user },
-      ...replies.map((message, i) => (i === last ? { message, meta: { notices: turn.notices, blocked: turn.blocked } } : { message })),
+      ...replies.map((message, i) =>
+        i === last ? { message, meta: { notices: turn.notices, blocked: turn.blocked, ...(breakdown ? { breakdown } : {}) } } : { message },
+      ),
     ]);
     await store.saveState(id, state);
     await recordTurnGaps(store, id, turn, config);
@@ -115,7 +121,8 @@ export async function handleChatTurn(input: ChatTurnInput): Promise<void> {
       reply: turn.text,
       blocked: turn.blocked,
       notices: turn.notices,
-      comparison: compared ? toComparisonView(compared, config) : undefined,
+      comparison: view,
+      breakdown,
     });
   } catch (err) {
     if (isBusy(err)) {

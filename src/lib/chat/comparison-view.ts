@@ -24,7 +24,7 @@ export interface ComparisonRow {
   participationSource?: ParticipationSource;
   missing: MissingField[];
   changes: ChangeKind[];
-  /** F4: up to two plain-Hebrew lines vs today (explain.ts); empty for today. */
+  /** F4: one plain-Hebrew line per changed component vs today (explain.ts); empty for today. */
   explanation: string[];
   amounts: {
     net?: number;
@@ -42,6 +42,14 @@ export interface ComparisonRow {
 
 export interface ComparisonView {
   rows: ComparisonRow[];
+}
+
+/** "איך זה מחושב?" under a reply: per option, the table's explanation lines (the engine's net change per component). */
+export type Breakdown = { label: string; lines: string[] }[];
+
+/** Eligible options that have lines; today and non-eligible options are left out (their reason is in the table). */
+export function breakdownOf(view: ComparisonView): Breakdown {
+  return view.rows.filter((r) => !r.isToday && r.eligible && r.explanation.length).map((r) => ({ label: r.label, lines: r.explanation }));
 }
 
 export { WAIVER_LABEL } from "@/lib/format/labels";

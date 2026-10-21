@@ -444,3 +444,7 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
 - The user asked to reset the localhost counters; I didn't, because the cap that fired wasn't per IP, and said so.
 - Fix, tests first: the daily budget is per environment (`llmBudgetKey`), 1,000 a day for judging day and payslip
   30/min per IP (both the user's picks), and the 429 message text corrected.
+- The user looked for an "איך זה מחושב?" breakdown in the chat; it didn't exist (the breakdown was only in the
+  table, and the live model's reply is its own text). Added, the user's pick: a closed toggle under the reply, built
+  in code and stored with the reply. E2E on the rerun 21/22, the one failure a cold-start payslip route that passed
+  4/4 on its own rerun.

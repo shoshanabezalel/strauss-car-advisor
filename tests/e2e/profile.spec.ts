@@ -45,6 +45,17 @@ test.describe("profile and options (desktop)", () => {
       }),
     );
     expect(effects.reduce((s, x) => s + x, 0)).toBe(e5.expected.diff);
+
+    // The chat: "איך זה מחושב?" under the reply, closed until opened, with the same lines as the table.
+    const breakdown = page.getByTestId("breakdown").last();
+    await expect(breakdown).toBeVisible();
+    await expect(breakdown.getByTestId("breakdown-line").first()).toBeHidden();
+    await breakdown.getByText("איך זה מחושב?").click();
+    await expect(breakdown.getByTestId("breakdown-line")).toHaveText(await lines.allTextContents());
+
+    // Stored with the reply: still there after a reload.
+    await page.reload();
+    await expect(page.getByTestId("breakdown").last().getByTestId("breakdown-line")).toHaveCount(3);
   });
 
   test("editing today's participation recomputes: today's net drops by exactly the change", async ({ page }) => {

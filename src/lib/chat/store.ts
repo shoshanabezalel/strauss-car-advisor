@@ -3,6 +3,7 @@ import type { z } from "zod";
 import type { AgentState, Notice, RepAnswer, RepQueue } from "@/lib/agent";
 import type { CompareOptionsOutput } from "@/lib/agent/schemas";
 import type { GapGroup, GapInput, GapLog, GapRow, GapType } from "@/lib/gaps/types";
+import type { Breakdown } from "./comparison-view";
 
 export const CONVERSATION_SOURCES = ["app", "e2e"] as const;
 export type ConversationSource = (typeof CONVERSATION_SOURCES)[number];
@@ -12,7 +13,8 @@ export type CompareOutput = z.output<typeof CompareOptionsOutput>;
 /** One row of `messages.content`: the model message plus, on a final reply, what the UI shows next to it. */
 export interface StoredMessage {
   message: ModelMessage;
-  meta?: { notices: Notice[]; blocked: boolean };
+  /** breakdown: "איך זה מחושב?" for a reply that carried a comparison (comparison-view.ts breakdownOf). */
+  meta?: { notices: Notice[]; blocked: boolean; breakdown?: Breakdown };
 }
 
 export type RepQuestionStatus = "open" | "answered";

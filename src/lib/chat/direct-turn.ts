@@ -4,6 +4,7 @@ import type { ToolOutput } from "@/lib/agent/notices";
 import type { Config } from "@/lib/config";
 import { recordTurnGaps } from "@/lib/gaps/record";
 import type { Notifier } from "@/lib/realtime/notifier";
+import { breakdownOf, toComparisonView } from "./comparison-view";
 import type { CompareOutput, ConversationStatus, ConversationStore } from "./store";
 
 /**
@@ -70,11 +71,12 @@ export async function persistDirectTurn(t: DirectTurn): Promise<{ reply: string;
       ]
     : [];
 
+  const breakdown = compared ? breakdownOf(toComparisonView(compared, config)) : undefined;
   await store.saveState(id, state);
   if (compared) await store.saveComparison(id, compared);
   await store.appendMessages(id, [
     ...history.map((message) => ({ message })),
-    { message: { role: "assistant", content: reply }, meta: { notices, blocked: false } },
+    { message: { role: "assistant", content: reply }, meta: { notices, blocked: false, ...(breakdown?.length ? { breakdown } : {}) } },
   ]);
   if (t.status) await store.setStatus(id, t.status);
   const ids = calls.map((c, i) => ({ ...c, toolCallId: callId(i) }));

@@ -300,6 +300,9 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
   same lines, so the chat and the table agree. Tests: for the 6 references the lines sum exactly to the change (engine
   and display), and every amount the sheet's "why" column names (except the rules' +250 net) appears. The prompt
   tells the model to explain only with `display.netDelta` and never to list gross amounts as if they add up.
+- **"איך זה מחושב?" in the chat** (21/10): a reply that carried a comparison gets a closed `<details>` under it with
+  the same lines (`breakdownOf`, comparison-view.ts), per eligible option. Built in code, stored in the reply's
+  `meta.breakdown` (agent turns and direct turns alike), so a reload or a later comparison never changes it.
 - **Direct turns** (`direct-turn.ts`): the persistence shared by rep answers and employee edits. It covers the
   guarded reply built in code, notices, the synthetic tool round-trip, state and comparison, and the conversation
   ping. No LLM.

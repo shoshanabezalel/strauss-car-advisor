@@ -141,7 +141,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
         });
         break;
       case "result":
-        setMessages((m) => [...m, { role: "assistant", text: e.reply, notices: e.notices, blocked: e.blocked }]);
+        setMessages((m) => [...m, { role: "assistant", text: e.reply, notices: e.notices, blocked: e.blocked, breakdown: e.breakdown }]);
         if (e.comparison) setComparison(e.comparison);
         break;
       case "error":
@@ -324,8 +324,33 @@ function Bubble({ message: m, carLabels, resolved }: { message: VisibleMessage; 
       <div className="rounded-2xl bg-muted px-3 py-2 text-sm whitespace-pre-line" data-testid="msg-assistant">
         {m.text}
       </div>
+      {m.breakdown && <Breakdown breakdown={m.breakdown} />}
       <Notices notices={m.notices ?? []} carLabels={carLabels} resolved={resolved} />
     </div>
+  );
+}
+
+/**
+ * "איך זה מחושב?" under a reply that carried a comparison: the engine's net change per component, the same lines as
+ * the table (built in code, stored with this reply). Closed by default.
+ */
+function Breakdown({ breakdown }: { breakdown: NonNullable<VisibleMessage["breakdown"]> }) {
+  return (
+    <details className="rounded-lg border px-3 py-2 text-xs" data-testid="breakdown">
+      <summary className="cursor-pointer text-sm font-medium">איך זה מחושב?</summary>
+      <div className="mt-2 flex flex-col gap-2">
+        {breakdown.map((b) => (
+          <div key={b.label} className="flex flex-col gap-0.5">
+            {breakdown.length > 1 && <span className="font-medium">{b.label}</span>}
+            {b.lines.map((line, i) => (
+              <p key={i} className="text-muted-foreground" data-testid="breakdown-line">
+                {line}
+              </p>
+            ))}
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }
 

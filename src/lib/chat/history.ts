@@ -1,5 +1,6 @@
 import type { ModelMessage } from "ai";
 import type { Notice } from "@/lib/agent";
+import type { Breakdown } from "./comparison-view";
 import type { StoredMessage } from "./store";
 
 /** A chat bubble: user text, or a final (guarded) assistant reply. Tool round-trips are not shown. */
@@ -8,6 +9,8 @@ export interface VisibleMessage {
   text: string;
   notices?: Notice[];
   blocked?: boolean;
+  /** "איך זה מחושב?": the engine's lines for the comparison this reply carried. */
+  breakdown?: Breakdown;
 }
 
 export function toVisibleHistory(messages: readonly StoredMessage[]): VisibleMessage[] {
