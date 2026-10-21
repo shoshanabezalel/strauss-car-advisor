@@ -43,6 +43,11 @@ const TwoTierSchema = z
   .object({ threshold: money, ceiling: money, lowRate: rate, highRate: rate })
   .refine((t) => t.threshold < t.ceiling, { message: "threshold must be below ceiling" });
 
+const PayslipRangeSchema = z
+  .object({ min: z.number(), max: z.number(), step: z.number().positive().optional() })
+  .refine((r) => r.min <= r.max, { message: "min must not exceed max" });
+export type PayslipRange = z.infer<typeof PayslipRangeSchema>;
+
 export const RulesSchema = z
   .object({
     version: z.string().min(1),
@@ -110,6 +115,18 @@ export const RulesSchema = z
         },
         { message: `driveField keys must be exactly 0..${DRIVES.length - 1}` },
       ),
+    }),
+    // F6: plausible values read from a payslip; outside → not read (null), never fixed. Percents as printed (6 = 6%).
+    payslip: z.object({
+      ranges: z.object({
+        baseSalary: PayslipRangeSchema,
+        commissions: PayslipRangeSchema,
+        bonus: PayslipRangeSchema,
+        pensionPct: PayslipRangeSchema,
+        studyFundPct: PayslipRangeSchema,
+        creditPoints: PayslipRangeSchema,
+      }),
+      note,
     }),
   })
   .superRefine((r, ctx) => {
