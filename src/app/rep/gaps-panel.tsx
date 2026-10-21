@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { GapAnalysis } from "@/lib/gaps/analysis";
-import { GAP_TYPE_LABELS } from "@/lib/gaps/labels";
+import { GAP_TYPE_LABELS, gapLabel } from "@/lib/gaps/labels";
 import type { GapSummary } from "@/lib/gaps/summary";
 import { GAP_TYPES, type GapGroup } from "@/lib/gaps/types";
 
@@ -105,7 +105,7 @@ export function GapsPanel() {
         </div>
       </header>
 
-      {summary && <SummaryCards summary={summary} groups={groups ?? []} />}
+      {summary && <SummaryCards summary={summary} />}
 
       {analysis && <AnalysisCard analysis={analysis} />}
 
@@ -143,9 +143,7 @@ export function GapsPanel() {
                     {g.vehicle && <span className="font-medium break-words">{g.vehicle}</span>}
                   </div>
                   <p className="text-sm break-words">{g.description}</p>
-                  <p className="text-xs break-all text-muted-foreground" dir="ltr">
-                    {g.topic}
-                  </p>
+                  <p className="text-xs break-words text-muted-foreground">{gapLabel(g.type, g.topic, g.vehicle)}</p>
                 </div>
                 <dl className="flex shrink-0 gap-4 text-sm">
                   <div className="flex flex-col items-center">
@@ -179,11 +177,7 @@ export function GapsPanel() {
 }
 
 /** Totals per type, this week vs last week, top 5 topics: computed on the server, shown as is. */
-function SummaryCards({ summary, groups }: { summary: GapSummary; groups: GapGroup[] }) {
-  const label = (type: GapGroup["type"], topic: string) => {
-    const g = groups.find((x) => x.type === type && x.topic === topic);
-    return g?.vehicle ? `${g.vehicle} · ${g.description}` : (g?.description ?? topic);
-  };
+function SummaryCards({ summary }: { summary: GapSummary }) {
   return (
     <div className="flex flex-col gap-3" data-testid="gaps-summary">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -219,7 +213,7 @@ function SummaryCards({ summary, groups }: { summary: GapSummary; groups: GapGro
                     <Badge variant="outline" className="me-2">
                       {GAP_TYPE_LABELS[t.type]}
                     </Badge>
-                    {label(t.type, t.topic)}
+                    {t.label}
                   </span>
                   <span className="shrink-0 font-semibold tabular-nums">{t.count}</span>
                 </li>

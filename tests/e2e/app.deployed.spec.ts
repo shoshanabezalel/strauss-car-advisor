@@ -50,15 +50,30 @@ test("live mode: no demo badge, and the form starts a conversation that only thi
   }
 });
 
+// Rep logins are limited to five per 15 minutes per IP. This run logs in twice (the fallback check and the gaps tab,
+// which prove the login works), so this test only checks the wall.
 test("the rep screen is behind the access code", async ({ page, request }) => {
   expect((await request.get("/api/rep/questions")).status()).toBe(401);
+  expect((await request.get("/api/rep/gaps")).status()).toBe(401);
   await page.goto("/rep");
   await expect(page.getByTestId("rep-login")).toBeVisible();
-  // Logging in costs one of five attempts per 15 minutes from this IP: only with a code given for the run.
-  if (process.env.E2E_REP_CODE) {
-    await loginRep(page);
-    expect((await page.context().request.get("/api/rep/questions")).status()).toBe(200);
-  }
+});
+
+// G: the information gaps tab on production: summary cards, the list (or its empty state), the CSV export.
+test("the rep's information gaps tab opens with its summary and CSV export", async ({ page }) => {
+  expect(process.env.E2E_REP_CODE, "set E2E_REP_CODE to the deploy's rep access code").toBeTruthy();
+  await loginRep(page);
+  expect((await page.context().request.get("/api/rep/questions")).status()).toBe(200);
+  await page.getByTestId("rep-tab-gaps").click();
+  await expect(page).toHaveURL(/tab=gaps/);
+  await expect(page.getByTestId("gaps-panel")).toBeVisible();
+  await expect(page.getByTestId("gaps-summary")).toBeVisible();
+  await expect(page.getByTestId("gap-group").first().or(page.getByTestId("gaps-empty"))).toBeVisible();
+  // the list never shows a catalog id
+  expect(await page.getByTestId("gaps-panel").innerText()).not.toMatch(/CAR-\d+/);
+  const csv = await page.context().request.get("/api/rep/gaps/csv");
+  expect(csv.status()).toBe(200);
+  expect([...(await csv.body()).subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
 });
 
 // A listed model can still be unavailable (gemini-2.5-flash: 404 on 20/10). The deploy's own FALLBACK_MODEL must

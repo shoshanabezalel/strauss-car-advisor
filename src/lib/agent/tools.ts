@@ -195,7 +195,7 @@ const DESCRIPTIONS: Record<ToolName, string> = {
   askRepresentative:
     'Send a question to the car representative for company data the employee cannot know. field "participation" needs the carId; "current" for an unknown current car or one not in the catalog.',
   logInformationGap:
-    "Record that the tools and rules have no information to answer the employee. A short neutral description of what is missing: no names, no personal details, no digits.",
+    "Record that the tools and rules have no information to answer the employee. A short neutral description of what is missing, written in Hebrew: no names, no personal details, no digits.",
 };
 
 /** Model-facing input schemas: no rep-only fields, flat updateProfile (schemas.ts, "model-facing inputs"). */

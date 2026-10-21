@@ -20,7 +20,8 @@ export const LogInformationGapInput = z.object({
     .trim()
     .min(3)
     .max(120)
-    .refine((s) => !/\d/.test(s), { message: "no digits: describe the missing information, not the employee's numbers" }),
+    .refine((s) => !/\d/.test(s), { message: "no digits: describe the missing information, not the employee's numbers" })
+    .refine((s) => /[א-ת]/.test(s) && !/[A-Za-z]/.test(s), { message: "in Hebrew only: the rep screen shows it as is" }),
 });
 export const LogInformationGapOutput = z.object({ ok: z.literal(true) });
 

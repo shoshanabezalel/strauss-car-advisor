@@ -2,7 +2,7 @@ import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { ModelBusyError } from "@/lib/agent/model-errors";
 import { analyzeGaps, INSUFFICIENT_DATA_MESSAGE, MIN_GAPS_FOR_ANALYSIS } from "@/lib/gaps/analysis";
-import type { GapSummary } from "@/lib/gaps/summary";
+import { analysisInput, type GapSummary } from "@/lib/gaps/summary";
 
 // G add-on: "ניתוח AI" reads only the code-computed summary, writes 3–5 Hebrew insights, and may only cite its numbers.
 const summary: GapSummary = {
@@ -10,9 +10,9 @@ const summary: GapSummary = {
   total: 12,
   byType: { no_data: 3, referred_to_rep: 7, unknown_vehicle: 2 },
   topTopics: [
-    { type: "referred_to_rep", topic: "participation/CAR-10", count: 6 },
-    { type: "no_data", topic: "rules", count: 3 },
-    { type: "unknown_vehicle", topic: "vehicle/id.7", count: 2 },
+    { type: "referred_to_rep", topic: "participation/CAR-10", label: "השתתפות עצמית: BYD ATTO 3", count: 6 },
+    { type: "no_data", topic: "rules", label: "כללי החברה", count: 3 },
+    { type: "unknown_vehicle", topic: "vehicle/id.7", label: "רכב שאינו בקטלוג: פולקסווגן ID.7", count: 2 },
   ],
   thisWeek: 9,
   lastWeek: 3,
@@ -30,12 +30,21 @@ const good = {
 };
 
 describe("analyzeGaps", () => {
-  it("sends the model the summary and nothing else: no conversation ids, descriptions or rows", async () => {
+  it("sends the model the labeled summary and nothing else: no conversation ids, descriptions, rows, topic keys or catalog ids", async () => {
     const model = new MockLanguageModelV4({ doGenerate: [reply(good)] });
     await analyzeGaps(summary, model);
     const sent = JSON.stringify(model.doGenerateCalls[0].prompt);
-    expect(sent).toContain(JSON.stringify(JSON.stringify(summary)).slice(1, -1)); // the summary JSON, escaped inside the prompt
-    for (const leak of ["conversation", "description", "conv-", "lastSeen", "createdAt"]) expect(sent).not.toContain(leak);
+    expect(sent).toContain(JSON.stringify(JSON.stringify(analysisInput(summary))).slice(1, -1)); // escaped inside the prompt
+    for (const leak of ["conversation", "description", "conv-", "lastSeen", "createdAt", "participation/", "vehicle/"]) expect(sent).not.toContain(leak);
+    expect(sent).not.toMatch(/CAR-\d+/);
+    expect(sent).toContain("BYD ATTO 3");
+  });
+
+  it("a reply that names a catalog id (CAR-10) is rejected like an invented number", async () => {
+    const withId = { insights: [{ ...good.insights[0], insight: "השתתפות עצמית ב-CAR-10 לא מאושרת" }, good.insights[1], good.insights[2]] };
+    const model = new MockLanguageModelV4({ doGenerate: [reply(withId), reply(withId)] });
+    expect((await analyzeGaps(summary, model)).status).toBe("failed");
+    expect(model.doGenerateCalls).toHaveLength(2);
   });
 
   it("valid insights (3–5, Hebrew, numbers only from the summary, incl. the 7-day window) pass through", async () => {

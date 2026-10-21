@@ -189,6 +189,9 @@ describe.skipIf(!hasKey)(`agent evals (live model: ${evalModelName})`, () => {
     expect(t.toolCalls.map((c) => c.toolName)).toContain("logInformationGap");
     expect(gapLog.gaps).toEqual([expect.objectContaining({ type: "no_data" })]);
     expect(gapLog.gaps[0].description).not.toMatch(/\d/);
-    expect(t.text).toMatch(/אין לי מידע|אין בידי מידע|אין לי נתונים|לא יודע|אין מידע/);
+    expect(gapLog.gaps[0].description).toMatch(/[א-ת]/);
+    expect(gapLog.gaps[0].description).not.toMatch(/[A-Za-z]/);
+    // "אין לי / בידיי / ברשותי מידע …": the wording varies by model; the tool call and the gap above are the real check.
+    expect(t.text).toMatch(/אין(\s+\S+)?\s+מידע|אין לי נתונים|לא יודע/);
   });
 });

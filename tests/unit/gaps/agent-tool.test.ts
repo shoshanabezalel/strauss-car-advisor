@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAgentState, createMemoryRepQueue, createToolHandlers, loadSystemPrompt, TOOL_NAMES } from "@/lib/agent";
+import { createAgentState, createMemoryRepQueue, createToolHandlers, createTools, loadSystemPrompt, TOOL_NAMES } from "@/lib/agent";
 import { loadConfig } from "@/lib/config";
 import { createMemoryGapLog } from "@/lib/gaps/types";
 import { createMemoryVouSource } from "@/lib/vou";
@@ -31,5 +31,16 @@ describe("logInformationGap tool", () => {
     await expect(h.logInformationGap({ topic: "salary" as never, description: "שאלה" })).rejects.toThrow();
     await expect(h.logInformationGap({ topic: "rules", description: "א".repeat(121) })).rejects.toThrow();
     expect(gapLog.gaps).toEqual([]);
+  });
+
+  it("Hebrew only: an English or mixed description is rejected; the tool description and the prompt say so", async () => {
+    const { h, gapLog } = setup();
+    await expect(h.logInformationGap({ topic: "rules", description: "policy on insurance during maternity leave" })).rejects.toThrow(/Hebrew/);
+    await expect(h.logInformationGap({ topic: "rules", description: "כיסוי insurance בזמן חופשת לידה" })).rejects.toThrow(/Hebrew/);
+    await expect(h.logInformationGap({ topic: "rules", description: "... --- ..." })).rejects.toThrow(/Hebrew/);
+    expect(gapLog.gaps).toEqual([]);
+    expect(loadSystemPrompt()).toMatch(/logInformationGap[^\n]*in Hebrew/);
+    const tools = createTools({ config, vouSource: createMemoryVouSource([]), state: createAgentState(), repQueue: createMemoryRepQueue() });
+    expect(tools.logInformationGap.description).toMatch(/Hebrew/);
   });
 });
