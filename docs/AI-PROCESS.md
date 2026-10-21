@@ -388,5 +388,12 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
 - **Interruption:** a read-only payslip question arrived mid-implementation. I paused with the commit-4 files
   uncommitted, answered without edits, then resumed: `git status` showed exactly those files and nothing
   half-edited.
-- **Follow-ups (TECH-DESIGN §10):** the English no_data description, car names in the analysis, the gaps tab in the
-  deployed suite.
+- **Follow-ups, done the same day (user's request):** car names instead of catalog ids for the AI, the list and
+  the CSV; Hebrew-only gap descriptions; the gaps tab in the deployed suite.
+  - Tests first: 7 unit red.
+  - **A literal invisible BOM in source:** writing `\uFEFF` through my tools decoded it into the real character, in
+    `csv.ts` (since the add-on commit) and in its test. It worked, but it is invisible to the next editor. Replaced
+    with the escape via a char-code script (an inline `node -e` attempt didn't stick); a repo scan found no others.
+  - **Evals after the prompt change:** primary 10/10. Fallback 8/10: E-004 put eligibility before the net (passed
+    on rerun), and the no-data reply said "אין בידיי / ברשותי מידע", which my eval's phrase list missed. The
+    wording check is now "אין + optional word + מידע"; the tool call and the Hebrew gap stay the real check.

@@ -429,7 +429,9 @@ credit points) is normal chat, never a gap.
     there so "7 days" is citable, user at approval). One regeneration, then a fixed message;
   - the agent's models (Gemini, retry, fallback, busy), 60 s, 10 per 10 min.
   - Live check 21/10: 4 insights in 8.9 s, all numbers from the summary.
-- **CSV** (`csv.ts`): UTF-8 with BOM, CRLF, Hebrew headers and type labels, RFC 4180 quoting, a formula-injection
+- **Labels:** topic keys hold catalog ids for grouping. Everything people or the model read uses `gapLabel`: the
+  car's make and model, or a Hebrew topic or field name.
+- **CSV** (`csv.ts`): UTF-8 with BOM, CRLF, Hebrew headers and type labels, the topic as its label, RFC 4180 quoting, a formula-injection
   guard (a leading `= + - @` gets `'`).
 
 ## 8. DB (Supabase)
@@ -635,8 +637,14 @@ from public / anon / authenticated (Supabase grants it by default). The only adv
   live primary at the sheet's net. The Haiku evals are replaced by the Gemini fallback evals (no Anthropic key).
 - [x] G scope (decided 21/10, user): company data only; participation default + rep questions, non-catalog lookups,
   and the agent's "no information"; dedupe per conversation; test data kept out by source (§7f).
-- [ ] G follow-ups (not done, deadline):
-  - the agent wrote a no_data description in English in the live eval ("policy on insurance…"): a tool-description
-    line asking for Hebrew, then a re-run of the evals;
-  - the AI analysis names cars by catalog id ("CAR-10"): add the vehicle name to `topTopics`;
-  - the deployed suite doesn't open the gaps tab yet.
+- [x] G follow-ups (done 21/10, user's request before the payslip handover):
+  - **Car names, never catalog ids:** `gapLabel` (`labels.ts`) turns topic keys into Hebrew labels
+    ("השתתפות עצמית: BYD ATTO 3"). The summary's top topics carry a `label`; the AI gets `analysisInput` (labels
+    only, no topic keys); a reply naming a catalog id is rejected like an invented number. The list and the CSV show
+    the label.
+  - **Hebrew only:** logInformationGap rejects a description without Hebrew letters or with Latin ones; the tool
+    description and the prompt say "in Hebrew". Evals after the change: primary 10/10 (Hebrew description);
+    fallback gemini-3.8-flash 8/10, then on rerun E-004 passed (variance: the eligibility sentence came before the
+    net), and the no-data case passed once the eval's wording check accepted "אין בידיי / ברשותי מידע".
+  - **The deployed suite opens the gaps tab** (summary, list or empty state, no catalog id, CSV with BOM). The rep
+    wall test no longer logs in, so a run still uses two of the five logins per 15 minutes.
