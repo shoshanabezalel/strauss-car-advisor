@@ -1,7 +1,7 @@
 # Strauss Car Advisor — Claude Code instructions
 
 Hebrew (RTL) web app: an AI agent answers a Strauss employee "what happens to my net salary if I switch/waive my company car?".
-Hackathon: Open Code AI 2026. Final: Wed 28/10/2026.
+Hackathon: Open Code AI 2026. **Submission: Thu 22/10/2026 19:00** (moved up from 28/10).
 
 ## Source of truth (read before any task)
 - docs/SPEC.md — requirements & acceptance scenarios
