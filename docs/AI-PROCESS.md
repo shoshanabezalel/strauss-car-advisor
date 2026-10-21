@@ -349,3 +349,44 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
 - **Spending cap (user, 20/10):** Gemini is prepaid with auto-reload off, so the credit balance is the hard cap and
   no Google Cloud budget alert is needed. Primary and fallback share that key and that balance. When it runs out,
   calls fail; the rate limits (30 turns / h per conversation, 300 / day) slow spending down before that.
+### Deadline moved: submission Thu 22/10 19:00 (21/10/2026)
+- CLAUDE.md and PLAN updated. The optional payslip reading was dropped from the plan; milestone G (information
+  gaps) was added before M8.
+### G — Information gaps log (מאגר פערי מידע), our original feature (21/10/2026)
+- **How:** plan mode.
+  - One question: company data only, or every engine missing field? Company data only. The engine's missing fields
+    are all employee data, so logging them would bury real gaps under "salary missing".
+  - The user added a summary / AI analysis / CSV add-on mid-plan, and at approval asked for `windowDays: 7` in the
+    summary and a push after the core.
+- **Tests first:** core 15 unit red + 4 e2e red; add-on 16 unit red.
+  - "A gap failure never fails the turn" passed **for the wrong reason** at first (nothing recorded yet); rechecked
+    after the wiring.
+  - My own fixture arithmetic was wrong twice (this-week count, a tie-break order) and was fixed in the test before
+    any code existed.
+- **Changes on the way:**
+  - The participation gap now needs a computed row: a test showed an incomplete profile logging a default nobody
+    relied on yet.
+  - Unknown car ids a tool rejected are not logged: usually a model mistake, not a catalog gap.
+  - Two existing run-turn tests compared tool calls exactly; they now expect the new `toolCallId` (a contract
+    change, not expected values).
+  - The analysis leak test caught my own instruction text ("…or conversations"); I reworded the prompt, not the test.
+- **Verification:**
+  - migrations 0005 / 0006 via MCP; `check:db` with a real row showed the browser key sees 0;
+  - live evals **10/10** with the new no-data case, before the core push;
+  - CI and e2e-deployed green after both core pushes;
+  - a live AI-analysis probe: 4 insights, all numbers from the summary, 8.9 s.
+- **Test data in production** (the user's catch): `gaps.spec`'s "טופל" left a status row that could mark a real
+  group as handled.
+  - Fix: gaps and טופל per conversation source, and e2e teardown also deletes the e2e status rows.
+  - The one existing row was shown to the user and deleted after approval.
+- **Local e2e flakiness:** on the same code, runs varied between 26/26 and 1–5 failures: a chat turn over the 15 s
+  wait, and once "fetch failed" to Supabase. CI passed without retries every time.
+  - Likely cause (user): **another session runs e2e from a worktree (payslip, port 3001) against the same
+    Supabase.** Its teardown (`db:clean-e2e`) can delete this run's e2e rows mid-run, and two dev servers load the
+    machine.
+  - Rule from the user: when a local run fails, rerun once before investigating; don't chase it before the deadline.
+- **Interruption:** a read-only payslip question arrived mid-implementation. I paused with the commit-4 files
+  uncommitted, answered without edits, then resumed: `git status` showed exactly those files and nothing
+  half-edited.
+- **Follow-ups (TECH-DESIGN §10):** the English no_data description, car names in the analysis, the gaps tab in the
+  deployed suite.

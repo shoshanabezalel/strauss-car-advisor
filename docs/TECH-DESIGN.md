@@ -375,6 +375,63 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
   set: the four Supabase / Google keys, no `AGENT_MODEL=mock`, no `CONVERSATION_SOURCE=e2e`, `REP_ACCESS_CODE` ≥ 8,
   `APP_SECRET` ≥ 32. `npm run check:build` asserts the chat route's `.nft.json` traces `system-prompt.md`.
 
+## 7f. Information gaps log (G, original feature, 21/10)
+Every time the system can't answer from real data it is recorded, so Strauss sees what the catalog and the rules
+are missing. **Company data only** (user, 21/10): what only the employee can tell (salary, pension, children,
+credit points) is normal chat, never a gap.
+- **Types and sources** (`src/lib/gaps/`):
+  - `referred_to_rep`, from code (`deriveGaps`, `derive.ts`):
+    - a *computed* car option left on the catalog-default participation (`needsConfirmation`, no `missing`): the
+      employee got a net built on a default. Topic `participation/<carId>`, vehicle = make + model;
+    - an `askRepresentative` call that went through, topic = its field (`participation/<carId>`, `current`, `group`,
+      `occupation`).
+  - `unknown_vehicle`, from code: a `searchValueOfUse` / `getValueOfUse` call. The prompt uses these only for cars
+    that are not in the catalog. Topic = the normalized name, or the make / model codes.
+  - `no_data`, from the agent tool **`logInformationGap`** `{ topic: GAP_TOPICS, description }`. The prompt says:
+    when the tools and rules have no information, say so and call it.
+  - Calls pair with their results by `toolCallId` (now recorded by `runAgentTurn`): a rejected call is not a gap.
+- **Deviations from the plan, with reasons:**
+  - **No gap for an unknown car id a tool rejected.** That is usually a model mistake (Flash-Lite's `KIA_NIRO` for
+    the catalog's Niro), not a catalog gap.
+  - **The participation gap needs a computed row.** A comparison still waiting for the employee's own data relies
+    on no default yet.
+- **No personal data:**
+  - stored: type, topic, description, vehicle, conversation id, timestamps;
+  - code-derived descriptions are fixed Hebrew templates, and nothing the model or the employee wrote is copied (a
+    rep question's free text never is);
+  - the agent's description is ≤ 120 characters, **with no digits** (no salaries, amounts or ids), and the topic is
+    an enum.
+- **Recording:** `recordTurnGaps` (`record.ts`), from `handleChatTurn` after the turn is stored and from
+  `persistDirectTurn` (profile edits, car changes, rep answers; a rep-confirmed participation is no gap). A failure
+  is logged and never fails the turn.
+- **Dedupe:** one row per (conversation, type, topic), upserted with `last_seen_at`. The rep view groups by
+  (type, topic): count = conversations, last seen, description and vehicle from the latest (`groupGaps`,
+  `group.ts`). Open groups come first, then by count and recency.
+- **טופל:** per (source, type, topic) with `resolved_at`. A newer occurrence reopens the group.
+- **Test data stays out of production:**
+  - gap rows are read per conversation source (join `conversations.source`), and טופל is per source; the server's
+    `CONVERSATION_SOURCE` decides;
+  - e2e teardown (`db:clean-e2e`) deletes e2e conversations (their gaps cascade) and the e2e טופל rows;
+  - the deployed suite is production itself: its one E-001 gap row is deleted with its conversation by id at the
+    end of the run. It is visible for about 40 s, and stays if a run crashes before cleanup.
+- **Rep screen:**
+  - a "פערי מידע" tab on `/rep` (`rep-screen.tsx`, the tab in the URL `?tab=gaps`, behind the access code);
+  - `gaps-panel.tsx`: summary cards, "ניתוח AI", "ייצוא CSV", then the grouped list with a "טופל" toggle;
+  - API, rep session + rate limits: `GET/POST /api/rep/gaps` (groups + summary / טופל), `GET /api/rep/gaps/csv`,
+    `POST /api/rep/gaps/analysis`.
+- **Summary** (`summary.ts`, computed in code): `{ windowDays: 7, total, byType, topTopics (5, ties by recency),
+  thisWeek, lastWeek }` (by first occurrence). It holds no ids or descriptions.
+- **AI analysis** (`analysis.ts`):
+  - **the summary is its only input**;
+  - under 5 gaps → a fixed "not enough data" message, **without a model call**;
+  - otherwise one `generateText` with `Output.object`: 3–5 Hebrew insights `{ insight, action, basedOnCount }`;
+  - every number in the texts and `basedOnCount` must pass `checkNumbers` against the summary (`windowDays: 7` is
+    there so "7 days" is citable, user at approval). One regeneration, then a fixed message;
+  - the agent's models (Gemini, retry, fallback, busy), 60 s, 10 per 10 min.
+  - Live check 21/10: 4 insights in 8.9 s, all numbers from the summary.
+- **CSV** (`csv.ts`): UTF-8 with BOM, CRLF, Hebrew headers and type labels, RFC 4180 quoting, a formula-injection
+  guard (a leading `= + - @` gets `'`).
+
 ## 8. DB (Supabase)
 ```sql
 conversations(id uuid pk, status text check (status in ('active','waiting_rep','done')), created_at, updated_at)
@@ -403,6 +460,13 @@ tax-authority data; `check:db` reads it that way). The migration also adds `conv
 null before M7) and `rate_limits(key, window_start, count)` + `hit_rate_limit()`; execute on the function is revoked
 from public / anon / authenticated (Supabase grants it by default). The only advisor note is INFO
 `rls_enabled_no_policy` on the six private tables, which is the intent.
+
+**G (21/10):**
+- migration `0005_information_gaps` adds `information_gaps(conversation_id fk cascade, type, topic, description,
+  vehicle, created_at, last_seen_at, unique(conversation_id, type, topic))` and `information_gap_status`;
+- `0006_gap_status_source` keys `information_gap_status` by `(source, type, topic)`;
+- RLS on with no policies (the browser key reads nothing; `check:db` checks both tables);
+- both applied via MCP: `list_tables` and `get_advisors security` show only the intended INFO note.
 
 ## 9. Tests
 - **Unit**: net (6 references + edge cases: below threshold, above ceiling, 0 points), eligibility (A8–A11), vou (20 cars + ATTO 3/TANG collision), config (invalid rules → error).
@@ -461,6 +525,22 @@ from public / anon / authenticated (Supabase grants it by default). The only adv
   - explanations: the six references, waiver, not eligible, no change;
   - profile view and locked fields;
   - profile edits and option changes: recompute, guard, 422 / 409 / not found, rep participation kept across swaps.
+- **G tests:**
+  - unit:
+    - `deriveGaps` (participation default, rep questions, lookups, rejected calls, employee-only fields give none,
+      no profile values or rep free text in a gap, dedupe);
+    - the store (dedupe per conversation, counts, טופל reopen, per source);
+    - `groupGaps` order;
+    - the tool (digits / unknown topic / too long rejected);
+    - the chat turn records the E-001 gap, and a recording failure never fails the turn;
+    - the summary (fixture totals, top 5 and ties, the week boundary);
+    - the analysis (only the summary is sent, sparse → no call, an invented or wrong count → regenerate then a fixed
+      message, 3–5, busy);
+    - the CSV (BOM bytes, Hebrew header, quoting, formula guard).
+  - e2e `gaps.spec.ts`: the API is 401 without the rep session; a participation group with its car; no data →
+    טופל across a reload; phone width; summary cards, the CSV BOM and Hebrew header, the analysis card.
+  - live eval (+1): a question the rules don't cover → "no information" + logInformationGap + a no_data gap (21/10:
+    10/10 on the primary).
 
 ## 10. Open decisions
 - [x] Participation for a new car (decided 18/10): the catalog `defaultParticipation`, with `participationSource: 'catalog_default'`
@@ -553,3 +633,10 @@ from public / anon / authenticated (Supabase grants it by default). The only adv
   GitHub Actions (`e2e-deployed` workflow, run 39481411855; NetFree blocks the site locally): smoke, live mode +
   owner isolation, rep wall + login, the deploy's fallback `gemini-3.8-flash` answering (2.3 s), E-001 through the
   live primary at the sheet's net. The Haiku evals are replaced by the Gemini fallback evals (no Anthropic key).
+- [x] G scope (decided 21/10, user): company data only; participation default + rep questions, non-catalog lookups,
+  and the agent's "no information"; dedupe per conversation; test data kept out by source (§7f).
+- [ ] G follow-ups (not done, deadline):
+  - the agent wrote a no_data description in English in the live eval ("policy on insurance…"): a tool-description
+    line asking for Hebrew, then a re-run of the evals;
+  - the AI analysis names cars by catalog id ("CAR-10"): add the vehicle name to `topTopics`;
+  - the deployed suite doesn't open the gaps tab yet.

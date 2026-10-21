@@ -65,6 +65,24 @@ The screen shows a "מצב הדגמה" badge and demo prompts (the six sample em
 - **Realtime:** topics are public broadcast channels carrying only a data-free ping; a conversation's topic is an HMAC of its id that only its owner receives.
 - **Model fallback:** Gemini, one retry on 429 / 503, then the fallback model (`FALLBACK_MODEL`: a second Gemini model on the same key, or Claude) with the same tools, prompt and number-guard, then "busy".
 
+## Information gaps log (מאגר פערי מידע)
+Our original feature: every time the advisor can't answer from real data, it is recorded, so Strauss can see what
+the catalog and the rules are missing and fix it.
+- **What is logged:**
+  - a participation that had to fall back to the catalog default, and questions sent to the car representative
+    (`referred_to_rep`);
+  - cars that are not in the catalog (`unknown_vehicle`);
+  - questions the agent had no information for (`no_data`, via its `logInformationGap` tool).
+- **What is not logged:** what only the employee can tell (salary, pension, children). No names, salaries or other
+  personal details are stored.
+- **Where:** the rep screen, tab "פערי מידע" (behind the access code):
+  - cards per type and this week vs last week, the top topics;
+  - the grouped list (count of conversations, last seen) with a "טופל" toggle;
+  - **ניתוח AI**: 3–5 insights with a recommended action. The model receives only the summary and may cite only its
+    numbers; with fewer than 5 gaps it says there is not enough data;
+  - **ייצוא CSV**: UTF-8 with BOM, opens in Excel in Hebrew.
+- Design: [TECH-DESIGN §7f](docs/TECH-DESIGN.md).
+
 ## Claude Code / MCP
 `.mcp.json` configures two project MCP servers:
 - **supabase**: [scripts/supabase-mcp.mjs](scripts/supabase-mcp.mjs) reads `SUPABASE_ACCESS_TOKEN` from `.env.local` so no secret lives in `.mcp.json`.
@@ -81,8 +99,9 @@ src/lib/vou/         value-of-use parse + lookup
 src/lib/agent/       tools, prompt, number-guard, notices, run-turn, mock model
 src/lib/chat/        chat turn handler, conversation store (Supabase / memory), comparison view
 src/lib/security/    owner cookie, rep session, rate limits (M7)
+src/lib/gaps/        information gaps: derive, group, summary, AI analysis, CSV (G)
 src/app/employee/    employee screen (chat + comparison)
-src/app/rep/         representative screen (access code, open questions)
+src/app/rep/         representative screen (access code, open questions, information gaps)
 src/app/api/         /api/chat (NDJSON stream), /api/conversation, /api/profile, /api/compare, /api/rep/*
 src/lib/supabase/    browser / server / admin clients
 supabase/migrations/ DB schema

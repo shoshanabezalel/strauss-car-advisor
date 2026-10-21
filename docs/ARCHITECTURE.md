@@ -41,6 +41,12 @@
 2. **Comparison**: `compareOptions` returns full JSON → frontend renders the table from the JSON (not from model text) → model writes a 2-line explanation from the `changes` field.
 3. **Representative**: `askRepresentative` inserts into rep_questions, conversation status `waiting_rep` → rep answers → saved as a profile fact + system message → Realtime wakes the employee screen → agent resumes automatically from the same point.
 4. **Config**: all rules in data/*.json. In a pilot, swap files, not code.
+5. **Information gaps (מאגר פערי מידע)**: whenever the system can't answer from real data, it is recorded: in code
+   from the tools (a participation left on the catalog default, a question sent to the rep, a car outside the
+   catalog), and by the agent's `logInformationGap` tool when it says it has no information. No personal data;
+   company data only. The rep screen's "פערי מידע" tab groups them (count, last seen, טופל), with a summary computed
+   in code, an AI analysis that reads only that summary and may cite only its numbers, and a CSV export. Strauss sees
+   what the catalog and the rules are missing.
 
 ## Principles
 - Strict split: **LLM = conversation and explanation**, **engine = every number**.
