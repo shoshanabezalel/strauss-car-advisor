@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import {
   clientIp,
@@ -7,6 +8,7 @@ import {
   LIMITS,
   RATE_LIMIT_MESSAGE,
   rateLimitScale,
+  llmBudgetKey,
   type RateLimit,
 } from "@/lib/security/rate-limit";
 
@@ -66,7 +68,7 @@ describe("enforceLimits", () => {
     expect(res.headers.get("retry-after")).toBe("60");
     const body = await res.json();
     expect(body).toEqual({ error: "rate_limited", message: RATE_LIMIT_MESSAGE });
-    expect(RATE_LIMIT_MESSAGE).toMatch(/[א-ת]/);
+    expect(RATE_LIMIT_MESSAGE).toBe("יותר מדי בקשות כרגע. אפשר לנסות שוב בעוד כמה דקות.");
     expect(RATE_LIMIT_MESSAGE).not.toMatch(/\d/);
   });
 
@@ -99,12 +101,43 @@ describe("enforceLimits", () => {
   });
 });
 
+// The daily LLM budget is one counter per environment (user, 21/10): local dev, local and CI e2e and production share
+// one Supabase, and test traffic had used up production's budget (307/300 on 21/10).
+describe("llmBudgetKey", () => {
+  it("production on Vercel with real conversations has its own bucket", () => {
+    expect(llmBudgetKey({ vercelEnv: "production", source: "app" })).toBe("production");
+  });
+
+  it("everything else is kept out of it: e2e (local or CI), local dev, Vercel previews", () => {
+    const others = [
+      llmBudgetKey({ vercelEnv: undefined, source: "e2e" }),
+      llmBudgetKey({ vercelEnv: undefined, source: "app" }),
+      llmBudgetKey({ vercelEnv: "preview", source: "app" }),
+      llmBudgetKey({ vercelEnv: "production", source: "e2e" }),
+    ];
+    for (const k of others) expect(k).not.toBe("production");
+    expect(new Set(others).size).toBe(others.length);
+  });
+
+  it("the chat and payslip routes count the global cap by this key, never a shared literal", () => {
+    for (const f of ["src/app/api/chat/route.ts", "src/app/api/payslip/route.ts"]) {
+      const src = readFileSync(f, "utf8");
+      expect(src, f).toContain("llmBudgetKey(");
+      expect(src, f).not.toMatch(/chatGlobalDay, key: "all"/);
+    }
+  });
+});
+
 describe("limits table (TECH-DESIGN §10: venue Wi-Fi shares one IP, so per-IP is loose)", () => {
-  it("chat: 60/min and 600/h per IP, 30/h per conversation, 300/day globally", () => {
+  it("chat: 60/min and 600/h per IP, 30/h per conversation, 1,000/day globally (judging day, user 21/10)", () => {
     expect(LIMITS.chatIpMinute).toMatchObject({ windowSec: 60, max: 60 });
     expect(LIMITS.chatIpHour).toMatchObject({ windowSec: 3600, max: 600 });
     expect(LIMITS.chatConversation).toMatchObject({ windowSec: 3600, max: 30 });
-    expect(LIMITS.chatGlobalDay).toMatchObject({ windowSec: 86_400, max: 300 });
+    expect(LIMITS.chatGlobalDay).toMatchObject({ windowSec: 86_400, max: 1000 });
+  });
+
+  it("payslip: 30/min per IP (the venue shares one IP)", () => {
+    expect(LIMITS.payslipIp).toMatchObject({ windowSec: 60, max: 30 });
   });
 
   it("other routes ×6; rep login stays 5 per 15 min", () => {

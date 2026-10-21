@@ -6,7 +6,7 @@ import { createMockExtractor } from "@/lib/payslip/mock";
 import { payslipLimits } from "@/lib/payslip/limits";
 import { handlePayslipUpload } from "@/lib/payslip/upload";
 import { NO_STORE } from "@/lib/security/http";
-import { clientIp, createSupabaseRateLimiter, enforceLimits, rateLimitScale } from "@/lib/security/rate-limit";
+import { clientIp, createSupabaseRateLimiter, enforceLimits, llmBudgetKey, rateLimitScale } from "@/lib/security/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // One vision call, plus one retry and the fallback model (fallback-model.ts); the read stops at READ_BUDGET_MS.
@@ -21,7 +21,7 @@ const READ_BUDGET_MS = 45_000;
 export async function POST(request: Request) {
   const limited = await enforceLimits(
     createSupabaseRateLimiter(createAdminClient()),
-    payslipLimits(clientIp(request)),
+    payslipLimits(clientIp(request), llmBudgetKey({ vercelEnv: process.env.VERCEL_ENV, source: serverEnv().CONVERSATION_SOURCE })),
     rateLimitScale(serverEnv().RATE_LIMIT_SCALE),
   );
   if (limited) return limited;

@@ -371,9 +371,16 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
 - **Rate limits** (`security/rate-limit.ts`): Postgres `hit_rate_limit(key, window, max)` (fixed window, atomic
   upsert, service role only), one round trip per request (all buckets in parallel; any bucket over → 429 with
   `Retry-After` and a Hebrew message without digits). Fails open if the DB call fails (logged). Limits (§10 for
-  why per IP is loose): chat 60/min + 600/h per IP, 30/h per conversation, 300/day overall; profile / compare
-  180/min; conversation GET 720/min; rep questions 360/min; rep answer 180/min; rep login 5 / 15 min.
+  why per IP is loose): chat 60/min + 600/h per IP, 30/h per conversation, **1,000 LLM calls / day per
+  environment** (chat turns and payslip reads; 300 until 21/10); payslip 30/min per IP; profile / compare 180/min;
+  conversation GET 720/min; rep questions 360/min; rep answer 180/min; rep login 5 / 15 min.
   `RATE_LIMIT_SCALE` (e2e server: 20) multiplies every max. IP = first `x-forwarded-for` hop (set by Vercel).
+  - **Per-environment daily budget** (`llmBudgetKey`, 21/10): local dev, local and CI e2e and production share one
+    Supabase, and one shared counter let test traffic use up production's cap (307/300 on 21/10, chat blocked for
+    everyone until the UTC day ended). Now production on Vercel (`VERCEL_ENV=production`, source `app`) counts in
+    `chat:all:production`; e2e in `chat:all:e2e:local`, local dev in `chat:all:app:local`, previews apart. The
+    deployed suite still runs 1–2 real turns on production per run, counted there. The window is the UTC day
+    (resets 03:00 Israel time).
 - **Realtime topic**: `conversation:<HMAC(APP_SECRET, id)[0..32]>` (`conversation-topic.ts`, server only), sent to
   the owner as `topic` by `GET /api/conversation`; the client subscribes to what it receives. `rep-queue` stays a
   fixed public topic (a ping only triggers a refetch, which needs the rep cookie).

@@ -3,7 +3,7 @@ import { handleChatTurn, type ChatEvent } from "@/lib/chat/handle-turn";
 import { encodeEvent } from "@/lib/chat/ndjson";
 import { agentModeHeader, chatDeps } from "@/lib/chat/server";
 import { NO_STORE, ownerOf } from "@/lib/security/http";
-import { clientIp, enforceLimits, LIMITS } from "@/lib/security/rate-limit";
+import { clientIp, enforceLimits, LIMITS, llmBudgetKey } from "@/lib/security/rate-limit";
 
 // Up to two generations with tool steps (run-turn.ts), plus one retry and the fallback model (fallback-model.ts).
 // Fluid compute on Vercel allows up to 300 s; the turn itself stops at TURN_BUDGET_MS and reports "busy".
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       { limit: LIMITS.chatIpMinute, key: ip },
       { limit: LIMITS.chatIpHour, key: ip },
       ...(conversationId ? [{ limit: LIMITS.chatConversation, key: conversationId }] : []),
-      { limit: LIMITS.chatGlobalDay, key: "all" },
+      { limit: LIMITS.chatGlobalDay, key: llmBudgetKey({ vercelEnv: process.env.VERCEL_ENV, source: deps.source }) },
     ],
     deps.rateLimitScale,
   );

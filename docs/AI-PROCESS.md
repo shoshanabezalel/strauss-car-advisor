@@ -436,3 +436,11 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   references before any code (E-005: +350 + 2,155.67 + 1,056.60 = 3,562.27).
 - Checks: unit green, e2e 14/14 on the rerun (the first run had two cold-start chat timeouts), live evals 15/15
   with a new waiver check (the reply says value-of-use is not cash and quotes the engine's tax-saved line).
+### Rate limit hit in manual testing (21/10/2026, evening)
+- The user hit "too many requests" in the chat. The production DB showed it was the **global daily cap**
+  (`chat:all:all` 307/300), not a per-IP limit (localhost 26/600 per hour). Local dev, local and CI e2e and production
+  share one Supabase, and every e2e chat turn counted in that one counter (the e2e scale only raised its own max),
+  so our testing blocked chat on production for everyone until the UTC day ended.
+- The user asked to reset the localhost counters; I didn't, because the cap that fired wasn't per IP, and said so.
+- Fix, tests first: the daily budget is per environment (`llmBudgetKey`), 1,000 a day for judging day and payslip
+  30/min per IP (both the user's picks), and the 429 message text corrected.

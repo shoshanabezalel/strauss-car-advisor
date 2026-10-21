@@ -80,16 +80,15 @@ describe("handlePayslipUpload", () => {
 });
 
 describe("payslip rate limits", () => {
-  it("10 reads a minute per IP, then 429 with the Hebrew message; each read also counts in the daily LLM cap", async () => {
+  it("the per-IP limit, then 429 with the Hebrew message; each read also counts in the environment's daily LLM cap", async () => {
     const limiter = createMemoryRateLimiter(() => 0);
     const hit = vi.spyOn(limiter, "hit");
-    for (let i = 0; i < LIMITS.payslipIp.max; i++) expect(await enforceLimits(limiter, payslipLimits("1.2.3.4"))).toBeNull();
-    const refused = await enforceLimits(limiter, payslipLimits("1.2.3.4"));
+    for (let i = 0; i < LIMITS.payslipIp.max; i++) expect(await enforceLimits(limiter, payslipLimits("1.2.3.4", "production"))).toBeNull();
+    const refused = await enforceLimits(limiter, payslipLimits("1.2.3.4", "production"));
     expect(refused?.status).toBe(429);
     expect((await refused!.json()).message).toBe(RATE_LIMIT_MESSAGE);
-    expect(await enforceLimits(limiter, payslipLimits("5.6.7.8"))).toBeNull();
-    expect(hit).toHaveBeenCalledWith(`${LIMITS.chatGlobalDay.name}:all`, LIMITS.chatGlobalDay.windowSec, LIMITS.chatGlobalDay.max);
-    expect(LIMITS.payslipIp).toMatchObject({ windowSec: 60, max: 10 });
+    expect(await enforceLimits(limiter, payslipLimits("5.6.7.8", "production"))).toBeNull();
+    expect(hit).toHaveBeenCalledWith(`${LIMITS.chatGlobalDay.name}:production`, LIMITS.chatGlobalDay.windowSec, LIMITS.chatGlobalDay.max);
   });
 
   it("the route checks the limits before reading the upload", () => {

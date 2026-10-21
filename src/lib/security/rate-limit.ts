@@ -22,8 +22,11 @@ export const LIMITS = {
   chatIpMinute: { name: "chat:ip:m", windowSec: MINUTE, max: 60 },
   chatIpHour: { name: "chat:ip:h", windowSec: HOUR, max: 600 },
   chatConversation: { name: "chat:conv", windowSec: HOUR, max: 30 },
-  /** Every chat turn may cost two LLM generations; the Google / Anthropic budget caps are the hard backstop. */
-  chatGlobalDay: { name: "chat:all", windowSec: DAY, max: 300 },
+  /**
+   * LLM calls per day per environment (llmBudgetKey): chat turns (up to two generations each) and payslip reads.
+   * 1,000 for judging day (user, 21/10); the prepaid Google credit is the hard money cap.
+   */
+  chatGlobalDay: { name: "chat:all", windowSec: DAY, max: 1000 },
   /** /api/profile and /api/compare: no LLM, but they write state. */
   directIp: { name: "direct:ip", windowSec: MINUTE, max: 180 },
   /** One open tab polls at most every 5 s when Realtime is down. */
@@ -34,8 +37,8 @@ export const LIMITS = {
   repGapsIp: { name: "repgaps:ip", windowSec: MINUTE, max: 360 },
   /** "ניתוח AI" on the gaps tab: an LLM call per hit. */
   gapAnalysisIp: { name: "gapai:ip", windowSec: 10 * MINUTE, max: 10 },
-  /** Payslip upload (F6): a vision LLM call per hit; it also counts in chatGlobalDay. */
-  payslipIp: { name: "payslip:ip", windowSec: MINUTE, max: 10 },
+  /** Payslip upload (F6): a vision LLM call per hit; it also counts in chatGlobalDay. The venue shares one IP. */
+  payslipIp: { name: "payslip:ip", windowSec: MINUTE, max: 30 },
   /** Brute-force guard on the shared code: not loosened for the venue. */
   repLoginIp: { name: "replogin:ip", windowSec: 15 * MINUTE, max: 5 },
   /** The live fallback check makes a real LLM call per hit; only the deployed suite needs it. */
@@ -43,7 +46,16 @@ export const LIMITS = {
 } satisfies Record<string, RateLimit>;
 
 /** Digit-free, like every fixed Hebrew message. */
-export const RATE_LIMIT_MESSAGE = "יותר מדי בקשות ברגע זה. אפשר לנסות שוב בעוד כמה דקות.";
+export const RATE_LIMIT_MESSAGE = "יותר מדי בקשות כרגע. אפשר לנסות שוב בעוד כמה דקות.";
+
+/**
+ * The bucket of the daily LLM cap. Local dev, local and CI e2e and production share one Supabase, so one shared
+ * counter let test traffic use up production's budget (21/10). Production on Vercel with real conversations gets
+ * its own; every other environment counts apart, still capped.
+ */
+export function llmBudgetKey({ vercelEnv, source }: { vercelEnv: string | undefined; source: "app" | "e2e" }): string {
+  return vercelEnv === "production" && source === "app" ? "production" : `${source}:${vercelEnv ?? "local"}`;
+}
 
 export interface RateLimiter {
   hit(key: string, windowSec: number, max: number): Promise<{ allowed: boolean; retryAfterSec: number }>;
