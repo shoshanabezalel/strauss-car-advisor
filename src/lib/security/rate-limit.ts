@@ -32,6 +32,8 @@ export const LIMITS = {
   repAnswerIp: { name: "repa:ip", windowSec: MINUTE, max: 180 },
   /** The rep screen's information gaps tab (G): list and טופל. */
   repGapsIp: { name: "repgaps:ip", windowSec: MINUTE, max: 360 },
+  /** "ניתוח AI" on the gaps tab: an LLM call per hit. */
+  gapAnalysisIp: { name: "gapai:ip", windowSec: 10 * MINUTE, max: 10 },
   /** Brute-force guard on the shared code: not loosened for the venue. */
   repLoginIp: { name: "replogin:ip", windowSec: 15 * MINUTE, max: 5 },
   /** The live fallback check makes a real LLM call per hit; only the deployed suite needs it. */

@@ -1,13 +1,15 @@
 import { connection } from "next/server";
 import { z } from "zod";
 import { chatDeps } from "@/lib/chat/server";
+import { summarizeGaps } from "@/lib/gaps/summary";
 import { GAP_TYPES } from "@/lib/gaps/types";
 import { hasRepSession, NO_STORE, unauthorized } from "@/lib/security/http";
 import { clientIp, enforceLimits, LIMITS } from "@/lib/security/rate-limit";
 
 /**
  * The information gaps log for the rep screen (G, TECH-DESIGN §7f). Rep session only.
- * GET → `{ groups }`: one line per (type, topic) with the conversation count, last seen and טופל.
+ * GET → `{ groups, summary }`: one line per (type, topic) with the conversation count, last seen and טופל, plus the
+ * code-computed summary (totals per type, top topics, this week vs last week).
  * POST `{ type, topic, resolved }` → sets or clears טופל for that group.
  */
 export async function GET(request: Request) {
@@ -17,7 +19,8 @@ export async function GET(request: Request) {
   const limited = await enforceLimits(rateLimiter, [{ limit: LIMITS.repGapsIp, key: clientIp(request) }], rateLimitScale);
   if (limited) return limited;
   if (!hasRepSession(request)) return unauthorized();
-  return Response.json({ groups: await store.listGapGroups(source) }, { headers: NO_STORE });
+  const [groups, rows] = await Promise.all([store.listGapGroups(source), store.listGapRows(source)]);
+  return Response.json({ groups, summary: summarizeGaps(rows, new Date()) }, { headers: NO_STORE });
 }
 
 const ResolveBody = z.object({ type: z.enum(GAP_TYPES), topic: z.string().trim().min(1).max(120), resolved: z.boolean() });

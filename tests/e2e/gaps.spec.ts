@@ -53,6 +53,38 @@ test.describe("information gaps", () => {
     await loginRep(page);
     await page.getByTestId("rep-tab-gaps").click();
     await expect(page.getByTestId("gaps-panel")).toBeVisible();
+    await expect(page.getByTestId("gaps-summary")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+
+  // G add-on: summary cards, CSV export, AI analysis. Exact numbers and statuses are unit-tested (summary,
+  // analysis, csv); parallel specs change how many e2e gaps exist, so this checks the wiring.
+  test("summary cards, CSV export with BOM and Hebrew, and the AI analysis card", async ({ page, context }) => {
+    await page.goto("/employee");
+    await page.getByTestId("demo-no-data").click();
+    await expect(page.getByTestId("msg-assistant")).toContainText("אין לי מידע");
+
+    const rep = await context.newPage();
+    await loginRep(rep);
+    await rep.getByTestId("rep-tab-gaps").click();
+    await expect(rep.getByTestId("gaps-summary")).toBeVisible();
+    expect(Number(await rep.getByTestId("gaps-total-no_data").innerText())).toBeGreaterThanOrEqual(1);
+
+    const csv = await context.request.get("/api/rep/gaps/csv");
+    expect(csv.status()).toBe(200);
+    expect(csv.headers()["content-type"]).toContain("text/csv");
+    const bytes = await csv.body();
+    expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    expect(new TextDecoder("utf-8").decode(bytes.subarray(3))).toMatch(/^סוג,נושא,רכב,תיאור,פניות,נראה לאחרונה,טופל\r\n/);
+
+    await rep.getByTestId("gaps-analyze").click();
+    const card = rep.getByTestId("gaps-analysis");
+    await expect(card).toBeVisible();
+    await expect(card).toContainText(/[א-ת]/);
+  });
+
+  test("the add-on routes need the rep session", async ({ request }) => {
+    expect((await request.get("/api/rep/gaps/csv")).status()).toBe(401);
+    expect((await request.post("/api/rep/gaps/analysis")).status()).toBe(401);
   });
 });
