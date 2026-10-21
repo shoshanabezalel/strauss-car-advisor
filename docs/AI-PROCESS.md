@@ -425,3 +425,17 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   rate; 0.00 → 0; absent commissions / bonus → 0 with a hint (the user's pick when asked). A second synthetic layout
   (hourly, amounts only) joined the eval: 5/5 twice on the primary. Lesson: one sample layout was not a test of
   reading payslips.
+
+### F7 — Onboarding tour, in a worktree next to the engine session (22/10/2026)
+- Built from docs/TOUR.md on branch `tour` (worktree, dev on port 3002), because another session is editing the
+  engine, prompt and comparison explanation on main; `comparison.tsx` got only its `data-tour` attribute.
+- No tour library: steps and texts in `src/lib/tour/steps.ts`, pure logic (selector per breakpoint, centered
+  fallback, bubble placement, try/catch storage) in `src/lib/tour/tour.ts`, unit-tested in node. A unit test parses
+  the two tables in TOUR.md, so the texts can't drift from the approved doc.
+- Seen flag is set when the tour first shows, so skip, Esc or a reload never brings it back by itself.
+- Lint rejected starting the tour with setState in an effect; it starts on the next animation frame instead, and the
+  seen check sits inside the frame callback, so React Strict Mode's double effect can't mark it seen without showing.
+- What went wrong: the browser check on a phone showed step 4 spotlighting a 32px sliver. Not the tour: the
+  profile card's `self-start` shrank it to content width in the mobile flex column (on main since M6). Fixed with
+  `lg:self-start` in its own commit.
+- E2E waits until the user says the shared Supabase is free (unit tests only until then).

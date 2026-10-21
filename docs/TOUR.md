@@ -1,4 +1,4 @@
-# Onboarding tour (approved 21/10, not implemented)
+# Onboarding tour (approved 21/10, implemented 22/10 on branch `tour`)
 
 First-use tour: one tooltip bubble at a time, on the employee screen and the rep screen. Texts and steps approved
 by the user on 21/10/2026.

@@ -10,7 +10,7 @@ import { formatDiff, formatShekel, TRACK_LABELS } from "./labels";
  */
 export function Comparison({ view }: { view: ComparisonView }) {
   return (
-    <section aria-label="השוואת אפשרויות" className="flex flex-col gap-3">
+    <section aria-label="השוואת אפשרויות" className="flex flex-col gap-3" data-tour="comparison">
       <h2 className="text-lg font-semibold">השוואה</h2>
       <ComparisonTable rows={view.rows} />
       <ComparisonCards rows={view.rows} />

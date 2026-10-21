@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { TourHelpButton, useTour } from "@/components/tour/tour";
 import type { AgentEvent, ToolName } from "@/lib/agent";
 import type { DemoPrompt } from "@/lib/agent/mock-model";
 import type { ComparisonView } from "@/lib/chat/comparison-view";
@@ -15,6 +16,7 @@ import type { ConversationResponse, RepQuestionStatusView } from "@/lib/chat/con
 import type { ChatEvent } from "@/lib/chat/handle-turn";
 import type { VisibleMessage } from "@/lib/chat/history";
 import type { ProfileView } from "@/lib/chat/profile-view";
+import { EMPLOYEE_TOUR } from "@/lib/tour/steps";
 import { createNdjsonParser } from "@/lib/chat/ndjson";
 import { usePing } from "@/lib/realtime/use-ping";
 import { Comparison } from "./comparison";
@@ -45,6 +47,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
   const params = useSearchParams();
   const [conversationId, setConversationId] = useState<string | undefined>(params.get("c") ?? undefined);
   const [messages, setMessages] = useState<VisibleMessage[]>([]);
+  const tour = useTour("employee", EMPLOYEE_TOUR);
   const [comparison, setComparison] = useState<ComparisonView | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -209,16 +212,19 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6" data-realtime={conversationId ? realtime : undefined}>
-      <header className="flex flex-wrap items-center justify-between gap-2">
+      <header className="flex flex-wrap items-center justify-between gap-2" data-tour="welcome">
         <div>
           <h1 className="text-2xl font-semibold">יועץ הרכב</h1>
           <p className="text-sm text-muted-foreground">מה יקרה לנטו שלי אם אחליף רכב, אעבור לחשמלי או אוותר על הרכב?</p>
         </div>
-        {mock && (
-          <Badge variant="outline" data-testid="mock-badge">
-            מצב הדגמה
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {mock && (
+            <Badge variant="outline" data-testid="mock-badge">
+              מצב הדגמה
+            </Badge>
+          )}
+          <TourHelpButton onClick={tour.start} />
+        </div>
       </header>
 
       <RepStatus questions={repQuestions} carLabels={carLabels} />
@@ -276,6 +282,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
                 }}
                 placeholder="כתב/י הודעה…"
                 aria-label="הודעה"
+                data-tour="chat-input"
                 rows={2}
                 disabled={pending}
               />
@@ -307,6 +314,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
       )}
 
       <div aria-live="polite">{comparison && <Comparison view={comparison} />}</div>
+      {tour.node}
     </div>
   );
 }
