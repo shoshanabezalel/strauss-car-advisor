@@ -281,15 +281,25 @@ engine/lookup function, Zod-parse the output (`schemas.ts`). `createTools(deps)`
   target CAR-10.
 
 ## 7c. Explanations, profile edits and car changes (M6)
-- **Explanation (F4)**: `explainOption(today, option)` (`agent/explain.ts`), at most two plain-Hebrew lines, built
-  in code from the two rows' `display` amounts:
-  - line 1, the tax side: value-of-use from → to (so the tax goes up / down), or none any more; maintenance
-    allowance (taxable, not pensionable), or the allowance stopping;
-  - line 2, the net side: EV refund (gross), participation from → to (straight off the net), family-gap share;
+- **Net change per component (`netDelta`, engine, 21/10)**: the gross amounts (value-of-use 2,950, participation
+  250, allowance 1,200) don't add up to the net change, and users read that as an error. `compareOptions` now
+  splits `diffVsToday` in net terms (`netDeltaBetween`, `engine/compare.ts`): start from today's input, switch one
+  component at a time to the option's value in a fixed order (participation → value-of-use → maintenance →
+  family gap → EV refund, user decision), recompute the net, one line per changed component. Shared tax effects go
+  to the earlier step: participation shows its own amount (a net deduction), value-of-use the tax / NI / health at
+  today's income, the allowance after tax, the EV refund exactly the rules' net bonus. The last line takes the rest
+  of `diffVsToday`, so the lines sum exactly to it. No rounding. `display.netDelta` (tools.ts, `displayParts`) rounds
+  each line to whole shekels and puts the remainder on the last, so the shown lines add up to the shown change.
+- **Explanation (F4)**: `explainOption(today, option)` (`agent/explain.ts`), one plain-Hebrew line per
+  `display.netDelta` line (2–3 in practice, at most 5; user decision 21/10, replacing the 2-line version): what
+  changed, from the two rows' `display` amounts (value-of-use from → to, "not cash but an amount that is taxed";
+  allowance after tax; EV refund gross; participation straight off the net; family-gap share), then its effect as
+  עלייה / ירידה של X ₪ בנטו.
   - a non-eligible option gets the engine's Hebrew `reason`; no change at all gets one fixed line.
   `ComparisonRow.explanation` carries it to the table (under the option name) and the cards. `compareReply` uses the
-  same lines, so the chat and the table agree. A test checks every amount the sheet's "why" column names
-  (except the rules' +250 net) appears.
+  same lines, so the chat and the table agree. Tests: for the 6 references the lines sum exactly to the change (engine
+  and display), and every amount the sheet's "why" column names (except the rules' +250 net) appears. The prompt
+  tells the model to explain only with `display.netDelta` and never to list gross amounts as if they add up.
 - **Direct turns** (`direct-turn.ts`): the persistence shared by rep answers and employee edits. It covers the
   guarded reply built in code, notices, the synthetic tool round-trip, state and comparison, and the conversation
   ping. No LLM.
@@ -606,6 +616,8 @@ from public / anon / authenticated (Supabase grants it by default). The only adv
   means a per-month comparison.
 - [x] Explanations (decided 19/10, M6): built in code from display values (§7c), not by the LLM; shared by table,
   cards and replies.
+- [x] Net-change breakdown (decided 21/10): one line per changed component with its net effect, summing exactly to
+  the change; fixed step order participation → value-of-use → maintenance → family gap → EV refund (§7c).
 - [x] Employee edits vs. the rep (decided 19/10, M6): rep-confirmed fields are read-only in the form and rejected
   by `/api/profile`. The employee can raise it in the chat.
 - [x] Dev / e2e servers on loopback only (decided 19/10, M6).

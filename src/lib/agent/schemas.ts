@@ -88,6 +88,7 @@ export const OptionResultSchema = z.object({
   familyGapEmployee: z.number(),
   breakdown: NetBreakdownSchema.optional(),
   diffVsToday: z.number().optional(),
+  netDelta: z.array(z.object({ kind: ChangeSchema.shape.kind, amount: z.number() })).optional(),
   changes: z.array(ChangeSchema),
   missing: z.array(MissingFieldSchema),
 });
@@ -111,6 +112,8 @@ export const DisplaySchema = AmountsDisplaySchema.extend({
   diffVsToday: z.number().int().optional(),
   /** Sign of diffVsToday as a word, so the reply says עלייה / ירידה instead of a minus sign. */
   direction: z.enum(["up", "down", "none"]).optional(),
+  /** The change per component in net terms, whole shekels that sum exactly to diffVsToday (remainder on the last). */
+  netDelta: z.array(z.object({ kind: ChangeSchema.shape.kind, amount: z.number().int() })).optional(),
 });
 
 export const DisplayedOptionSchema = OptionResultSchema.extend({ display: DisplaySchema });

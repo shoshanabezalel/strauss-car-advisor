@@ -38,7 +38,7 @@
 
 ## Main flows
 1. **Chat**: employee sends a message → `POST /api/chat` loads conversation + profile from DB → LLM with tools → tools update profile / compute → number-guard → persisted. The response is an NDJSON stream: tool/status progress while the model works, then the reply, notices and comparison **once, after the guard** (reply text never streams). `AGENT_MODEL=mock` swaps in a scripted model for local dev; everything else is the same.
-2. **Comparison**: `compareOptions` returns full JSON → frontend renders the table from the JSON (not from model text) → model writes a 2-line explanation from the `changes` field.
+2. **Comparison**: `compareOptions` returns full JSON → frontend renders the table from the JSON (not from model text) → the explanation is built in code from the engine's `netDelta` (the change per component in net terms), and the model explains only with those lines.
 3. **Representative**: `askRepresentative` inserts into rep_questions, conversation status `waiting_rep` → rep answers → saved as a profile fact + system message → Realtime wakes the employee screen → agent resumes automatically from the same point.
 4. **Config**: all rules in data/*.json. In a pilot, swap files, not code.
 5. **Information gaps (מאגר פערי מידע)**: whenever the system can't answer from real data, it is recorded: in code

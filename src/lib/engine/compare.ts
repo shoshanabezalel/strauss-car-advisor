@@ -1,7 +1,7 @@
 import type { Situation } from "@/lib/config/schemas";
 import { checkEligibility, findCar, findOccupation, resolveGroup } from "./eligibility";
 import { computeElectricGross, computeNet } from "./net";
-import type { Change, Comparison, EmployeeProfile, EngineConfig, MissingField, NetInput, OptionResult } from "./types";
+import type { Change, ChangeKind, Comparison, EmployeeProfile, EngineConfig, MissingField, NetDeltaLine, NetInput, OptionResult } from "./types";
 
 const SALARY_FIELDS = ["baseSalary", "commissions", "bonus", "pensionPct", "studyFundPct", "creditPoints"] as const;
 
@@ -56,22 +56,64 @@ function evaluate(profile: EmployeeProfile, situation: Situation, config: Engine
 
   if (missing.length || (gate && !eligibility.eligible)) return result;
 
-  const input: NetInput = {
+  const input = netInputOf(profile, result);
+  if (result.car?.drive === "electric") input.electricGross = result.electricGross = computeElectricGross(input, rules);
+  result.breakdown = computeNet(input, rules);
+  return result;
+}
+
+/** The engine input of a resolved situation (salary fields from the profile, the rest from the result). */
+function netInputOf(profile: EmployeeProfile, r: OptionResult): NetInput {
+  return {
     baseSalary: profile.baseSalary!,
     commissions: profile.commissions!,
     bonus: profile.bonus!,
     pensionPct: profile.pensionPct!,
     studyFundPct: profile.studyFundPct!,
     creditPoints: profile.creditPoints!,
-    valueOfUse: result.valueOfUse,
-    maintenance: result.maintenance,
-    electricGross: 0,
-    participation: result.participation,
-    familyGapEmployee: result.familyGapEmployee,
+    valueOfUse: r.valueOfUse,
+    maintenance: r.maintenance,
+    electricGross: r.electricGross,
+    participation: r.participation,
+    familyGapEmployee: r.familyGapEmployee,
   };
-  if (result.car?.drive === "electric") input.electricGross = result.electricGross = computeElectricGross(input, rules);
-  result.breakdown = computeNet(input, rules);
-  return result;
+}
+
+/**
+ * The order components are switched from today's value to the option's (user decision 21/10). Each line is the net
+ * change of its own step, so tax interactions go to the earlier step: participation shows its own amount (a net
+ * deduction), value-of-use the tax / NI / health at today's income, the allowance after tax, the EV refund last so
+ * it is exactly the rules' net bonus.
+ */
+const NET_DELTA_STEPS: { kind: ChangeKind; field: keyof NetInput & keyof OptionResult }[] = [
+  { kind: "participation", field: "participation" },
+  { kind: "valueOfUse", field: "valueOfUse" },
+  { kind: "maintenance", field: "maintenance" },
+  { kind: "familyGap", field: "familyGapEmployee" },
+  { kind: "electric", field: "electricGross" },
+];
+
+/**
+ * diffVsToday split per component in net terms: start from today's input and switch one component at a time to
+ * the option's value, recomputing the net. Unchanged components get no line. The last line takes the rest of
+ * diffVsToday, so the lines sum to it exactly (floating point included). No rounding.
+ */
+function netDeltaBetween(profile: EmployeeProfile, today: OptionResult, option: OptionResult, diff: number, rules: EngineConfig["rules"]): NetDeltaLine[] {
+  let input = netInputOf(profile, today);
+  let net = computeNet(input, rules).net;
+  const lines: NetDeltaLine[] = [];
+  for (const { kind, field } of NET_DELTA_STEPS) {
+    if (today[field] === option[field]) continue;
+    input = { ...input, [field]: option[field] };
+    const next = computeNet(input, rules).net;
+    lines.push({ kind, amount: next - net });
+    net = next;
+  }
+  if (lines.length) {
+    const last = lines[lines.length - 1];
+    last.amount = diff - lines.slice(0, -1).reduce((s, l) => s + l.amount, 0);
+  }
+  return lines;
 }
 
 /**
@@ -126,7 +168,10 @@ export function compareOptions(profile: EmployeeProfile, options: Situation[], c
     options: options.map((s) => {
       const r = evaluate(profile, s, config, true);
       if (today.missing.length === 0) r.changes = changesBetween(today, r);
-      if (today.breakdown && r.breakdown) r.diffVsToday = r.breakdown.net - today.breakdown.net;
+      if (today.breakdown && r.breakdown) {
+        r.diffVsToday = r.breakdown.net - today.breakdown.net;
+        r.netDelta = netDeltaBetween(profile, today, r, r.diffVsToday, config.rules);
+      }
       return r;
     }),
   };

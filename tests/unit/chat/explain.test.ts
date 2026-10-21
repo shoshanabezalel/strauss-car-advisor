@@ -17,11 +17,11 @@ async function compare(profile: EmployeeProfile, option: Situation) {
 const asRequested = (s: Situation): Situation => (s.kind === "car" ? { kind: "car", carId: s.carId } : s);
 
 describe("explainOption", () => {
-  it.each(employees.map((e) => [e.id, e] as const))("%s: at most two lines, every number from the display values", async (_id, e) => {
+  it.each(employees.map((e) => [e.id, e] as const))("%s: one line per changed component, every number from the display values", async (_id, e) => {
     const c = await compare(e.profile, asRequested(e.alternative));
     const lines = explainOption(c.today, c.options[0]);
-    expect(lines.length).toBeGreaterThan(0);
-    expect(lines.length).toBeLessThanOrEqual(2);
+    expect(lines.length).toBe(c.options[0].display.netDelta!.length);
+    expect(lines.length).toBeLessThanOrEqual(5);
     for (const line of lines) expect(line).toMatch(/[֐-׿]/);
     const guard = checkNumbers(lines.join("\n"), { toolOutputs: [c.today.display, c.options[0].display] });
     expect(guard, lines.join("\n")).toEqual({ ok: true, invented: [] });
@@ -35,20 +35,36 @@ describe("explainOption", () => {
     for (const n of extractNumbers(sheet)) expect(text, `${n.raw} in: ${text}`).toContain(n.value.toLocaleString("en-US"));
   });
 
-  it("E-001 wording: value-of-use goes down, EV refund added", async () => {
-    const e = employees[0];
+  // The net effect per line, in words (no minus sign), from display.netDelta: the lines add up to the change shown.
+  it.each(employees.map((e) => [e.id, e] as const))("%s: each line ends with its net effect, and they sum to the change", async (_id, e) => {
     const c = await compare(e.profile, asRequested(e.alternative));
-    const [tax, net] = explainOption(c.today, c.options[0]);
-    expect(tax).toContain("שווי השימוש יורד");
-    expect(tax).toContain("המס");
-    expect(net).toContain("החזר חשמל");
+    const lines = explainOption(c.today, c.options[0]);
+    c.options[0].display.netDelta!.forEach(({ amount }, i) => {
+      const effect = amount === 0 ? "ללא שינוי בנטו" : `${amount > 0 ? "עלייה" : "ירידה"} של ${Math.abs(amount).toLocaleString("en-US")} ₪ בנטו`;
+      expect(lines[i]).toContain(effect);
+      // A negative number, not the Hebrew "מ-4,070" prefix.
+      expect(lines[i]).not.toMatch(/(^|[\s(:])[-−]\d/);
+    });
   });
 
-  it("waiver (E-005): maintenance instead of a car, no participation", async () => {
+  it("E-001 wording: value-of-use goes down (taxable, not cash), EV refund added at exactly the net bonus", async () => {
+    const e = employees[0];
+    const c = await compare(e.profile, asRequested(e.alternative));
+    const [vou, ev] = explainOption(c.today, c.options[0]);
+    expect(vou).toContain("שווי השימוש יורד");
+    expect(vou).toContain("לא כסף");
+    expect(vou).toContain("המס");
+    expect(ev).toContain("החזר חשמל");
+    expect(ev).toContain("עלייה של 250 ₪ בנטו");
+  });
+
+  it("waiver (E-005): participation, value-of-use (not cash), allowance after tax", async () => {
     const e = employees.find((x) => x.alternative.kind === "waiver")!;
-    const text = explainOption(...(await compare(e.profile, e.alternative).then((c) => [c.today, c.options[0]] as const))).join("\n");
-    expect(text).toContain("אחזקת רכב");
-    expect(text).toContain("השתתפות");
+    const [part, vou, maint] = explainOption(...(await compare(e.profile, e.alternative).then((c) => [c.today, c.options[0]] as const)));
+    expect(part).toContain("השתתפות");
+    expect(vou).toContain("לא כסף אלא סכום שמחויב במס");
+    expect(maint).toContain("אחזקת רכב");
+    expect(maint).toContain("אחרי מס");
   });
 
   it("not eligible: the engine's Hebrew reason, nothing else", async () => {

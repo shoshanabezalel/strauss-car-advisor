@@ -66,7 +66,10 @@ function Extras({ row }: { row: ComparisonRow }) {
   return <span>{parts.length ? parts.join(" · ") : "—"}</span>;
 }
 
-/** F4: the server's two-line explanation (explain.ts). Not shown for a non-eligible row: its reason is in the eligibility cell. */
+/**
+ * F4: the server's explanation (explain.ts), one line per changed component with its effect on the net; the effects
+ * add up to the change shown. Not shown for a non-eligible row: its reason is in the eligibility cell.
+ */
 function Explanation({ row }: { row: ComparisonRow }) {
   if (row.isToday || !row.eligible || !row.explanation.length) return null;
   return (

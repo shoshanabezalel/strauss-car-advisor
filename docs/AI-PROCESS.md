@@ -425,3 +425,14 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   rate; 0.00 → 0; absent commissions / bonus → 0 with a hint (the user's pick when asked). A second synthetic layout
   (hourly, amounts only) joined the eval: 5/5 twice on the primary. Lesson: one sample layout was not a test of
   reading payslips.
+### F4 fix — the net change per component (21/10/2026)
+- The user's report: for "give up the car" the agent listed value-of-use 2,950, participation 250 and allowance
+  1,200 (4,400 together) next to a net change of 2,206, and users read it as an error. The fix went into the engine,
+  not the prompt: `netDelta` splits the change per component in net terms by switching one component at a time
+  (stepwise), the last line taking the rest so the sum is exact. Two choices went to the user: one line per item
+  instead of SPEC's two lines, and the step order.
+- Tests first (37 red). One of my own new assertions was wrong: "no minus sign" also matched the Hebrew prefix
+  "מ-4,070"; narrowed to a sign before a number. A probe script first showed the stepwise split on all 6
+  references before any code (E-005: +350 + 2,155.67 + 1,056.60 = 3,562.27).
+- Checks: unit green, e2e 14/14 on the rerun (the first run had two cold-start chat timeouts), live evals 15/15
+  with a new waiver check (the reply says value-of-use is not cash and quotes the engine's tax-saved line).

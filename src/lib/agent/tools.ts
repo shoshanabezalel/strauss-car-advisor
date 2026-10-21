@@ -2,7 +2,7 @@ import { tool, type ToolSet } from "ai";
 import type { z } from "zod";
 import type { Config, Situation } from "@/lib/config";
 import { allowedCars, checkEligibility, compareOptions, missingProfileFields, type EmployeeProfile, type OptionResult } from "@/lib/engine";
-import { displayDiff, roundShekel } from "@/lib/format/money";
+import { displayDiff, displayParts, roundShekel } from "@/lib/format/money";
 import { getValueOfUse, searchValueOfUse, type VouSource } from "@/lib/vou";
 import { LogInformationGapInput, LogInformationGapOutput, noopGapLog, type GapLog } from "@/lib/gaps/types";
 import type { AgentEventSink } from "./events";
@@ -161,7 +161,11 @@ export function createToolHandlers(deps: AgentDeps, { origin = "agent" }: { orig
         options: results.map((r) => {
           const diff = r.breakdown && todayNet !== undefined ? displayDiff(r.breakdown.net, todayNet) : undefined;
           const direction = diff === undefined ? undefined : diff > 0 ? "up" : diff < 0 ? "down" : "none";
-          return { ...r, display: { ...amounts(r), net: net(r), diffVsToday: diff, direction } };
+          const netDelta =
+            r.netDelta && diff !== undefined
+              ? displayParts(r.netDelta.map((l) => l.amount), diff).map((amount, i) => ({ kind: r.netDelta![i].kind, amount }))
+              : undefined;
+          return { ...r, display: { ...amounts(r), net: net(r), diffVsToday: diff, direction, netDelta } };
         }),
       });
     },

@@ -72,6 +72,12 @@ export interface Change {
   to: number;
 }
 
+/** One component's effect on the net (unrounded, signed). The lines of an option sum exactly to diffVsToday. */
+export interface NetDeltaLine {
+  kind: ChangeKind;
+  amount: number;
+}
+
 export interface OptionResult {
   situation: Situation;
   eligibility: Eligibility;
@@ -90,6 +96,8 @@ export interface OptionResult {
   breakdown?: NetBreakdown;
   /** Unrounded net(option) − net(today); only when both have a breakdown. */
   diffVsToday?: number;
+  /** diffVsToday split per changed component in net terms (compare.ts netDeltaBetween); with diffVsToday only. */
+  netDelta?: NetDeltaLine[];
   changes: Change[];
   missing: MissingField[];
 }

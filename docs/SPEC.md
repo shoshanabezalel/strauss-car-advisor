@@ -15,7 +15,7 @@ The bot answers in Hebrew within a minute, with a clear, explained comparison. W
 - F1 Hebrew conversation that starts from salary, components and deductions; asks only for what is missing.
 - F2 Required data: eligibility group / occupation, base salary, commissions, bonus, pension %, study fund (keren hishtalmut) %, tax credit points, number of children under 23, current situation (car + participation / waiver + maintenance allowance), requested alternative.
 - F3 Show the relevant car catalog (own group and lower, + family track if eligible).
-- F4 Comparison view, per option: car or waiver, eligible and why, cost and budget, participations, value-of-use (shovi shimush), EV refund or maintenance allowance, estimated net, difference vs. today, and a 2-line plain-Hebrew explanation.
+- F4 Comparison view, per option: car or waiver, eligible and why, cost and budget, participations, value-of-use (shovi shimush), EV refund or maintenance allowance, estimated net, difference vs. today, and a plain-Hebrew explanation: one line per changed component with its effect on the net, the lines adding up exactly to the difference (decided 21/10).
 - F5 Data correction (profile form next to the chat) and car change → recalculation.
 - F6 Payslip upload (reinstated 21/10) → read base salary, commissions, bonus, pension %, study fund % and credit points; the employee confirms or edits each one before anything is saved. Unclear values are left empty, never guessed. The file is not stored.
 

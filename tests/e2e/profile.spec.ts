@@ -25,6 +25,28 @@ test.describe("profile and options (desktop)", () => {
     await expect(explanation).toContainText("החזר חשמל");
   });
 
+  // Giving up the car: the screen shows the engine's breakdown, whose net effects add up to the change shown
+  // (user, 21/10: gross amounts that seemed to add up to something else read as an error).
+  test("waiver (E-005): one line per component, and the effects add up to the change", async ({ page }) => {
+    const e5 = samples.employees.find((e) => e.alternative.kind === "waiver")!;
+    await page.goto("/employee");
+    await page.getByTestId(`demo-${e5.id}`).click();
+    const row = page.getByTestId("row-option-0");
+    await expect(row.getByTestId("diff")).toContainText(fmt(Math.abs(e5.expected.diff)));
+    const lines = row.getByTestId("explanation").locator("p");
+    await expect(lines).toHaveCount(3);
+    await expect(lines.nth(0)).toContainText("השתתפות");
+    await expect(lines.nth(1)).toContainText("שווי שימוש הוא לא כסף אלא סכום שמחויב במס");
+    await expect(lines.nth(2)).toContainText("אחרי מס");
+    const effects = await lines.evaluateAll((ps) =>
+      ps.map((p) => {
+        const m = p.textContent!.match(/(עלייה|ירידה) של ([\d,]+) ₪ בנטו/)!;
+        return (m[1] === "עלייה" ? 1 : -1) * Number(m[2].replace(/,/g, ""));
+      }),
+    );
+    expect(effects.reduce((s, x) => s + x, 0)).toBe(e5.expected.diff);
+  });
+
   test("editing today's participation recomputes: today's net drops by exactly the change", async ({ page }) => {
     await startE001(page);
     const panel = page.getByTestId("profile-panel");

@@ -44,6 +44,14 @@ describe("system prompt", () => {
     expect(prompt).toMatch(/never see the file/i);
   });
 
+  // The net-change explanation uses only the engine's per-component lines, which sum to the change (user, 21/10).
+  it("explains the change only from netDelta, and says value-of-use is taxable, not cash", () => {
+    expect(prompt).toContain("netDelta");
+    expect(prompt).toMatch(/not cash/i);
+    expect(prompt).toMatch(/never (list|add up) gross amounts/i);
+    expect(prompt).not.toMatch(/two lines on why, from `changes`/);
+  });
+
   it("contains no digits, so it cannot leak numbers into replies", () => {
     expect(prompt).not.toMatch(/\d/);
   });

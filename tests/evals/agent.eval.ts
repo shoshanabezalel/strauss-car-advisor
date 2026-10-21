@@ -8,6 +8,7 @@ import {
   challengeOpeningMessage,
   createAgentState,
   createMemoryRepQueue,
+  createToolHandlers,
   openingMessage as openingMessageOf,
   runAgentTurn,
   type AgentDeps,
@@ -111,6 +112,13 @@ describe.skipIf(!hasKey)(`agent evals (live model: ${evalModelName})`, () => {
         const carId = e.alternative.carId;
         expect(last.notices).toContainEqual({ kind: "participation_unconfirmed", carId });
         expect(last.text).toContain("השתתפות");
+      } else {
+        // Giving up the car (user, 21/10): explain with the engine's net-delta lines, value-of-use is not cash.
+        const tools = createToolHandlers({ ...newDeps(), state: createAgentState(structuredClone(e.profile)) });
+        const lines = (await tools.compareOptions({ options: [e.alternative] })).options[0].display.netDelta!;
+        const vou = lines.find((l) => l.kind === "valueOfUse")!;
+        expect(last.text, last.text).toMatch(/לא כסף/);
+        expect(mentions(last.text, Math.abs(vou.amount)), last.text).toBe(true);
       }
     });
   }
