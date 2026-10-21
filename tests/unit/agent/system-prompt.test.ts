@@ -37,6 +37,13 @@ describe("system prompt", () => {
     }
   });
 
+  // F6: the employee may upload a payslip instead of typing; the agent never sees the file.
+  it("offers the payslip upload when asking for salary data, without claiming to read it", () => {
+    expect(prompt).toMatch(/upload a payslip/i);
+    expect(prompt).toContain("תלוש שכר");
+    expect(prompt).toMatch(/never see the file/i);
+  });
+
   it("contains no digits, so it cannot leak numbers into replies", () => {
     expect(prompt).not.toMatch(/\d/);
   });
