@@ -5,16 +5,24 @@ import { useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PAYSLIP_FIELDS, type PayslipField, type PayslipFields } from "@/lib/payslip/schema";
+import { PAYSLIP_FIELDS, type PayslipField, type PayslipFields, type PayslipNote, type PayslipNotes } from "@/lib/payslip/schema";
 import { MAX_PAYSLIP_BYTES, type PayslipResponse } from "@/lib/payslip/upload";
 import { INPUT, NUMBER_FIELDS } from "./form-fields";
 import { confirmedUpdates, saveProfile } from "./save-profile";
 
-type State = { step: "idle" } | { step: "reading" } | { step: "error"; message: string } | { step: "confirm"; fields: PayslipFields };
+type State =
+  | { step: "idle" }
+  | { step: "reading" }
+  | { step: "error"; message: string }
+  | { step: "confirm"; fields: PayslipFields; notes: PayslipNotes };
 
 const ACCEPT = "application/pdf,image/jpeg,image/png";
 const NOT_READ = "לא זוהה — יש למלא";
 const THIS_MONTH = "זה הסכום בתלוש של החודש הזה. אם זה תשלום חד־פעמי, אפשר לשנות.";
+const NOTE_TEXT: Record<PayslipNote, string> = {
+  not_on_payslip: "לא מופיע בתלוש",
+  computed: "חושב מהסכומים בתלוש",
+};
 const FAILED = "לא הצלחתי להתחבר לשרת. אפשר לנסות שוב.";
 const LABELS = Object.fromEntries(NUMBER_FIELDS.map((f) => [f.field, f])) as Record<PayslipField, (typeof NUMBER_FIELDS)[number]>;
 
@@ -56,7 +64,7 @@ export function PayslipFlow({ payslip, conversationId, disabled, onSaved }: { pa
       form.append("file", file);
       const res = await fetch("/api/payslip", { method: "POST", body: form });
       const body = (await res.json().catch(() => null)) as PayslipResponse | null;
-      if (body?.status === "ok") return setState({ step: "confirm", fields: body.fields });
+      if (body?.status === "ok") return setState({ step: "confirm", fields: body.fields, notes: body.notes });
       setState({ step: "error", message: body && "message" in body ? body.message : FAILED });
     } catch {
       setState({ step: "error", message: FAILED });
@@ -100,7 +108,7 @@ export function PayslipFlow({ payslip, conversationId, disabled, onSaved }: { pa
               </Alert>
             )}
             {state.step === "confirm" && (
-              <ConfirmForm fields={state.fields} conversationId={conversationId} disabled={disabled} onCancel={close} onSaved={(id) => (close(), onSaved(id))} />
+              <ConfirmForm fields={state.fields} notes={state.notes} conversationId={conversationId} disabled={disabled} onCancel={close} onSaved={(id) => (close(), onSaved(id))} />
             )}
           </CardContent>
         </Card>
@@ -109,7 +117,7 @@ export function PayslipFlow({ payslip, conversationId, disabled, onSaved }: { pa
   );
 }
 
-function ConfirmForm({ fields, conversationId, disabled, onCancel, onSaved }: { fields: PayslipFields; conversationId?: string; disabled: boolean; onCancel: () => void; onSaved: (id: string) => void }) {
+function ConfirmForm({ fields, notes, conversationId, disabled, onCancel, onSaved }: { fields: PayslipFields; notes: PayslipNotes; conversationId?: string; disabled: boolean; onCancel: () => void; onSaved: (id: string) => void }) {
   const [values, setValues] = useState<Record<PayslipField, string>>(
     () => Object.fromEntries(PAYSLIP_FIELDS.map((f) => [f, fields[f] === null ? "" : String(fields[f])])) as Record<PayslipField, string>,
   );
@@ -152,7 +160,12 @@ function ConfirmForm({ fields, conversationId, disabled, onCancel, onSaved }: { 
                 data-testid={`payslip-${f}`}
               />
               {unread && <span className="text-xs text-amber-700" data-testid={`payslip-unread-${f}`}>{NOT_READ}</span>}
-              {(f === "commissions" || f === "bonus") && <span className="text-xs text-muted-foreground">{THIS_MONTH}</span>}
+              {notes[f] && (
+                <span className="text-xs text-muted-foreground" data-testid={`payslip-note-${f}`}>
+                  {NOTE_TEXT[notes[f]]}
+                </span>
+              )}
+              {(f === "commissions" || f === "bonus") && !notes[f] && <span className="text-xs text-muted-foreground">{THIS_MONTH}</span>}
             </label>
           );
         })}

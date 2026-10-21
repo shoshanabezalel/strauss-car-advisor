@@ -1,11 +1,11 @@
 import type { Extractor, PayslipFile } from "./extract";
-import type { PayslipFields } from "./schema";
+import type { PayslipFields, PayslipNotes } from "./schema";
 
 /** Vercel caps a request body at 4.5 MB; the form data around the file needs a little of it. */
 export const MAX_PAYSLIP_BYTES = 4 * 1024 * 1024;
 
 export type PayslipResponse =
-  | { status: "ok"; fields: PayslipFields }
+  | { status: "ok"; fields: PayslipFields; notes: PayslipNotes }
   | { status: "not_payslip" | "unreadable" | "invalid" | "too_large" | "unsupported" | "failed"; message: string };
 
 const MESSAGES = {
@@ -50,5 +50,5 @@ export async function handlePayslipUpload(input: { file: File | null; extract: E
     return fail(502, "failed");
   }
   if (result.status !== "ok") return fail(422, result.status);
-  return { status: 200, body: { status: "ok", fields: result.fields } };
+  return { status: 200, body: { status: "ok", fields: result.fields, notes: result.notes } };
 }

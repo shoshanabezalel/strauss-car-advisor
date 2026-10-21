@@ -14,13 +14,17 @@ export type Extractor = (file: PayslipFile, abortSignal?: AbortSignal) => Promis
 export const PAYSLIP_PROMPT = `You read one Israeli payslip (תלוש שכר) for a company-car advisor. Return only the JSON contract.
 
 - document: "payslip" if this is a payslip; "not_payslip" if it is anything else; "unreadable" if it may be a payslip but you cannot read it.
-- fields, all for this month only, exactly as printed. Use null whenever a value is not clearly printed. Never estimate, compute, sum or infer a value.
-  - baseSalary: the monthly base salary (שכר בסיס / משכורת בסיס) in ILS.
-  - commissions: commissions (עמלות) in ILS this month; null if there is no such line.
-  - bonus: bonus (בונוס / פרמיה) in ILS this month; null if there is no such line.
-  - pensionPct: the EMPLOYEE's pension deduction rate (תגמולי עובד / פנסיה עובד), in percent as printed (6 for 6%). Not the employer's rate.
-  - studyFundPct: the EMPLOYEE's study fund deduction rate (קרן השתלמות עובד), in percent as printed (2.5 for 2.5%). Not the employer's rate.
+- fields, all for this month only, exactly as printed. Use null whenever a value is not clearly printed. Never estimate, compute, sum or infer a value: copy printed numbers only.
+  - baseSalary: the amount of the main regular salary line, in ILS. Its label varies: שכר יסוד, משכורת, שכר בסיס, שכר שעתי, ממ שוטף (hours × rate), or else the first regular salary line. Take its printed amount, not hours or the rate. Never travel (נסיעות), allowances (e.g. טלפון, ביגוד, אש"ל), overtime, one-off payments or totals.
+  - commissions: commissions (עמלות) in ILS this month.
+  - bonus: bonus (בונוס / פרמיה) in ILS this month.
+  - pensionPct: the EMPLOYEE's pension deduction rate (תגמולי עובד / פנסיה עובד), in percent as printed (6 for 6%), only if a rate is printed. Not the employer's rate.
+  - pensionDeduction: the EMPLOYEE's pension deduction amount in ILS as printed (in the deductions or the funds table).
+  - pensionWage: the wage the pension is calculated on, as printed (שכר לגמל / שכר מבוטח / שכר לפנסיה).
+  - studyFundPct, studyFundDeduction, studyFundWage: the same three for the study fund (קרן השתלמות עובד; its wage may be שכר לקה"ש or the same שכר לגמל line if that is the one printed for it).
   - creditPoints: tax credit points (נקודות זיכוי).
+  - A value printed as 0 or 0.00 is 0, not null.
+- absentLines: list "commissions" and/or "bonus" only when the payslip is clearly readable and has no such line at all (then leave that field null). A line that is there but unreadable is not absent.
 - Do not return names, ID numbers, addresses, bank details or anything else.`;
 
 /** The payslip read by the agent's model (same primary, retry and fallback as the chat). */

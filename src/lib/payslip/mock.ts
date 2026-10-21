@@ -3,7 +3,8 @@ import type { Extractor } from "./extract";
 
 /**
  * AGENT_MODEL=mock (local dev / e2e): the scripted chat model can't read files, so the payslip gets a fixed answer:
- * E-001's salary fields with the bonus unread (to show "לא זוהה"), or not a payslip for a file named *not-payslip*.
+ * E-001's salary fields with the bonus unread (to show "לא זוהה") and commissions not on the payslip (0 + hint), or
+ * not a payslip for a file named *not-payslip*.
  */
 export function createMockExtractor(config: Config): Extractor {
   if (process.env.NODE_ENV === "production") throw new Error("the mock payslip extractor is not allowed in production");
@@ -22,6 +23,8 @@ export function createMockExtractor(config: Config): Extractor {
         studyFundPct: p.studyFundPct === undefined ? null : printed(p.studyFundPct),
         creditPoints: p.creditPoints ?? null,
       },
+      // E-001 has no commissions: shown as "not on the payslip" (0 + hint), like a real one without that line.
+      notes: { commissions: "not_on_payslip" },
     };
   };
 }

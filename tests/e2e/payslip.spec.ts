@@ -19,6 +19,9 @@ test.describe("payslip upload", () => {
     await expect(card.getByTestId("payslip-studyFundPct")).toHaveValue("2.5");
     await expect(card.getByTestId("payslip-bonus")).toHaveValue("");
     await expect(card.getByTestId("payslip-unread-bonus")).toHaveText("לא זוהה — יש למלא");
+    // No commissions line on a readable payslip: 0 with a hint (user decision 21/10).
+    await expect(card.getByTestId("payslip-commissions")).toHaveValue("0");
+    await expect(card.getByTestId("payslip-note-commissions")).toHaveText("לא מופיע בתלוש");
 
     // Nothing reaches the profile before save.
     const panel = page.getByTestId("profile-panel");

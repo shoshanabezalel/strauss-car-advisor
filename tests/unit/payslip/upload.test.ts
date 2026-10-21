@@ -11,7 +11,8 @@ const PDF = [...Buffer.from("%PDF-1.7\n")];
 const JPG = [0xff, 0xd8, 0xff, 0xe0];
 const fileOf = (bytes: number[] | Uint8Array, name: string, type = "") => new File([new Uint8Array(bytes)], name, { type });
 const fields = { baseSalary: 18500, commissions: 0, bonus: null, pensionPct: 6, studyFundPct: 2.5, creditPoints: 2.75 };
-const okExtractor = (): Extractor & ReturnType<typeof vi.fn> => vi.fn(async () => ({ status: "ok" as const, fields })) as never;
+const notes = { commissions: "not_on_payslip" as const, pensionPct: "computed" as const };
+const okExtractor = (): Extractor & ReturnType<typeof vi.fn> => vi.fn(async () => ({ status: "ok" as const, fields, notes })) as never;
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -45,9 +46,9 @@ describe("handlePayslipUpload", () => {
     expect(extract.mock.calls.map(([f]) => f.mediaType)).toEqual(["image/png", "application/pdf", "image/jpeg"]);
   });
 
-  it("a payslip → 200 with the fields only", async () => {
+  it("a payslip → 200 with the fields and their notes only", async () => {
     const res = await handlePayslipUpload({ file: fileOf([...PNG, 1], "slip.png"), extract: okExtractor() });
-    expect(res).toEqual({ status: 200, body: { status: "ok", fields } });
+    expect(res).toEqual({ status: 200, body: { status: "ok", fields, notes } });
   });
 
   it.each([
