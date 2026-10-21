@@ -434,6 +434,27 @@ credit points) is normal chat, never a gap.
 - **CSV** (`csv.ts`): UTF-8 with BOM, CRLF, Hebrew headers and type labels, the topic as its label, RFC 4180 quoting, a formula-injection
   guard (a leading `= + - @` gets `'`).
 
+## 7g. Payslip upload (F6)
+- `POST /api/payslip` (multipart, one `file`) → `{ status: "ok", fields }` or `{ status, message }` (Hebrew):
+  400 no file, 413 over 4 MB (under Vercel's 4.5 MB body cap), 415 not PDF / JPG / PNG **by magic bytes**,
+  422 `not_payslip` / `unreadable`, 502 model failure. `maxDuration = 60`, the read stops at 45 s.
+- Logic in `src/lib/payslip/`: `upload.ts` (checks + messages), `extract.ts` (`generateText` with
+  `Output.object`, the file as a file part, `createAgentModel()` so the same retry and fallback; the prompt is a
+  constant there so the deploy needs no tracing entry), `schema.ts` (contract + sanitize), `mock.ts` (mock mode).
+- **Contract**: `{ document: payslip | not_payslip | unreadable, fields: { baseSalary, commissions, bonus,
+  pensionPct, studyFundPct, creditPoints } }`, every field `number | null`, strict objects: the model is offered no
+  name / ID / bank field, and an answer with an extra key is `unreadable` (nothing filled).
+- **No guessing**: a value outside `rules.payslip.ranges` (data, checked against the 6 references and the A7 script,
+  bounds inclusive; credit points in steps of 0.25) becomes null, never clamped. Percents as printed, the
+  **employee's** rate (the Excel columns are "פנסיה עובד %" / "קרן השתלמות עובד %"). Commissions and bonus are this
+  month's amounts, the same unit as the engine (`netMethod.basis: monthly`); the card says a one-off can be changed.
+- **Privacy**: no store, DB or file write; bytes live for the request only. A failure is logged by error name only
+  (an SDK error can carry the request body, i.e. the file in base64). Tested.
+- **Save**: the confirm card (`src/app/employee/payslip.tsx`, opened from the paperclip in the chat and from
+  "הפרטים שלי") sends only the filled fields to `POST /api/profile`, so source `"employee"` and the usual recompute
+  and reply. The `"payslip"` profile source stays unused. Salary fields never become information gaps (`deriveGaps`
+  reads only company data; tested).
+
 ## 8. DB (Supabase)
 ```sql
 conversations(id uuid pk, status text check (status in ('active','waiting_rep','done')), created_at, updated_at)
@@ -580,7 +601,8 @@ from public / anon / authenticated (Supabase grants it by default). The only adv
   by `/api/profile`. The employee can raise it in the chat.
 - [x] Dev / e2e servers on loopback only (decided 19/10, M6).
 - [ ] M6 exit criterion: a test round with someone who hasn't seen the system (the user runs it).
-- [ ] Payslip reading: Gemini vision → JSON, employee confirms each field.
+- [x] Payslip reading (decided 21/10, F6): the agent's model reads the file into a strict six-field contract; the employee
+  confirms each field; saved as the employee's own edit. See §7g.
 - [x] RLS model for the public deploy (decided 19/10, M7): **fixed.** No anon reads on conversation data at all
   (policies dropped); access control lives in the API routes (owner cookie, rep session), which use the service
   role. Anonymous auth + `owner = auth.uid()` would only matter if the browser read tables directly; it doesn't.

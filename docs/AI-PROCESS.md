@@ -397,3 +397,17 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   - **Evals after the prompt change:** primary 10/10. Fallback 8/10: E-004 put eligibility before the net (passed
     on rerun), and the no-data reply said "אין בידיי / ברשותי מידע", which my eval's phrase list missed. The
     wording check is now "אין + optional word + מידע"; the tool call and the Hebrew gap stay the real check.
+### F6 — Payslip upload, in a worktree next to the gaps session (21/10/2026)
+- The user reinstated F6 with the decisions up front (two entry points, six fields only, null instead of a guess,
+  confirm before save, source "employee", no storage). To avoid clashing with the gaps session, F6 runs on branch
+  `f6-payslip` in a git worktree; the files the gaps session owns (rate-limit.ts, system-prompt.md) come last, after
+  a rebase. E2E and the dev server wait for the gaps session too: both use the same Supabase.
+- Before building, the user asked for two checks: units (a payslip's bonus is this month's; the engine is monthly,
+  so they match, and the card says a one-off can be changed) and ranges against the reference data (all inside;
+  E-005's 7% pension sits on the bound, so bounds are inclusive).
+- Test first. One planned case was wrong: I expected a misread `pensionPct: 0.06` to be caught by the range, but
+  0–7 is the real range and 0% is valid (E-002 has 0% study fund). No range can catch it without inventing a
+  minimum, so the prompt asks for percents as printed instead.
+- Live eval on a synthetic payslip (fake name, ID 000000000, fake bank; employer rates differ from the employee's):
+  3/3 on the primary, PNG and PDF exact, a lunch menu → `not_payslip`. The fallback run was skipped: no
+  `FALLBACK_MODEL` in the local env.

@@ -17,7 +17,7 @@ The bot answers in Hebrew within a minute, with a clear, explained comparison. W
 - F3 Show the relevant car catalog (own group and lower, + family track if eligible).
 - F4 Comparison view, per option: car or waiver, eligible and why, cost and budget, participations, value-of-use (shovi shimush), EV refund or maintenance allowance, estimated net, difference vs. today, and a 2-line plain-Hebrew explanation.
 - F5 Data correction (profile form next to the chat) and car change → recalculation.
-- F6 (Optional) Payslip/contract upload → extract salary components; employee confirms before use.
+- F6 Payslip upload (reinstated 21/10) → read base salary, commissions, bonus, pension %, study fund % and credit points; the employee confirms or edits each one before anything is saved. Unclear values are left empty, never guessed. The file is not stored.
 
 ### Agent
 - F7 Tools: get catalog, check eligibility, get value-of-use, compute comparison, ask representative, update profile.
@@ -57,6 +57,7 @@ The bot answers in Hebrew within a minute, with a clear, explained comparison. W
 - A11: employee with 3 children requests Carnival → not eligible for family track.
 - A12: employee doesn't know participation / car not in catalog → representative question, no invented number.
 - A13: page refresh while waiting for representative → state preserved.
+- A14: payslip upload → confirm card with the six values (an unreadable one shows "לא זוהה — יש למלא") → save fills the profile; a file that is not a payslip → a clear message and nothing filled.
 
 ## Deliverables
 Working app (employee screen, representative screen, comparison) · source code · README with run instructions · sample config without secrets · summary: what works, limitations, what a pilot needs.
