@@ -26,12 +26,14 @@ export interface TourStorage {
   setItem(key: string, value: string): void;
 }
 
-const seenKey = (screen: TourScreen) => `tour:${screen}:v1`;
+export const TOUR_SCREENS: TourScreen[] = ["employee", "rep"];
+export const TOUR_SEEN = "1";
+export const seenKey = (screen: TourScreen) => `tour:${screen}:v1`;
 
 /** Blocked or missing storage (private window, cleared site data) counts as a first visit and never throws. */
 export function hasSeen(screen: TourScreen, storage: () => TourStorage | undefined): boolean {
   try {
-    return storage()?.getItem(seenKey(screen)) === "1";
+    return storage()?.getItem(seenKey(screen)) === TOUR_SEEN;
   } catch {
     return false;
   }
@@ -39,7 +41,7 @@ export function hasSeen(screen: TourScreen, storage: () => TourStorage | undefin
 
 export function markSeen(screen: TourScreen, storage: () => TourStorage | undefined): void {
   try {
-    storage()?.setItem(seenKey(screen), "1");
+    storage()?.setItem(seenKey(screen), TOUR_SEEN);
   } catch {
     // Storage blocked: the tour may show again next visit, which is harmless.
   }

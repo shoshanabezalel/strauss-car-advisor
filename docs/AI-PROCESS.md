@@ -438,4 +438,6 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
 - What went wrong: the browser check on a phone showed step 4 spotlighting a 32px sliver. Not the tour: the
   profile card's `self-start` shrank it to content width in the mobile flex column (on main since M6). Fixed with
   `lg:self-start` in its own commit.
-- E2E waits until the user says the shared Supabase is free (unit tests only until then).
+- E2E written but not run (another session owns e2e): `tour.spec.ts` starts from empty storage; every other spec
+  gets a default storageState with the tour seen (`tourSeenState` in helpers, unit-checked against `markSeen`). The
+  two `browser.newContext()` specs need no seed: one only asserts visibility and counts, the other makes API calls.

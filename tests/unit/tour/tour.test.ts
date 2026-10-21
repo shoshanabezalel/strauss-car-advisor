@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { EMPLOYEE_TOUR, REP_TOUR, type TourStep } from "@/lib/tour/steps";
 import { BUBBLE_GAP, GUTTER, hasSeen, markSeen, placeBubble, selectorFor, stepContent, type TourStorage } from "@/lib/tour/tour";
+import { tourSeenState } from "../../e2e/helpers";
 
 // Onboarding tour (docs/TOUR.md, approved 21/10): texts and steps are fixed by the doc, the rest is pure layout and
 // storage logic the client component calls.
@@ -103,6 +104,14 @@ describe("seen flag", () => {
     markSeen("employee", () => s);
     expect(hasSeen("employee", () => s)).toBe(true);
     expect(hasSeen("rep", () => s)).toBe(false);
+  });
+
+  it("matches the e2e storage seed, so other specs start with the tour seen on both screens", () => {
+    const s = memory();
+    markSeen("employee", () => s);
+    markSeen("rep", () => s);
+    const [origin] = tourSeenState("http://127.0.0.1:3100").origins;
+    expect(origin.localStorage).toEqual([...s.data].map(([name, value]) => ({ name, value })));
   });
 
   it("never throws when storage is blocked or missing", () => {
