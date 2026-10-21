@@ -1,7 +1,29 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { RepAnswerSchema, type AgentState } from "@/lib/agent";
+import { groupGaps } from "@/lib/gaps/group";
+import type { GapRow, GapStatus, GapType } from "@/lib/gaps/types";
 import type { CompareOutput, ConversationStatus, ConversationStore, RepQuestionRecord, StoredMessage } from "./store";
+
+interface GapDbRow {
+  conversation_id: string;
+  type: GapType;
+  topic: string;
+  description: string;
+  vehicle: string | null;
+  created_at: string;
+  last_seen_at: string;
+}
+
+const toGapRow = (r: GapDbRow): GapRow => ({
+  conversationId: r.conversation_id,
+  type: r.type,
+  topic: r.topic,
+  description: r.description,
+  ...(r.vehicle ? { vehicle: r.vehicle } : {}),
+  createdAt: r.created_at,
+  lastSeenAt: r.last_seen_at,
+});
 
 const REP_COLUMNS = "id, conversation_id, field, question, context, status, answer, answered_by, created_at, answered_at";
 
@@ -157,6 +179,44 @@ export function createSupabaseStore(db: SupabaseClient): ConversationStore {
         "rep questions select",
       );
       return (rows as RepQuestionRow[]).map(toRecord);
+    },
+
+    async recordGaps(conversationId, list) {
+      if (!list.length) return;
+      const now = new Date().toISOString();
+      const rows = list.map((g) => ({ conversation_id: conversationId, type: g.type, topic: g.topic, description: g.description, vehicle: g.vehicle ?? null, last_seen_at: now }));
+      check(await db.from("information_gaps").upsert(rows, { onConflict: "conversation_id,type,topic" }), "gaps upsert");
+    },
+
+    gapLog(conversationId) {
+      return { log: (g) => this.recordGaps(conversationId, [g]) };
+    },
+
+    async listGapRows() {
+      const rows = check(
+        await db.from("information_gaps").select("conversation_id, type, topic, description, vehicle, created_at, last_seen_at").order("last_seen_at", { ascending: false }).limit(5000),
+        "gaps select",
+      );
+      return (rows as GapDbRow[]).map(toGapRow);
+    },
+
+    async listGapGroups() {
+      const [rows, statuses] = await Promise.all([
+        this.listGapRows(),
+        db.from("information_gap_status").select("type, topic, resolved_at"),
+      ]);
+      const st = (check(statuses, "gap status select") as { type: GapType; topic: string; resolved_at: string }[]).map(
+        (s): GapStatus => ({ type: s.type, topic: s.topic, resolvedAt: s.resolved_at }),
+      );
+      return groupGaps(rows, st);
+    },
+
+    async setGapResolved(type, topic, resolved) {
+      if (resolved) {
+        check(await db.from("information_gap_status").upsert({ type, topic, resolved_at: new Date().toISOString() }), "gap status upsert");
+      } else {
+        check(await db.from("information_gap_status").delete().eq("type", type).eq("topic", topic), "gap status delete");
+      }
     },
   };
 }

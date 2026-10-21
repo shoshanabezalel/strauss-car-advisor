@@ -14,7 +14,7 @@ import { createSupabaseVouSource, getValueOfUse } from "@/lib/vou";
 config({ path: ".env.local", quiet: true });
 
 /** No policy for anon / authenticated: the publishable key must see 0 rows. */
-const PRIVATE = ["conversations", "messages", "profiles", "rep_questions", "comparisons", "rate_limits"];
+const PRIVATE = ["conversations", "messages", "profiles", "rep_questions", "comparisons", "rate_limits", "information_gaps", "information_gap_status"];
 const PUBLIC = ["value_of_use"];
 
 async function main() {

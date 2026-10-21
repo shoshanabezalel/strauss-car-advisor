@@ -2,6 +2,7 @@ import type { ModelMessage } from "ai";
 import type { z } from "zod";
 import type { AgentState, Notice, RepAnswer, RepQueue } from "@/lib/agent";
 import type { CompareOptionsOutput } from "@/lib/agent/schemas";
+import type { GapGroup, GapInput, GapLog, GapRow, GapType } from "@/lib/gaps/types";
 
 export const CONVERSATION_SOURCES = ["app", "e2e"] as const;
 export type ConversationSource = (typeof CONVERSATION_SOURCES)[number];
@@ -66,4 +67,15 @@ export interface ConversationStore {
   reopenRepQuestion(id: string): Promise<void>;
   /** This conversation's questions answered at or after `since` (ISO time). */
   repQuestionsAnsweredSince(conversationId: string, since: string): Promise<RepQuestionRecord[]>;
+
+  /** Information gaps (TECH-DESIGN §7f): upsert one row per (conversation, type, topic), last seen = now. */
+  recordGaps(conversationId: string, gaps: GapInput[]): Promise<void>;
+  /** The agent's logInformationGap for this conversation. */
+  gapLog(conversationId: string): GapLog;
+  /** Every gap row (the summary works on rows). */
+  listGapRows(): Promise<GapRow[]>;
+  /** One line per (type, topic) with the conversation count, last seen and טופל (groupGaps). */
+  listGapGroups(): Promise<GapGroup[]>;
+  /** טופל on / off for a (type, topic) group. */
+  setGapResolved(type: GapType, topic: string, resolved: boolean): Promise<void>;
 }

@@ -1,9 +1,13 @@
+import { groupGaps } from "@/lib/gaps/group";
+import type { GapRow, GapStatus } from "@/lib/gaps/types";
 import type { ConversationSnapshot, ConversationSource, ConversationStore, RepQuestionRecord } from "./store";
 
 /** In-memory store for unit tests. Same contract as the Supabase store. */
 export function createMemoryStore(): ConversationStore {
   const rows = new Map<string, Omit<ConversationSnapshot, "repQuestions"> & { source: ConversationSource }>();
   const questions = new Map<string, RepQuestionRecord>();
+  const gaps = new Map<string, GapRow>();
+  const gapStatus = new Map<string, GapStatus>();
   const get = (id: string) => {
     const row = rows.get(id);
     if (!row) throw new Error(`conversation ${id} not found`);
@@ -78,6 +82,30 @@ export function createMemoryStore(): ConversationStore {
     },
     async repQuestionsAnsweredSince(conversationId, since) {
       return list((q) => q.conversationId === conversationId && q.status === "answered" && (q.answeredAt ?? "") >= since);
+    },
+
+    async recordGaps(conversationId, list) {
+      const now = new Date().toISOString();
+      for (const g of list) {
+        const key = `${conversationId}|${g.type}|${g.topic}`;
+        const row = gaps.get(key);
+        if (row) Object.assign(row, { description: g.description, vehicle: g.vehicle ?? row.vehicle, lastSeenAt: now });
+        else gaps.set(key, { ...structuredClone(g), conversationId, createdAt: now, lastSeenAt: now });
+      }
+    },
+    gapLog(conversationId) {
+      return { log: (g) => this.recordGaps(conversationId, [g]) };
+    },
+    async listGapRows() {
+      return structuredClone([...gaps.values()]);
+    },
+    async listGapGroups() {
+      return groupGaps([...gaps.values()], [...gapStatus.values()]);
+    },
+    async setGapResolved(type, topic, resolved) {
+      const key = `${type}|${topic}`;
+      if (resolved) gapStatus.set(key, { type, topic, resolvedAt: new Date().toISOString() });
+      else gapStatus.delete(key);
     },
   };
 }
