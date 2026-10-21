@@ -1,11 +1,10 @@
 "use client";
 
-import { Inbox, LogOut } from "lucide-react";
+import { Inbox } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { RepQuestionView } from "@/lib/chat/rep-view";
 import { REP_QUEUE_TOPIC } from "@/lib/realtime/topics";
@@ -41,18 +40,13 @@ export function RepQueue({ mock, options }: { mock: boolean; options: RepOptions
     [router],
   );
 
-  async function logout() {
-    await fetch("/api/rep/logout", { method: "POST" }).catch(() => undefined);
-    router.refresh();
-  }
-
   useEffect(() => {
     void load();
   }, [load]);
   const realtime = usePing(REP_QUEUE_TOPIC, () => void load());
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6" data-realtime={realtime} data-testid="rep-queue">
+    <div className="flex w-full flex-col gap-6 pb-6" data-realtime={realtime} data-testid="rep-queue">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-semibold">שאלות לנציג/ת הרכב</h1>
@@ -65,9 +59,6 @@ export function RepQueue({ mock, options }: { mock: boolean; options: RepOptions
               מצב הדגמה
             </Badge>
           )}
-          <Button variant="ghost" size="sm" onClick={() => void logout()} data-testid="rep-logout">
-            <LogOut /> יציאה
-          </Button>
         </div>
       </header>
 

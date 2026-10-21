@@ -10,6 +10,7 @@ import {
   challengeOpeningMessage,
   missingDataMessage,
   openingMessage,
+  NO_DATA_MESSAGE,
   UNKNOWN_PARTICIPATION_MESSAGE,
 } from "./demo-messages";
 import { compareReply } from "./replies";
@@ -132,6 +133,13 @@ function buildScenarios(config: Config): Scenario[] {
         },
       ],
       reply: () => "שלחתי את השאלה לנציג/ת הרכב. ההשוואה תתעדכן כשתגיע תשובה.",
+    },
+    {
+      id: "no-data",
+      label: "שאלה שאין עליה מידע",
+      text: NO_DATA_MESSAGE,
+      calls: [{ toolName: "logInformationGap", input: { topic: "rules", description: "כיסוי ביטוחי לרכב צמוד בזמן חופשת לידה" } }],
+      reply: () => "אין לי מידע על כך בכללי החברה. רשמתי את השאלה כפער מידע כדי שהחברה תשלים אותה, ואפשר גם לשאול את נציג/ת הרכב.",
     },
     {
       id: "ambiguous",

@@ -48,6 +48,9 @@ export function missingDataMessage(config: Config): string {
   return `שלום, אני בקבוצת זכאות ${config.employees.employees[0].profile.group}. מה יקרה לנטו אם אחליף רכב?`;
 }
 
+/** G: a question the rules don't cover: the agent says it has no information and logs a no_data gap. */
+export const NO_DATA_MESSAGE = "האם הרכב הצמוד מכוסה בביטוח כשאני בחופשת לידה?";
+
 /** A12: the employee doesn't know their participation, so it goes to the representative. */
 export const UNKNOWN_PARTICIPATION_MESSAGE = "אני לא יודע/ת מה ההשתתפות העצמית שלי ברכב הנוכחי. אפשר לברר?";
 

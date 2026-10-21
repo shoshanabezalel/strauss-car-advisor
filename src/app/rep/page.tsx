@@ -7,7 +7,8 @@ import { loadConfig } from "@/lib/config";
 import { appSecret } from "@/lib/env";
 import { REP_COOKIE, verifyRepSession } from "@/lib/security/rep-session";
 import { RepLogin } from "./rep-login";
-import { RepQueue, type RepOptions } from "./rep-queue";
+import type { RepOptions } from "./rep-queue";
+import { RepScreen } from "./rep-screen";
 
 export const metadata: Metadata = { title: "יועץ הרכב – נציג/ת" };
 
@@ -22,7 +23,7 @@ export default function RepPage() {
   );
 }
 
-/** The queue for a valid rep session (M7 access code), the login form otherwise. The API checks the same cookie. */
+/** The rep screen (questions + information gaps) for a valid rep session (M7 access code), the login form otherwise. The API checks the same cookie. */
 async function RepGate() {
   // Session checks read the clock: wait for a real request (never prerendered or prefetched).
   await connection();
@@ -36,5 +37,5 @@ async function RepGate() {
     groups: config.rules.groupOrder,
     occupations: config.occupations.occupations.map((o) => o.name),
   };
-  return <RepQueue mock={isMockMode()} options={options} />;
+  return <RepScreen mock={isMockMode()} options={options} />;
 }
