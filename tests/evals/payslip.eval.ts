@@ -5,7 +5,7 @@ import { createFallbackOnlyModel, createPrimaryModel } from "@/lib/agent/model";
 import { loadConfig } from "@/lib/config";
 import { fallbackConfig } from "@/lib/env";
 import { createModelExtractor, type PayslipFile } from "@/lib/payslip/extract";
-import { SAMPLE } from "../../scripts/make-sample-payslip";
+import { SAMPLE, SAMPLE_HOURLY } from "../../scripts/make-sample-payslip";
 import { rateLimited } from "./rate-limit";
 
 // F6 live eval (`npm run eval:agent`): the real model reads the synthetic payslip (scripts/make-sample-payslip.ts).
@@ -29,7 +29,21 @@ describe.skipIf(!hasKey)(`payslip reading (live, ${target})`, () => {
     ["synthetic-payslip.pdf", "application/pdf"],
   ] as const)("%s: exactly the six values, the employee's rates, nothing else", async (name, mediaType) => {
     const res = await extract()(fixture(name, mediaType));
-    expect(res).toEqual({ status: "ok", fields: SAMPLE });
+    expect(res).toEqual({ status: "ok", fields: SAMPLE, notes: {} });
+  });
+
+  // Hourly part-time layout: "ממ שוטף" as the salary line, travel excluded, rates only as amounts (computed in code),
+  // study fund 0.00, and no commissions / bonus lines (→ 0 with a note).
+  it.each([
+    ["hourly-payslip.png", "image/png"],
+    ["hourly-payslip.pdf", "application/pdf"],
+  ] as const)("%s: ממ שוטף, rates from amounts, 0.00 study fund, absent lines → 0", async (name, mediaType) => {
+    const res = await extract()(fixture(name, mediaType));
+    expect(res).toMatchObject({
+      status: "ok",
+      fields: SAMPLE_HOURLY,
+      notes: { commissions: "not_on_payslip", bonus: "not_on_payslip", pensionPct: "computed" },
+    });
   });
 
   it("a lunch menu is not a payslip", async () => {
