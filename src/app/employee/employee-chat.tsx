@@ -21,6 +21,7 @@ import { Comparison } from "./comparison";
 import { STATUS_LABELS, TOOL_LABELS } from "./labels";
 import { Notices, type Resolved } from "./notices";
 import { OptionPicker } from "./option-picker";
+import { PayslipButton, PayslipFlow, usePayslip } from "./payslip";
 import { ProfilePanel } from "./profile-panel";
 import { RepStatus } from "./rep-status";
 
@@ -54,7 +55,9 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
   // The Realtime topic is an HMAC of the id that only the owner gets from the API (M7), so it arrives with the first load.
   const [topic, setTopic] = useState<string | undefined>();
   const endRef = useRef<HTMLDivElement>(null);
+  const payslip = usePayslip();
   const pending = progress !== null;
+  const payslipBusy = pending || payslip.state.step === "reading";
   // A ping during a running turn is applied after the turn, so the stream and the refetch don't race.
   const busy = useRef(false);
   const refetchAfterTurn = useRef(false);
@@ -220,6 +223,8 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
 
       <RepStatus questions={repQuestions} carLabels={carLabels} />
 
+      <PayslipFlow payslip={payslip} conversationId={conversationId} disabled={pending} onSaved={onDirectChange} />
+
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <Card className="min-w-0">
           <CardContent className="flex flex-col gap-4">
@@ -274,6 +279,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
                 rows={2}
                 disabled={pending}
               />
+              <PayslipButton variant="icon" disabled={payslipBusy} onClick={payslip.pick} />
               <Button type="submit" disabled={pending || !draft.trim()} aria-label="שליחה">
                 <Send className="rtl:-scale-x-100" />
               </Button>
@@ -286,6 +292,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
           conversationId={conversationId}
           disabled={pending}
           onSaved={onDirectChange}
+          onPayslip={payslip.pick}
         />
       </div>
 

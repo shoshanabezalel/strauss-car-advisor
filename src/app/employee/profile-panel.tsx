@@ -8,20 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ProfileField } from "@/lib/agent/schemas";
 import type { ProfileView } from "@/lib/chat/profile-view";
+import { INPUT, NUMBER_FIELDS } from "./form-fields";
 import { FIELD_LABELS } from "./labels";
-
-const INPUT =
-  "w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-amber-500 md:text-sm dark:bg-input/30";
-
-const NUMBER_FIELDS = [
-  { field: "baseSalary", label: "שכר בסיס (₪)", step: 1 },
-  { field: "commissions", label: "עמלות (₪)", step: 1 },
-  { field: "bonus", label: "בונוס (₪)", step: 1 },
-  { field: "pensionPct", label: "הפרשה לפנסיה (%)", step: 0.1 },
-  { field: "studyFundPct", label: "קרן השתלמות (%)", step: 0.1 },
-  { field: "creditPoints", label: "נקודות זיכוי", step: 0.25 },
-  { field: "childrenUnder23", label: "ילדים עד גיל עשרים ושלוש", step: 1 },
-] as const satisfies readonly { field: ProfileField; label: string; step: number }[];
+import { PayslipButton } from "./payslip";
+import { saveProfile } from "./save-profile";
 
 const WAIVER = "waiver";
 type Form = Record<string, string>;
@@ -48,11 +38,14 @@ export function ProfilePanel({
   conversationId,
   disabled,
   onSaved,
+  onPayslip,
 }: {
   profile: ProfileView;
   conversationId?: string;
   disabled: boolean;
   onSaved: (conversationId: string) => void;
+  /** Opens the shared payslip upload (F6), the same flow as the paperclip in the chat. */
+  onPayslip: () => void;
 }) {
   const fresh = toForm(profile.values);
   // `initial` = the server values the form was last synced to. When new server values arrive (refetch after a turn,
@@ -95,20 +88,10 @@ export function ProfilePanel({
     if (!changes.length) return setError("לא שונה אף שדה.");
     setSaving(true);
     setError(null);
-    try {
-      const res = await fetch("/api/profile", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ conversationId, updates: changes }),
-      });
-      const body = (await res.json().catch(() => ({}))) as { conversationId?: string; message?: string };
-      if (!res.ok || !body.conversationId) return setError(body.message ?? "לא הצלחתי לשמור.");
-      onSaved(body.conversationId);
-    } catch {
-      setError("לא הצלחתי להתחבר לשרת. אפשר לנסות שוב.");
-    } finally {
-      setSaving(false);
-    }
+    const res = await saveProfile(conversationId, changes);
+    setSaving(false);
+    if (!res.ok) return setError(res.message);
+    onSaved(res.conversationId);
   }
 
   const field = (key: ProfileField, label: string, control: React.ReactNode) => (
@@ -149,6 +132,7 @@ export function ProfilePanel({
       </CardHeader>
       <CardContent id="profile-form" className={open ? "block" : "hidden lg:block"}>
         <form className="flex flex-col gap-3" onSubmit={save}>
+          <PayslipButton variant="text" disabled={busy} onClick={onPayslip} />
           {field(
             "occupation",
             FIELD_LABELS.occupation,
