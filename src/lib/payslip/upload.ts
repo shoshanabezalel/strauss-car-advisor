@@ -29,6 +29,26 @@ function sniff(bytes: Uint8Array): PayslipFile["mediaType"] | null {
   return null;
 }
 
+const PROVIDER_MESSAGE_CHARS = 300;
+
+/**
+ * A provider error's status and its own message (`error.message` in the response body, capped). Never the request
+ * body, the URL or the error object: those can carry the file in base64. Duck-typed (not APICallError.isInstance):
+ * the browser card imports this file, and `ai` stays out of its bundle.
+ */
+function providerDetail(err: unknown): string {
+  if (!(err instanceof Error) || err.name !== "AI_APICallError") return "";
+  const { statusCode, responseBody } = err as Error & { statusCode?: number; responseBody?: string };
+  let message = typeof responseBody === "string" ? responseBody : "";
+  try {
+    const parsed = JSON.parse(message) as { error?: { message?: unknown } };
+    if (typeof parsed?.error?.message === "string") message = parsed.error.message;
+  } catch {
+    // Not JSON: keep the raw body, capped below.
+  }
+  return ` ${statusCode ?? "no status"} ${message.slice(0, PROVIDER_MESSAGE_CHARS)}`;
+}
+
 /**
  * F6: one uploaded payslip → the six fields for the employee to confirm. The file lives only in memory for this
  * call: nothing is stored, and a failure is logged by error name only (an SDK error can carry the request body,
@@ -46,7 +66,7 @@ export async function handlePayslipUpload(input: { file: File | null; extract: E
   try {
     result = await extract({ bytes, mediaType, name: file.name }, input.abortSignal);
   } catch (err) {
-    console.error(`[payslip] extraction failed: ${err instanceof Error ? err.name : "unknown"}`);
+    console.error(`[payslip] extraction failed: ${err instanceof Error ? err.name : "unknown"}${providerDetail(err)}`);
     return fail(502, "failed");
   }
   if (result.status !== "ok") return fail(422, result.status);

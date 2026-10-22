@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { APICallError } from "ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Extractor } from "@/lib/payslip/extract";
 import { payslipLimits } from "@/lib/payslip/limits";
@@ -76,6 +77,29 @@ describe("handlePayslipUpload", () => {
     expect(logged).not.toContain("SECRET");
     expect(logs[0].mock.calls.flat().some((a) => a instanceof Error || (typeof a === "object" && a !== null))).toBe(false);
     expect(JSON.stringify(res.body)).not.toContain(b64.slice(0, 16));
+  });
+
+  it("a provider error is logged with its status and the provider's message (capped), never the request body", async () => {
+    const b64 = Buffer.from("SECRET-PAYSLIP-CONTENT").toString("base64");
+    const providerMessage = `Invalid argument: ${"x".repeat(400)}`;
+    const err = new APICallError({
+      message: "Bad Request",
+      url: "https://example.test/v1beta/models/m:generateContent",
+      requestBodyValues: { contents: [{ inlineData: { data: b64 } }] },
+      statusCode: 400,
+      responseBody: JSON.stringify({ error: { code: 400, message: providerMessage, status: "INVALID_ARGUMENT" } }),
+    });
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const res = await handlePayslipUpload({ file: fileOf([...PNG, 1], "x.png"), extract: async () => Promise.reject(err) });
+    expect(res.status).toBe(502);
+    const line = error.mock.calls.flat().join(" ");
+    expect(line).toContain("AI_APICallError");
+    expect(line).toContain("400");
+    expect(line).toContain("Invalid argument: xxx");
+    expect(line).not.toContain("x".repeat(300));
+    expect(line).not.toContain(b64.slice(0, 16));
+    expect(line).not.toContain("example.test");
   });
 });
 
