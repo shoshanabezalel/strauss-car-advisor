@@ -1,10 +1,10 @@
 "use client";
 
-import { FileText, LoaderCircle, Paperclip, X } from "lucide-react";
+import { FileText, LoaderCircle, Paperclip } from "lucide-react";
 import { useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { PAYSLIP_FIELDS, type PayslipField, type PayslipFields, type PayslipNote, type PayslipNotes } from "@/lib/payslip/schema";
 import { MAX_PAYSLIP_BYTES, type PayslipResponse } from "@/lib/payslip/upload";
 import { formatNumberInput } from "@/lib/format/amounts";
@@ -87,33 +87,24 @@ export function PayslipFlow({ payslip, conversationId, disabled, onSaved }: { pa
           if (file) void read(file);
         }}
       />
-      {state.step !== "idle" && (
-        <Card data-testid="payslip-card" aria-live="polite">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between gap-2 text-base">
-              פרטים מתלוש השכר
-              <Button type="button" variant="ghost" size="icon-sm" onClick={close} aria-label="סגירה" disabled={state.step === "reading"}>
-                <X />
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {state.step === "reading" && (
-              <p className="inline-flex items-center gap-2 text-sm text-muted-foreground" data-testid="payslip-reading">
-                <LoaderCircle className="size-4 animate-spin" /> קורא את התלוש…
-              </p>
-            )}
-            {state.step === "error" && (
-              <Alert variant="destructive" data-testid="payslip-error">
-                <AlertDescription>{state.message}</AlertDescription>
-              </Alert>
-            )}
-            {state.step === "confirm" && (
-              <ConfirmForm fields={state.fields} notes={state.notes} conversationId={conversationId} disabled={disabled} onCancel={close} onSaved={(id) => (close(), onSaved(id))} />
-            )}
-          </CardContent>
-        </Card>
-      )}
+      {/* A modal: focus trap, Esc and the close button cancel (not while reading); save closes it too. */}
+      <Dialog open={state.step !== "idle"} onOpenChange={(open) => !open && state.step !== "reading" && close()}>
+        <DialogContent title="פרטים מתלוש השכר" data-testid="payslip-card" aria-live="polite">
+          {state.step === "reading" && (
+            <p className="inline-flex items-center gap-2 text-sm text-muted-foreground" data-testid="payslip-reading">
+              <LoaderCircle className="size-4 animate-spin" /> קורא את התלוש…
+            </p>
+          )}
+          {state.step === "error" && (
+            <Alert variant="destructive" data-testid="payslip-error">
+              <AlertDescription>{state.message}</AlertDescription>
+            </Alert>
+          )}
+          {state.step === "confirm" && (
+            <ConfirmForm fields={state.fields} notes={state.notes} conversationId={conversationId} disabled={disabled} onCancel={close} onSaved={(id) => (close(), onSaved(id))} />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
