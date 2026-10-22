@@ -103,6 +103,12 @@ test.describe("representative loop", () => {
 
     await expect(page.getByTestId("notice-rep_answered")).toBeVisible();
     await expect(page.getByTestId("rep-status-item")).toHaveAttribute("data-status", "answered");
+
+    // The rep's answer locks the current car in "הפרטים שלי"; the lock explains itself on hover.
+    const lock = page.getByTestId("locked-current");
+    await expect(lock).toBeVisible();
+    await lock.hover();
+    await expect(page.getByRole("tooltip")).toHaveText("מולא על ידי צוות הרכב");
   });
 });
 

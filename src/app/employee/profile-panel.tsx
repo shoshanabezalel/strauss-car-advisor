@@ -100,11 +100,7 @@ export function ProfilePanel({
     <label className="flex flex-col gap-1 text-sm">
       <span className="flex flex-wrap items-center gap-1">
         {label}
-        {locked.has(key) && (
-          <Badge variant="secondary" data-testid={`locked-${key}`}>
-            <Lock /> אושר ע״י צוות הרכב
-          </Badge>
-        )}
+        {locked.has(key) && <LockedBadge field={key} />}
         {missing.has(key) && <span className="text-xs text-brand-orange-ink">חסר</span>}
       </span>
       {control}
@@ -220,3 +216,21 @@ export function ProfilePanel({
   );
 }
 
+/** A rep-filled field: the badge, and a tooltip on hover or keyboard focus. */
+function LockedBadge({ field }: { field: ProfileField }) {
+  const tipId = `locked-tip-${field}`;
+  return (
+    <span className="group/lock relative inline-flex" tabIndex={0} aria-describedby={tipId} data-testid={`locked-${field}`}>
+      <Badge variant="secondary">
+        <Lock aria-hidden /> אושר ע״י צוות הרכב
+      </Badge>
+      <span
+        id={tipId}
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full start-0 z-10 mb-1 hidden whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-xs text-background shadow-sm group-hover/lock:block group-focus-visible/lock:block"
+      >
+        מולא על ידי צוות הרכב
+      </span>
+    </span>
+  );
+}
