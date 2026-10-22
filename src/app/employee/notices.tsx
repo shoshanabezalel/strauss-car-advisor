@@ -1,7 +1,7 @@
 import { CircleAlert, CircleCheck, CircleQuestionMark, Send, ShieldQuestionMark } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { Notice } from "@/lib/agent";
-import { FIELD_LABELS, REP_FIELD_DONE_LABELS } from "./labels";
+import { FIELD_LABELS } from "./labels";
 
 /** What has been settled since a notice was shown: answered questions, rep-confirmed cars. */
 export interface Resolved {
@@ -103,12 +103,7 @@ function NoticeAlert({ notice: n, carLabels, resolved }: { notice: Notice; carLa
         </Alert>
       );
     case "rep_answered":
-      return (
-        <Alert data-testid="notice-rep_answered">
-          <CircleCheck className="text-brand-green-ink" />
-          <AlertTitle>תשובה מצוות הרכב</AlertTitle>
-          <AlertDescription>{REP_FIELD_DONE_LABELS[n.field]}. החישוב נעשה מחדש לפי כללי החברה.</AlertDescription>
-        </Alert>
-      );
+      // The reply's first line already says what the car team confirmed (user, 22/10: never twice).
+      return null;
   }
 }

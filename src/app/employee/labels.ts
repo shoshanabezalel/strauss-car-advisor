@@ -42,14 +42,6 @@ export function formatDiff(n: number, direction?: "up" | "down" | "none"): strin
   return `${direction === "down" ? "ירידה" : "עלייה"} של ${unsigned.format(n)} ₪`;
 }
 
-/** What the representative settled, per question field. */
-export const REP_FIELD_DONE_LABELS: Record<RepField, string> = {
-  participation: "ההשתתפות העצמית אושרה",
-  current: "פרטי הרכב הנוכחי עודכנו",
-  group: "קבוצת הזכאות עודכנה",
-  occupation: "העיסוק עודכן",
-};
-
 /** Waiting / answered, for the representative-status strip. */
 export const REP_FIELD_ASK_LABELS: Record<RepField, string> = {
   participation: "השתתפות עצמית ב-",

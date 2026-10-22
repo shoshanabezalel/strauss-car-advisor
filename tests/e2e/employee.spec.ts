@@ -24,7 +24,7 @@ test.describe("employee screen (desktop)", () => {
     await startE001(page);
     const reply = page.getByTestId("msg-assistant");
     await expect(reply).toContainText(fmt(e1.expected.netAlt));
-    await expect(reply).toContainText("עלייה");
+    await expect(reply).toContainText("יותר מהיום");
 
     const table = page.getByTestId("comparison-table");
     await expect(table).toBeVisible();

@@ -41,7 +41,7 @@ describe("mock model: sample employees", () => {
       // the reply quotes the engine's display values
       expect(t.text).toContain(e.expected.netAlt.toLocaleString("en-US"));
       expect(t.text).toContain(Math.abs(e.expected.diff).toLocaleString("en-US"));
-      expect(t.text).toMatch(e.expected.diff >= 0 ? /עלייה/ : /ירידה/);
+      expect(t.text).toMatch(e.expected.diff >= 0 ? /יותר מהיום/ : /פחות מהיום/);
     },
   );
 

@@ -51,7 +51,7 @@ const fmt = (n: number) => n.toLocaleString("en-US");
 const FALLBACK_REPLY =
   "אני במצב הדגמה ועונה רק על השאלות המוכנות. אפשר לבחור אחת מהן מתחת לשיחה, או לשאול את צוות הרכב.";
 
-const compareFromResults = (results: ToolResults) => compareReply(results.compareOptions as Compare | undefined);
+const compareFromResults = (config: Config) => (results: ToolResults) => compareReply(results.compareOptions as Compare | undefined, config);
 
 /** The alternative without participation, so a new car takes the catalog default and is flagged for confirmation. */
 function requested(s: Situation): Situation {
@@ -61,7 +61,7 @@ function requested(s: Situation): Situation {
 type StatedProfile = Config["challenge"]["profile"];
 
 /** updateProfile with everything stated, then compareOptions for the alternative. */
-function profileScenario(prompt: DemoPrompt, p: StatedProfile, alternative: Situation): Scenario {
+function profileScenario(config: Config, prompt: DemoPrompt, p: StatedProfile, alternative: Situation): Scenario {
   const asSaid = (f: number) => +(f * 100).toFixed(4); // percent as the employee says it; the tool converts back
   // The model-facing shape: every stated field as a named property, percents as said.
   const profile = { ...p, pensionPct: asSaid(p.pensionPct), studyFundPct: asSaid(p.studyFundPct) };
@@ -71,7 +71,7 @@ function profileScenario(prompt: DemoPrompt, p: StatedProfile, alternative: Situ
       { toolName: "updateProfile", input: { source: "employee", profile } },
       { toolName: "compareOptions", input: { options: [requested(alternative)] } },
     ],
-    reply: compareFromResults,
+    reply: compareFromResults(config),
   };
 }
 
@@ -97,9 +97,9 @@ function buildScenarios(config: Config): Scenario[] {
   return [
     ...config.employees.employees.map((e) => {
       const alt = e.alternative.kind === "car" ? carName(config, e.alternative.carId) : "ויתור על הרכב";
-      return profileScenario({ id: e.id, label: `${e.name}: ${alt}`, text: openingMessage(config, e) }, e.profile, e.alternative);
+      return profileScenario(config, { id: e.id, label: `${e.name}: ${alt}`, text: openingMessage(config, e) }, e.profile, e.alternative);
     }),
-    profileScenario({ id: "a7", label: "A7: תסריט האתגר", text: challengeOpeningMessage(config) }, a7.profile, a7.alternative),
+    profileScenario(config, { id: "a7", label: "A7: תסריט האתגר", text: challengeOpeningMessage(config) }, a7.profile, a7.alternative),
     {
       id: "ask-rep",
       label: "לבקש אישור השתתפות מצוות הרכב",

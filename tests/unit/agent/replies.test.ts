@@ -39,7 +39,7 @@ describe("repAnsweredReply", () => {
 describe("compareReply (shared with the mock model)", () => {
   it("quotes display values only", async () => {
     const { compare } = await confirmedCompare();
-    const text = compareReply(compare);
-    expect(text).toContain(compare.today.display.net!.toLocaleString("en-US"));
+    const text = compareReply(compare, config);
+    expect(text).toContain(compare.options[0].display.net!.toLocaleString("en-US"));
   });
 });

@@ -9,7 +9,6 @@ import {
   challengeOpeningMessage,
   createAgentState,
   createMemoryRepQueue,
-  createToolHandlers,
   openingMessage as openingMessageOf,
   runAgentTurn,
   type AgentDeps,
@@ -105,8 +104,9 @@ describe.skipIf(!hasKey)(`agent evals (live model: ${evalModelName})`, () => {
       const line = firstLine(last.text);
       expect(mentions(line, e.expected.netAlt), `first line: ${line}`).toBe(true);
       expect(mentions(line, Math.abs(e.expected.diff)), `first line: ${line}`).toBe(true);
-      // Phrasing: עלייה / ירידה with the absolute value, never a minus sign.
-      expect(line).toContain(e.expected.diff > 0 ? "עלייה" : "ירידה");
+      // Phrasing (user, 22/10): only the result, "— Y ₪ יותר / פחות מהיום", never a minus sign; three lines at most.
+      expect(line).toMatch(e.expected.diff > 0 ? /יותר|יעלה|עלייה/ : /פחות|ירד|ירידה/);
+      expect(last.text.trim().split("\n").filter((l) => l.trim()).length, last.text).toBeLessThanOrEqual(3);
       expect(line, `first line: ${line}`).not.toMatch(/(?<![\u0590-\u05FF])[-−]\s*\d/); // "ל-5,078" is a Hebrew prefix, not a sign
 
       if (e.alternative.kind === "car") {
@@ -114,12 +114,8 @@ describe.skipIf(!hasKey)(`agent evals (live model: ${evalModelName})`, () => {
         expect(last.notices).toContainEqual({ kind: "participation_unconfirmed", carId });
         expect(last.text).toContain("השתתפות");
       } else {
-        // Giving up the car (user, 21/10): explain with the engine's net-delta lines, value-of-use is not cash.
-        const tools = createToolHandlers({ ...newDeps(), state: createAgentState(structuredClone(e.profile)) });
-        const lines = (await tools.compareOptions({ options: [e.alternative] })).options[0].display.netDelta!;
-        const vou = lines.find((l) => l.kind === "valueOfUse")!;
-        expect(last.text, last.text).toMatch(/לא כסף/);
-        expect(mentions(last.text, Math.abs(vou.amount)), last.text).toBe(true);
+        // Giving up the car (user, 22/10): one plain main reason, no value-of-use lecture.
+        expect(last.text, last.text).not.toMatch(/לא כסף/);
       }
     });
   }

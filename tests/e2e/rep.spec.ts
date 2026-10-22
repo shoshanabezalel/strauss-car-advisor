@@ -64,7 +64,9 @@ test.describe("representative loop", () => {
     // employee screen, no reload: rep reply, confirmed participation, net changed by exactly the participation change
     await expect(page.getByTestId("msg-assistant")).toHaveCount(3);
     await expect(page.getByTestId("msg-assistant").last()).toContainText(answer.value.toLocaleString("en-US"));
-    await expect(page.getByTestId("notice-rep_answered")).toBeVisible();
+    // The chat says what the car team confirmed, once: no separate notice card (user, 22/10).
+    await expect(page.getByTestId("msg-assistant").last()).toContainText("צוות הרכב");
+    await expect(page.getByTestId("notice-rep_answered")).toHaveCount(0);
     const row = page.getByTestId("row-option-0");
     await expect(row.getByTestId("participation-rep")).toBeVisible();
     await expect(row).toContainText(`${fmt(answer.value)} ₪`);
@@ -101,7 +103,9 @@ test.describe("representative loop", () => {
     await q.getByTestId("answer-submit").click();
     await expect(q).toHaveCount(0);
 
-    await expect(page.getByTestId("notice-rep_answered")).toBeVisible();
+    // The chat says what the car team confirmed, once: no separate notice card (user, 22/10).
+    await expect(page.getByTestId("msg-assistant").last()).toContainText("צוות הרכב");
+    await expect(page.getByTestId("notice-rep_answered")).toHaveCount(0);
     await expect(page.getByTestId("rep-status-item")).toHaveAttribute("data-status", "answered");
 
     // The rep's answer locks the current car in "הפרטים שלי"; the lock explains itself on hover.

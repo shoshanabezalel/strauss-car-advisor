@@ -1,7 +1,6 @@
 import type { z } from "zod";
 import type { Config } from "@/lib/config";
 import { carName } from "./demo-messages";
-import { explainOption } from "./explain";
 import type { CompareOptionsOutput, FindOptionsOutput, RepAnswer } from "./schemas";
 
 /**
@@ -13,20 +12,29 @@ type Compare = z.output<typeof CompareOptionsOutput>;
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 
-/** First line: new net and the change (עלייה / ירידה, no sign); then why (the table's explanation lines); then confirmation status. */
-export function compareReply(c: Compare | undefined): string {
+export const ASK_CONFIRM_LINE = "ההשתתפות העצמית עוד לא אושרה. לשלוח לצוות הרכב לאישור?";
+
+/** "12,126 ₪ בחודש — 4,455 ₪ יותר מהיום" from the engine's display values; never a sign. */
+function resultText(net: number, diff: number, direction: "up" | "down" | "none"): string {
+  const change = direction === "none" ? "ללא שינוי מהיום" : `${fmt(Math.abs(diff))} ₪ ${direction === "up" ? "יותר" : "פחות"} מהיום`;
+  return `${fmt(net)} ₪ בחודש — ${change}`;
+}
+
+/**
+ * Only the short result (user, 22/10): the new net and the change from today, then one question only if needed.
+ * No component lines: the breakdown lives in "איך זה מחושב?" alone.
+ */
+export function compareReply(c: Compare | undefined, config: Config): string {
   const opt = c?.options[0];
   if (!c || !opt) return "לא הצלחתי לחשב את ההשוואה. אפשר לנסות שוב?";
+  if (c.options.length > 1) return optionsReply(c, config);
   if (!opt.eligibility.eligible) return `האפשרות הזו לא זמינה עבורך: ${opt.eligibility.reason}`;
   const { net, diffVsToday, direction } = opt.display;
-  if (net === undefined || diffVsToday === undefined || c.today.display.net === undefined) {
+  if (net === undefined || diffVsToday === undefined || direction === undefined || c.today.display.net === undefined) {
     return "חסרים לי עוד פרטים כדי לחשב את הנטו. אפשר להשלים אותם?";
   }
-  const change =
-    direction === "none" ? "ללא שינוי" : `${direction === "up" ? "עלייה" : "ירידה"} של ${fmt(Math.abs(diffVsToday))} ₪`;
-  const lines = [`הנטו החדש שלך: ${fmt(net)} ₪, ${change} לעומת היום (${fmt(c.today.display.net)} ₪).`];
-  lines.push(...explainOption(c.today, opt));
-  if (opt.needsConfirmation) lines.push("ההשתתפות העצמית ברכב החדש לפי ברירת המחדל בקטלוג, וצריך לאשר אותה מול צוות הרכב.");
+  const lines = [`הנטו החדש: ${resultText(net, diffVsToday, direction)}.`];
+  if (opt.needsConfirmation) lines.push(ASK_CONFIRM_LINE);
   return lines.join("\n");
 }
 
@@ -52,19 +60,17 @@ export function findReply(f: Find | undefined): string {
 const optionLabel = (config: Config, o: Compare["options"][number]) =>
   o.situation.kind === "car" ? carName(config, o.situation.carId) : "ויתור על רכב";
 
-/** Several options: one line each (net and change, or why it's unavailable), then today's net. One option → compareReply. */
+/** Several options: one short line each, then one question only if needed. */
 export function optionsReply(c: Compare, config: Config): string {
-  if (c.options.length <= 1) return compareReply(c);
+  if (c.options.length <= 1) return compareReply(c, config);
   const lines = c.options.map((o) => {
     const name = optionLabel(config, o);
     if (!o.eligibility.eligible) return `${name}: לא זמין – ${o.eligibility.reason}`;
     const { net, diffVsToday, direction } = o.display;
-    if (net === undefined || diffVsToday === undefined) return `${name}: חסרים נתונים לחישוב`;
-    const change = direction === "none" ? "ללא שינוי" : `${direction === "up" ? "עלייה" : "ירידה"} של ${fmt(Math.abs(diffVsToday))} ₪`;
-    return `${name}: נטו ${fmt(net)} ₪, ${change}`;
+    if (net === undefined || diffVsToday === undefined || direction === undefined) return `${name}: חסרים נתונים לחישוב`;
+    return `${name}: ${resultText(net, diffVsToday, direction)}`;
   });
-  if (c.today.display.net !== undefined) lines.push(`הנטו היום: ${fmt(c.today.display.net)} ₪.`);
-  if (c.options.some((o) => o.needsConfirmation)) lines.push("ההשתתפות העצמית ברכב חדש לפי ברירת המחדל בקטלוג, וצריך לאשר אותה מול צוות הרכב.");
+  if (c.options.some((o) => o.needsConfirmation)) lines.push(ASK_CONFIRM_LINE);
   return lines.join("\n");
 }
 
@@ -103,6 +109,6 @@ function answerLine(answer: RepAnswer, config: Config): string {
 /** The employee's update after a representative answer: what was confirmed, then the recomputed comparison if any. */
 export function repAnsweredReply({ answer, compare, config }: { answer: RepAnswer; compare?: Compare; config: Config }): string {
   const lines = [answerLine(answer, config)];
-  lines.push(compare ? compareReply(compare) : "אפשר להמשיך בשיחה ולבקש השוואה.");
+  lines.push(compare ? compareReply(compare, config) : "אפשר להמשיך בשיחה ולבקש השוואה.");
   return lines.join("\n");
 }
