@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "יועץ הרכב – שטראוס",
-  description: "מה יקרה לנטו שלי אם אחליף או אוותר על רכב החברה?",
+  description: "כמה אקבל בחודש אם אחליף רכב, אעבור לחשמלי או אוותר על הרכב?",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

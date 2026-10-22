@@ -17,12 +17,12 @@ merged. The tour touches both screens.
 
 | # | Target | Selector | Bubble | If the target is missing (centered) |
 |---|---|---|---|---|
-| 1 | Header | add `data-tour="welcome"` | ברוכים הבאים ליועץ הרכב! כאן אפשר לבדוק מה יקרה לנטו אם מחליפים רכב, עוברים לחשמלי או מוותרים על הרכב. | |
+| 1 | Header | add `data-tour="welcome"` | ברוכים הבאים ליועץ הרכב! כאן אפשר לבדוק כמה כסף ייכנס לכם לחשבון כל חודש אם תחליפו רכב, תעברו לחשמלי או תוותרו על הרכב. | |
 | 2 | Chat input | add `data-tour="chat-input"` (today only `textarea[aria-label="הודעה"]`) | כתבו לי בחופשיות על השכר, ההפרשות והרכב שיש לכם היום. אם יחסר משהו, אשאל. | |
-| 3 | Paperclip (F6) | `[data-tour="payslip-chat"]` | אפשר גם להעלות תלוש שכר במקום להקליד. הפרטים יוצגו לבדיקה לפני השמירה, והקובץ עצמו לא נשמר. | |
-| 4 | "הפרטים שלי" | desktop `[data-testid="profile-panel"]`; mobile `[data-testid="profile-toggle"]` | כאן רואים ומתקנים את הפרטים. שדה עם מנעול כבר אושר על ידי צוות הרכב. | |
+| 3 | Paperclip (F6) | `[data-tour="payslip-chat"]` | אפשר גם להעלות תלוש שכר במקום להקליד. הפרטים יוצגו לבדיקה לפני השמירה, הקובץ עצמו לא נשמר. | |
+| 4 | "הפרטים שלי" | desktop `[data-testid="profile-panel"]`; mobile `[data-testid="profile-toggle"]` | כאן רואים ומתקנים את הפרטים שלכם. שדות עם מנעול מולאו על ידי צוות הרכב, ולכן אי אפשר לשנות אותם כאן. | |
 | 5 | Option picker | `[data-testid="option-picker"]` (absent on a first visit) | כאן בוחרים רכבים או ויתור על הרכב, ומשווים ביניהם. | אחרי שכל הפרטים ימולאו, יופיע מקום לבחור רכבים או ויתור ולהשוות ביניהם. |
-| 6 | Comparison | add `data-tour="comparison"` on its wrapper (absent on a first visit) | כאן מופיעה ההשוואה: הנטו בכל אפשרות וההפרש מהיום, לפי כללי החברה. | בסוף תופיע השוואה: הנטו בכל אפשרות וההפרש מהיום, לפי כללי החברה. |
+| 6 | Comparison | add `data-tour="comparison"` on its wrapper (absent on a first visit) | כאן תראו כמה תקבלו בכל אפשרות, ובכמה זה יותר או פחות מהיום. | אחרי שתבחרו רכבים, תופיע כאן השוואה: כמה תקבלו בכל אפשרות ובכמה זה יותר או פחות מהיום. |
 | 7 | "?" button | new button, `data-tour="tour-help"` | אפשר להפעיל את ההדרכה שוב מכאן. | |
 
 ## Rep screen (`/rep`)

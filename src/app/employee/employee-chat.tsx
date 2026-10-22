@@ -218,7 +218,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
           <Image src="/brand/strauss-logo.png" alt="שטראוס" width={48} height={36} priority unoptimized />
           <div>
             <h1 className="text-2xl font-semibold">יועץ הרכב</h1>
-            <p className="text-sm text-muted-foreground">מה יקרה לנטו שלי אם אחליף רכב, אעבור לחשמלי או אוותר על הרכב?</p>
+            <p className="text-sm text-muted-foreground">כמה אקבל בחודש אם אחליף רכב, אעבור לחשמלי או אוותר על הרכב?</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
