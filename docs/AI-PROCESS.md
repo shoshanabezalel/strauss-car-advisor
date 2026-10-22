@@ -487,3 +487,16 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
   is computed. No timestamps under bubbles: messages carry no time.
 - What went wrong: a bash heredoc with nested quotes failed to parse, so edits went through a script file. The rep
   gaps e2e test failed under parallel load in both full runs and passed on rerun (untouched code).
+
+### M8 final UI round: shell, dialogs, rep style, ineligible-car notice (22/10/2026)
+- Six items under a 21:50 hard stop, pushed one by one: shared sticky top bar (employee, rep, home); the employee
+  screen fits 100dvh with the sidebar and chat scrolling inside; catalog picker in a dialog from a button under the
+  input bar; payslip confirm card in a modal (Radix dialog: focus trap, Esc, aria); rep screen restyled (pill tabs,
+  rounded cards); bug fix: no "participation unconfirmed" notice or gap for a car outside the employee's group.
+- The bug fix was test-first: the notice test was red before the fix. The gap test was already green (an ineligible
+  row has no breakdown) and stays as a guard; the gap derivation got the same eligibility check anyway.
+- Items 3 and 6 were verified by one full e2e run and committed separately, to fit the time; all other items had
+  their own full run. Final: 628 unit, e2e 40/40 locally, deployed suite 6/6.
+- What went wrong: prettier reformatted a whole file to 80 columns (reverted and the edit reapplied); a second h1
+  and a second labelled logo on the home page broke the smoke test's strict locators (page title → h2, hero logo
+  decorative); flaky e2e under parallel load (rep gaps, once payslip and rep A12) passed on rerun each time.
