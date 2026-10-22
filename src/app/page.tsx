@@ -25,6 +25,14 @@ export default function Home() {
           <Link href="/rep">מסך צוות הרכב</Link>
         </Button>
       </div>
+      <nav aria-label="תצוגה" className="flex gap-4 text-sm">
+        <span aria-current="page" className="font-semibold">
+          תצוגת מחשב
+        </span>
+        <Link href="/phone" className="text-brand-blue-ink underline underline-offset-4 hover:no-underline">
+          תצוגת טלפון
+        </Link>
+      </nav>
     </main>
   );
 }
