@@ -12,9 +12,11 @@ Built for the Open Code AI 2026 hackathon. Docs: [SPEC](docs/SPEC.md) · [ARCHIT
 ### What it does
 An employee describes their salary and current car in Hebrew, or uploads a payslip. The agent asks only for what is missing, then shows the net salary for each option (another car, an electric car, or giving up the car) next to today's net, with the change explained one line per component. When something only the company knows is missing (for example the employee's participation in a new car), the question goes to the car team. The comparison updates live once they answer.
 
+**Search by conditions (F8):** instead of naming a car, the employee can state conditions, e.g. *"אני רוצה רכב חשמלי, אבל שהנטו לא ירד ביותר מ־100 ₪ בחודש"*. The agent turns them into parameters (drive type, how far the net may drop or must rise, max participation), and the engine checks every catalog car the employee is eligible for and computes its net. The cars that fit, best net first, go into the same comparison table; if none fits, the two closest are shown with the exact amount by which each misses. Every reason line is built in code from the engine's numbers.
+
 ### Try it in 3 steps
 1. **Employee:** open the live URL and click **להתחלת שיחה**. Write your situation in Hebrew, e.g. *"שכר בסיס 18,000, קבוצה ג, 2 ילדים, יש לי היום BYD ATTO 3. כמה יישאר לי בנטו אם אוותר על הרכב?"*, or attach a payslip. A short tour explains the screen on the first visit.
-2. **Ask the car team:** pick a car whose participation is not confirmed yet, then ask the agent to check it with the car team (*"אפשר לבדוק מול צוות הרכב?"*). The comparison marks that option as waiting for an answer.
+2. **Ask the car team:** pick a car whose participation is not confirmed yet, then ask the agent to check it with the car team (*"אפשר לבדוק מול צוות הרכב?"*). The comparison marks that option as waiting for an answer. Or, with the profile filled in, try a search by conditions: *"אני רוצה רכב חשמלי, אבל שהנטו לא ירד ביותר מ־100 ₪ בחודש"*.
 3. **Car team:** open **מסך צוות הרכב** in another tab and enter the access code. The code is not in this repo: it is the deploy's `REP_ACCESS_CODE` and comes with the submission form. Answer the question; the employee tab updates without a refresh. The **פערי מידע** tab shows what the catalog and rules were missing.
 
 ### Architecture in 5 lines
@@ -33,7 +35,6 @@ Whenever the system cannot answer from real data, it records the gap: a particip
 - A conversation opens only in the browser that started it (owner cookie). Another device starts a new one.
 - Payslip reading uses the LLM; the employee must confirm every value, and unclear values stay empty. The file is not stored.
 - The live agent depends on the Gemini API; rate limits apply per visitor.
-- Some filtered networks (e.g. NetFree) block `*.vercel.app`.
 - Hebrew only. Not yet tested with real employees.
 
 ## Stack
