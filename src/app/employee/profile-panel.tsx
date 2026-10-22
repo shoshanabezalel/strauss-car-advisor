@@ -211,7 +211,7 @@ export function ProfilePanel({
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          <Button type="submit" disabled={busy} data-testid="profile-save">
+          <Button type="submit" variant="brand" disabled={busy} data-testid="profile-save">
             {saving ? "שומר…" : "שמירה וחישוב מחדש"}
           </Button>
         </form>

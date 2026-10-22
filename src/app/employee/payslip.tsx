@@ -176,7 +176,7 @@ function ConfirmForm({ fields, notes, conversationId, disabled, onCancel, onSave
         </Alert>
       )}
       <div className="flex gap-2">
-        <Button type="submit" disabled={busy} data-testid="payslip-save">
+        <Button type="submit" variant="brand" disabled={busy} data-testid="payslip-save">
           {saving ? "שומר…" : "שמירה וחישוב מחדש"}
         </Button>
         <Button type="button" variant="outline" disabled={saving} onClick={onCancel}>

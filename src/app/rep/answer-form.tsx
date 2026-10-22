@@ -125,7 +125,7 @@ export function AnswerForm({ q, options, onAnswered }: { q: RepQuestionView; opt
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <Button type="submit" disabled={sending} data-testid="answer-submit">
+      <Button type="submit" variant="brand" disabled={sending} data-testid="answer-submit">
         {sending ? "שומר…" : "שליחת תשובה"}
       </Button>
     </form>
