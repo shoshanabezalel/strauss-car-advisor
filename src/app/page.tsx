@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { TopBar } from "@/components/top-bar";
 import { Button } from "@/components/ui/button";
 import { loadConfig } from "@/lib/config";
 
@@ -7,9 +8,11 @@ export default function Home() {
   const { catalog, occupations, employees } = loadConfig();
 
   return (
+    <>
+    <TopBar title="יועץ הרכב" subtitle="שטראוס" />
     <main className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-      <Image src="/brand/strauss-logo.png" alt="שטראוס" width={120} height={90} priority unoptimized />
-      <h1 className="text-3xl font-semibold">יועץ הרכב</h1>
+      <Image src="/brand/strauss-logo.png" alt="" width={120} height={90} priority unoptimized />
+      <h2 className="text-3xl font-semibold">יועץ הרכב</h2>
       <p className="text-muted-foreground">
         כמה אקבל בחודש אם אחליף רכב, אעבור לחשמלי או אוותר על הרכב?
       </p>
@@ -34,5 +37,6 @@ export default function Home() {
         </Link>
       </nav>
     </main>
+    </>
   );
 }

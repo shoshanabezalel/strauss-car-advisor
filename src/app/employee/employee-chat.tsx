@@ -1,13 +1,13 @@
 "use client";
 
 import { Check, LoaderCircle, Menu, Send, X } from "lucide-react";
-import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { TopBar } from "@/components/top-bar";
 import { TourHelpButton, useTour } from "@/components/tour/tour";
 import type { AgentEvent, ToolName } from "@/lib/agent";
 import type { DemoPrompt } from "@/lib/agent/mock-model";
@@ -222,9 +222,12 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4" data-realtime={conversationId ? realtime : undefined}>
-      <header className="flex items-center justify-between gap-2 rounded-2xl bg-card p-3 shadow-sm" data-tour="welcome">
-        <div className="flex min-w-0 items-center gap-3">
+    <>
+      <TopBar
+        title="יועץ הרכב"
+        subtitle="כמה אקבל בחודש אם אחליף רכב, אעבור לחשמלי או אוותר על הרכב?"
+        tour="welcome"
+        start={
           <Button
             type="button"
             variant="ghost"
@@ -238,22 +241,19 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
           >
             <Menu />
           </Button>
-          <AssistantAvatar size="lg" />
-          <div className="min-w-0">
-            <h1 className="text-xl font-semibold">יועץ הרכב</h1>
-            <p className="hidden text-xs text-muted-foreground sm:block">כמה אקבל בחודש אם אחליף רכב, אעבור לחשמלי או אוותר על הרכב?</p>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {mock && (
-            <Badge variant="outline" data-testid="mock-badge">
-              מצב הדגמה
-            </Badge>
-          )}
-          <TourHelpButton onClick={tour.start} />
-          <Image src="/brand/strauss-logo.png" alt="שטראוס" width={48} height={36} priority unoptimized className="hidden sm:block" />
-        </div>
-      </header>
+        }
+        end={
+          <>
+            {mock && (
+              <Badge variant="outline" data-testid="mock-badge">
+                מצב הדגמה
+              </Badge>
+            )}
+            <TourHelpButton onClick={tour.start} />
+          </>
+        }
+      />
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4" data-realtime={conversationId ? realtime : undefined}>
 
       <RepStatus questions={repQuestions} carLabels={carLabels} />
 
@@ -371,6 +371,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
       {comparison && explain && <ExplainPanel view={comparison} selected={explain} onSelect={setExplain} onClose={() => setExplain(null)} />}
       {tour.node}
     </div>
+    </>
   );
 }
 

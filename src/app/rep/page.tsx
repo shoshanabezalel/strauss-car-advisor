@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { TopBar } from "@/components/top-bar";
 import { isMockMode } from "@/lib/agent/model";
 import { loadConfig } from "@/lib/config";
 import { appSecret } from "@/lib/env";
@@ -15,6 +16,7 @@ export const metadata: Metadata = { title: "יועץ הרכב – צוות הר�
 export default function RepPage() {
   return (
     <main className="flex flex-1 flex-col">
+      <TopBar title="צוות הרכב" subtitle="שאלות של עובדים ופערי מידע" />
       {/* cookies() is request data: with Cache Components it must sit inside a Suspense boundary. */}
       <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">טוען…</p>}>
         <RepGate />
