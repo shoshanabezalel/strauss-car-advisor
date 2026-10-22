@@ -4,10 +4,47 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Strauss brand tokens (docs/DESIGN.md). Exact colors sampled from public/brand/strauss-logo.png (solid pixels,
+ * 22/10), never guessed. "-ink" = the same color darkened by a fixed factor until text reaches WCAG AA
+ * 4.5:1 on the light-gray page and on 10% tints (computed); red-ink only behind white text (4.54:1).
+ * Red: logo and primary button only.
+ */
+:root {
+  --brand-red: #ee2a24;
+  --brand-red-ink: #e42823;
+  --brand-blue: #009de1;
+  --brand-blue-ink: #0074a6;
+  --brand-cyan: #00bbe8;
+  --brand-light-blue: #95d9ee;
+  --brand-green: #79a342;
+  --brand-green-ink: #56752f;
+  --brand-lime: #cdde4a;
+  --brand-orange: #f36b22;
+  --brand-orange-ink: #b24f19;
+}
+
+@theme {
+  /* Body text at least 16px (text-sm is the app's body size); captions 14px. */
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.4;
+  --text-sm: 1rem;
+  --text-sm--line-height: 1.55;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "Segoe UI", "Arial Hebrew", Arial, system-ui, sans-serif;
+  --color-brand-red: var(--brand-red);
+  --color-brand-red-ink: var(--brand-red-ink);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-blue-ink: var(--brand-blue-ink);
+  --color-brand-cyan: var(--brand-cyan);
+  --color-brand-green: var(--brand-green);
+  --color-brand-green-ink: var(--brand-green-ink);
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-orange-ink: var(--brand-orange-ink);
+  --font-sans: "Heebo", "Segoe UI", "Arial Hebrew", Arial, system-ui, sans-serif;
   --font-mono: ui-monospace, Consolas, monospace;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -49,30 +86,31 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Neutral base: white and very light gray, near-black text. Focus = brand blue; errors = brand orange, never red. */
+  --background: oklch(0.985 0.002 247);
+  --foreground: oklch(0.2 0.01 255);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: oklch(0.96 0.004 255);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --muted: oklch(0.965 0.003 255);
+  --muted-foreground: oklch(0.47 0.01 255);
+  --accent: oklch(0.96 0.01 230);
   --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --destructive: var(--brand-orange-ink);
+  --border: oklch(0.91 0.005 255);
+  --input: oklch(0.86 0.008 255);
+  --ring: var(--brand-blue);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 0.6rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -121,10 +159,33 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Visible keyboard focus everywhere, including elements without their own ring (summary, links). */
+  :focus-visible {
+    outline: 2px solid var(--brand-blue-ink);
+    outline-offset: 2px;
+  }
+  summary {
+    min-height: 2.75rem;
+    display: flex;
+    align-items: center;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
   body {
     @apply bg-background text-foreground;
   }
   html {
     @apply font-sans;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
