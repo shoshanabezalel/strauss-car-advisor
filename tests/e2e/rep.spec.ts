@@ -30,12 +30,12 @@ test.describe("representative loop", () => {
     // The rep API needs the rep session: requests go through the context, which carries its cookie (M7).
     const request = context.request;
     const id = await a7WaitingForRep(page);
-    const netBefore = shekels(await page.getByTestId("row-option-0").getByTestId("net").innerText());
+    const netBefore = shekels(await page.getByTestId("card-option-0").getByTestId("net").innerText());
 
     // A13: a reload while waiting keeps the chat, the table and the open question
     await page.reload();
     await expect(page.getByTestId("msg-assistant")).toHaveCount(2);
-    await expect(page.getByTestId("row-option-0").getByTestId("net")).toHaveText(`${fmt(netBefore)} ₪`);
+    await expect(page.getByTestId("card-option-0").getByTestId("net")).toHaveText(`${fmt(netBefore)} ₪`);
     await expect(page.getByTestId("rep-status-item")).toHaveAttribute("data-status", "open");
     await expect(page.locator('[data-realtime="subscribed"]')).toBeVisible();
 
@@ -67,7 +67,7 @@ test.describe("representative loop", () => {
     // The chat says what the car team confirmed, once: no separate notice card (user, 22/10).
     await expect(page.getByTestId("msg-assistant").last()).toContainText("צוות הרכב");
     await expect(page.getByTestId("notice-rep_answered")).toHaveCount(0);
-    const row = page.getByTestId("row-option-0");
+    const row = page.getByTestId("card-option-0");
     await expect(row.getByTestId("participation-rep")).toBeVisible();
     await expect(row).toContainText(`${fmt(answer.value)} ₪`);
     const expectedNet = netBefore - (answer.value - car.defaultParticipation);
@@ -83,7 +83,7 @@ test.describe("representative loop", () => {
     // A13 after the answer: everything persists
     await page.reload();
     await expect(page.getByTestId("msg-assistant")).toHaveCount(3);
-    await expect(page.getByTestId("row-option-0").getByTestId("net")).toHaveText(`${fmt(expectedNet)} ₪`);
+    await expect(page.getByTestId("card-option-0").getByTestId("net")).toHaveText(`${fmt(expectedNet)} ₪`);
     await expect(page.getByTestId("rep-status-item")).toHaveAttribute("data-status", "answered");
   });
 

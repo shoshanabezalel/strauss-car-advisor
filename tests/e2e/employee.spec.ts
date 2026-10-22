@@ -20,19 +20,20 @@ async function startE001(page: Page) {
 }
 
 test.describe("employee screen (desktop)", () => {
-  test("E-001: full run shows the comparison table and the participation notice", async ({ page }) => {
+  test("E-001: full run shows the comparison cards and the participation notice", async ({ page }) => {
     await startE001(page);
     const reply = page.getByTestId("msg-assistant");
     await expect(reply).toContainText(fmt(e1.expected.netAlt));
     await expect(reply).toContainText("יותר מהיום");
 
-    const table = page.getByTestId("comparison-table");
+    const table = page.getByTestId("comparison-cards");
     await expect(table).toBeVisible();
-    await expect(table.getByTestId("row-today").getByTestId("net")).toHaveText(`${fmt(e1.expected.netToday)} ₪`);
-    await expect(table.getByTestId("row-option-0").getByTestId("net")).toHaveText(`${fmt(e1.expected.netAlt)} ₪`);
-    await expect(table.getByTestId("row-option-0").getByTestId("diff")).toHaveText(`עלייה של ${fmt(e1.expected.diff)} ₪`);
-    await expect(table.getByTestId("row-option-0")).toContainText("ATTO 3");
-    await expect(page.getByTestId("comparison-cards")).toBeHidden();
+    await expect(table.getByTestId("card-today").getByTestId("net")).toHaveText(`${fmt(e1.expected.netToday)} ₪`);
+    await expect(table.getByTestId("card-option-0").getByTestId("net")).toHaveText(`${fmt(e1.expected.netAlt)} ₪`);
+    await expect(table.getByTestId("card-option-0").getByTestId("diff")).toHaveText(`עלייה של ${fmt(e1.expected.diff)} ₪`);
+    await expect(table.getByTestId("card-option-0")).toContainText("ATTO 3");
+    await expect(table.getByTestId("card-option-0")).toHaveAttribute("data-best", "true");
+    await expect(page.getByTestId("insight")).toContainText("ATTO 3");
 
     await expect(page.getByTestId("notice-participation_unconfirmed")).toBeVisible();
     await expect(page.getByTestId("notice-participation_unconfirmed")).toContainText("ATTO 3");
@@ -43,16 +44,16 @@ test.describe("employee screen (desktop)", () => {
     await page.reload();
     await expect(page.getByTestId("msg-user")).toHaveCount(1);
     await expect(page.getByTestId("msg-assistant")).toContainText(fmt(e1.expected.netAlt));
-    await expect(page.getByTestId("row-option-0").getByTestId("net")).toHaveText(`${fmt(e1.expected.netAlt)} ₪`);
+    await expect(page.getByTestId("card-option-0").getByTestId("net")).toHaveText(`${fmt(e1.expected.netAlt)} ₪`);
     await expect(page.getByTestId("notice-participation_unconfirmed")).toBeVisible();
   });
 
-  test("missing data shows a missing-fields notice and no table", async ({ page }) => {
+  test("missing data shows a missing-fields notice and no comparison", async ({ page }) => {
     await page.goto("/employee");
     await page.getByTestId("demo-missing").click();
     await expect(page.getByTestId("notice-missing")).toBeVisible();
     await expect(page.getByTestId("notice-missing")).toContainText("שכר בסיס");
-    await expect(page.getByTestId("comparison-table")).toHaveCount(0);
+    await expect(page.getByTestId("comparison-cards")).toHaveCount(0);
   });
 
   test("unknown participation opens a representative question", async ({ page }) => {
@@ -73,9 +74,8 @@ test.describe("employee screen (desktop)", () => {
 test.describe("employee screen (mobile)", () => {
   test.use({ viewport: devices["Pixel 7"].viewport, isMobile: true, hasTouch: true });
 
-  test("E-001 on a phone: option cards instead of the table", async ({ page }) => {
+  test("E-001 on a phone: stacked option cards", async ({ page }) => {
     await startE001(page);
-    await expect(page.getByTestId("comparison-table")).toBeHidden();
     const cards = page.getByTestId("comparison-cards");
     await expect(cards).toBeVisible();
     await expect(cards.getByTestId("card-today").getByTestId("net")).toHaveText(`${fmt(e1.expected.netToday)} ₪`);

@@ -475,3 +475,15 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
 " into real newlines in replies.ts. Both caught by the test run.
 - The miss amount is the shown amount minus the limit, so it matches the table; when the unrounded miss rounds away,
   the reason says "less than a shekel" instead of "0".
+
+### M8 design pass — chat layout, in-chat comparison cards, "איך זה מחושב?" panel (22/10/2026)
+- Items 3 + 7 + 12 from the review list, design only (no engine or agent change), under a 21:15 hard stop.
+- Layout pushed alone first; cards and the panel went together as one stage because they share the same cards and
+  the same e2e tests, and two separate full e2e runs did not fit the time.
+- The comparison table is gone: cards inside the chat on every screen, so e2e selectors moved from `row-*` to
+  `card-*`; expected values were not touched. The explanation lines moved from the table and from the inline
+  `<details>` to the panel, with the card's change as the total.
+- The best option and the insight line are picked by comparing engine values and reusing an engine line; nothing new
+  is computed. No timestamps under bubbles: messages carry no time.
+- What went wrong: a bash heredoc with nested quotes failed to parse, so edits went through a script file. The rep
+  gaps e2e test failed under parallel load in both full runs and passed on rerun (untouched code).

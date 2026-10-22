@@ -19,10 +19,10 @@ test("F8: electric with a net limit → matching cars in the comparison table", 
   const reply = page.getByTestId("msg-assistant").last();
   await expect(reply).toContainText("מתאים לכל התנאים");
 
-  const table = page.getByTestId("comparison-table");
-  await expect(table.getByTestId("row-today")).toBeVisible();
-  await expect(table.getByTestId("row-option-0")).toBeVisible();
-  const options = await table.locator('[data-testid^="row-option-"]').count();
+  const table = page.getByTestId("comparison-cards");
+  await expect(table.getByTestId("card-today")).toBeVisible();
+  await expect(table.getByTestId("card-option-0")).toBeVisible();
+  const options = await table.locator('[data-testid^="card-option-"]').count();
   expect(options).toBeGreaterThan(0);
   expect(options).toBeLessThanOrEqual(rules.search.maxMatches);
   // every number in the reply is checked by the guard: the reply was not blocked

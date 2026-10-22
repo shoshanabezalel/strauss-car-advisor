@@ -3,7 +3,7 @@
 import { Check, LoaderCircle, Menu, Send, X } from "lucide-react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import { EMPLOYEE_TOUR } from "@/lib/tour/steps";
 import { createNdjsonParser } from "@/lib/chat/ndjson";
 import { usePing } from "@/lib/realtime/use-ping";
 import { AssistantAvatar, UserAvatar } from "./avatars";
-import { Comparison } from "./comparison";
+import { Comparison, ExplainPanel } from "./comparison";
 import { STATUS_LABELS, TOOL_LABELS } from "./labels";
 import { Notices, type Resolved } from "./notices";
 import { OptionPicker } from "./option-picker";
@@ -58,6 +58,8 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
   const [loading, setLoading] = useState(Boolean(params.get("c")));
   /** Phones: "הפרטים שלי" opens as a drawer from the ☰ button; from lg up it is the sidebar. */
   const [drawer, setDrawer] = useState(false);
+  /** "איך זה מחושב?" panel: the option whose lines it shows. */
+  const [explain, setExplain] = useState<string | null>(null);
   // The Realtime topic is an HMAC of the id that only the owner gets from the API (M7), so it arrives with the first load.
   const [topic, setTopic] = useState<string | undefined>();
   const endRef = useRef<HTMLDivElement>(null);
@@ -123,6 +125,12 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
     }),
     [repQuestions, comparison],
   );
+
+  // The comparison sits after the reply that carried it (the last one with a breakdown), else after the last message.
+  const anchor = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) if (messages[i].breakdown) return i;
+    return messages.length - 1;
+  }, [messages]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -233,7 +241,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
           <AssistantAvatar size="lg" />
           <div className="min-w-0">
             <h1 className="text-xl font-semibold">יועץ הרכב</h1>
-            <p className="text-xs text-muted-foreground">כמה אקבל בחודש אם אחליף רכב, אעבור לחשמלי או אוותר על הרכב?</p>
+            <p className="hidden text-xs text-muted-foreground sm:block">כמה אקבל בחודש אם אחליף רכב, אעבור לחשמלי או אוותר על הרכב?</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -263,7 +271,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
           onKeyDown={(e) => e.key === "Escape" && setDrawer(false)}
         >
           {drawer && (
-            <Button type="button" variant="ghost" size="icon" className="self-end lg:hidden" aria-label="סגירה" onClick={() => setDrawer(false)}>
+            <Button type="button" variant="ghost" size="icon" className="self-end lg:hidden" aria-label="סגירה" onClick={() => setDrawer(false)} data-testid="drawer-close">
               <X />
             </Button>
           )}
@@ -281,7 +289,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
 
         <div className="flex min-w-0 flex-col gap-4">
           <section className="flex min-w-0 flex-col gap-4 rounded-2xl border bg-card p-4 shadow-sm">
-            <div className="flex max-h-[65vh] min-h-48 flex-col gap-4 overflow-y-auto" aria-live="polite" data-testid="chat-log">
+            <div className="flex max-h-[75vh] min-h-48 flex-col gap-4 overflow-y-auto" aria-live="polite" data-testid="chat-log">
               {loading && <p className="text-sm text-muted-foreground">טוען את השיחה…</p>}
               {!loading && messages.length === 0 && (
                 <div className="flex items-start gap-2 self-end">
@@ -292,8 +300,12 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
                 </div>
               )}
               {messages.map((m, i) => (
-                <Bubble key={i} message={m} carLabels={carLabels} resolved={resolved} />
+                <Fragment key={i}>
+                  <Bubble message={m} carLabels={carLabels} resolved={resolved} />
+                  {comparison && i === anchor && <Comparison view={comparison} onExplain={setExplain} />}
+                </Fragment>
               ))}
+              {comparison && anchor === -1 && <Comparison view={comparison} onExplain={setExplain} />}
               {progress && <ProgressView progress={progress} />}
               <div ref={endRef} />
             </div>
@@ -354,9 +366,9 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
             />
           )}
 
-          <div aria-live="polite">{comparison && <Comparison view={comparison} />}</div>
         </div>
       </div>
+      {comparison && explain && <ExplainPanel view={comparison} selected={explain} onSelect={setExplain} onClose={() => setExplain(null)} />}
       {tour.node}
     </div>
   );
@@ -383,35 +395,10 @@ function Bubble({ message: m, carLabels, resolved }: { message: VisibleMessage; 
         <div className="rounded-2xl rounded-se-sm border bg-card px-3 py-2 text-sm whitespace-pre-line" data-testid="msg-assistant">
           {m.text}
         </div>
-        {m.breakdown && <Breakdown breakdown={m.breakdown} />}
         <Notices notices={m.notices ?? []} carLabels={carLabels} resolved={resolved} />
       </div>
       <AssistantAvatar />
     </div>
-  );
-}
-
-/**
- * "איך זה מחושב?" under a reply that carried a comparison: the engine's net change per component, the same lines as
- * the table (built in code, stored with this reply). Closed by default.
- */
-function Breakdown({ breakdown }: { breakdown: NonNullable<VisibleMessage["breakdown"]> }) {
-  return (
-    <details className="rounded-lg border px-3 py-2 text-xs" data-testid="breakdown">
-      <summary className="cursor-pointer text-sm font-medium">איך זה מחושב?</summary>
-      <div className="mt-2 flex flex-col gap-2">
-        {breakdown.map((b) => (
-          <div key={b.label} className="flex flex-col gap-0.5">
-            {breakdown.length > 1 && <span className="font-medium">{b.label}</span>}
-            {b.lines.map((line, i) => (
-              <p key={i} className="text-muted-foreground" data-testid="breakdown-line">
-                {line}
-              </p>
-            ))}
-          </div>
-        ))}
-      </div>
-    </details>
   );
 }
 

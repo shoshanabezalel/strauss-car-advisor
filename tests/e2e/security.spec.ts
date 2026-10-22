@@ -10,7 +10,7 @@ const fmt = (n: number) => new Intl.NumberFormat("he-IL").format(n);
 async function startE001(page: Page) {
   await page.goto("/employee");
   await page.getByTestId(`demo-${e1.id}`).click();
-  await expect(page.getByTestId("row-option-0").getByTestId("net")).toHaveText(`${fmt(e1.expected.netAlt)} ₪`);
+  await expect(page.getByTestId("card-option-0").getByTestId("net")).toHaveText(`${fmt(e1.expected.netAlt)} ₪`);
   return new URL(page.url()).searchParams.get("c")!;
 }
 
@@ -39,7 +39,7 @@ test.describe("conversation owner", () => {
     // the owner's view is intact
     expect((await page.context().request.get(`/api/conversation?c=${id}`)).status()).toBe(200);
     await page.reload();
-    await expect(page.getByTestId("row-option-0").getByTestId("net")).toHaveText(`${fmt(e1.expected.netAlt)} ₪`);
+    await expect(page.getByTestId("card-option-0").getByTestId("net")).toHaveText(`${fmt(e1.expected.netAlt)} ₪`);
   });
 
   test("the conversation response gives the owner an opaque Realtime topic, not the id", async ({ page }) => {

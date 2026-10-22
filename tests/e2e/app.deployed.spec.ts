@@ -100,7 +100,7 @@ test("E-001 through the live model reaches the sheet's net", async ({ page }) =>
   remember(page);
 
   // The model may confirm the details first (as in the evals): one follow-up.
-  const net = page.getByTestId("row-option-0").getByTestId("net");
+  const net = page.getByTestId("card-option-0").getByTestId("net");
   if (!(await net.isVisible())) {
     await input.fill(FOLLOW_UP);
     await input.press("Enter");

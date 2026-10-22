@@ -14,13 +14,14 @@ async function startE001(page: Page) {
   await page.goto("/employee");
   await page.getByTestId(`demo-${e1.id}`).click();
   await expect(page.getByTestId("msg-assistant")).toHaveCount(1);
-  await expect(page.getByTestId("row-option-0").getByTestId("net")).toHaveText(`${fmt(e1.expected.netAlt)} ₪`);
+  await expect(page.getByTestId("card-option-0").getByTestId("net")).toHaveText(`${fmt(e1.expected.netAlt)} ₪`);
 }
 
 test.describe("profile and options (desktop)", () => {
-  test("the explanation lines show under the option", async ({ page }) => {
+  test("the explanation lines show in the side panel, opened from the card", async ({ page }) => {
     await startE001(page);
-    const explanation = page.getByTestId("row-option-0").getByTestId("explanation");
+    await page.getByTestId("explain-option-0").click();
+    const explanation = page.getByTestId("explain-panel").getByTestId("explanation");
     await expect(explanation).toContainText("שווי השימוש יורד");
     await expect(explanation).toContainText("החזר חשמל");
   });
@@ -31,9 +32,12 @@ test.describe("profile and options (desktop)", () => {
     const e5 = samples.employees.find((e) => e.alternative.kind === "waiver")!;
     await page.goto("/employee");
     await page.getByTestId(`demo-${e5.id}`).click();
-    const row = page.getByTestId("row-option-0");
+    const row = page.getByTestId("card-option-0");
     await expect(row.getByTestId("diff")).toContainText(fmt(Math.abs(e5.expected.diff)));
-    const lines = row.getByTestId("explanation").locator("p");
+    await page.getByTestId("explain-open").click();
+    const panel = page.getByTestId("explain-panel");
+    await expect(panel.getByTestId("explain-total")).toHaveText(await row.getByTestId("diff").innerText());
+    const lines = panel.getByTestId("explanation").locator("p");
     await expect(lines).toHaveCount(3);
     await expect(lines.nth(0)).toContainText("השתתפות");
     await expect(lines.nth(1)).toContainText("שווי שימוש הוא לא כסף אלא סכום שמחויב במס");
@@ -46,16 +50,11 @@ test.describe("profile and options (desktop)", () => {
     );
     expect(effects.reduce((s, x) => s + x, 0)).toBe(e5.expected.diff);
 
-    // The chat: "איך זה מחושב?" under the reply, closed until opened, with the same lines as the table.
-    const breakdown = page.getByTestId("breakdown").last();
-    await expect(breakdown).toBeVisible();
-    await expect(breakdown.getByTestId("breakdown-line").first()).toBeHidden();
-    await breakdown.getByText("איך זה מחושב?").click();
-    await expect(breakdown.getByTestId("breakdown-line")).toHaveText(await lines.allTextContents());
-
-    // Stored with the reply: still there after a reload.
+    // No breakdown inline in the chat any more; after a reload the panel opens again from the restored cards.
+    await expect(page.getByTestId("breakdown")).toHaveCount(0);
     await page.reload();
-    await expect(page.getByTestId("breakdown").last().getByTestId("breakdown-line")).toHaveCount(3);
+    await page.getByTestId("explain-option-0").click();
+    await expect(page.getByTestId("explain-panel").getByTestId("explanation").locator("p")).toHaveCount(3);
   });
 
   test("editing today's participation recomputes: today's net drops by exactly the change", async ({ page }) => {
@@ -68,12 +67,12 @@ test.describe("profile and options (desktop)", () => {
 
     await expect(page.getByTestId("msg-assistant")).toHaveCount(2);
     await expect(page.getByTestId("msg-assistant").last()).toContainText("עדכנתי");
-    await expect(page.getByTestId("row-today").getByTestId("net")).toHaveText(`${fmt(e1.expected.netToday - 100)} ₪`);
+    await expect(page.getByTestId("card-today").getByTestId("net")).toHaveText(`${fmt(e1.expected.netToday - 100)} ₪`);
 
     // reload keeps it
     await page.reload();
     await expect(page.getByTestId("profile-panel").getByTestId("profile-current-participation")).toHaveValue((current.participation + 100).toLocaleString("en-US"));
-    await expect(page.getByTestId("row-today").getByTestId("net")).toHaveText(`${fmt(e1.expected.netToday - 100)} ₪`);
+    await expect(page.getByTestId("card-today").getByTestId("net")).toHaveText(`${fmt(e1.expected.netToday - 100)} ₪`);
   });
 
   test("swapping cars: EV3, then back to ATTO 3 at the sheet's net; adding waiver adds a row", async ({ page }) => {
@@ -81,24 +80,24 @@ test.describe("profile and options (desktop)", () => {
     const picker = page.getByTestId("option-picker");
     await picker.getByTestId("option-select").selectOption(ev3.id);
     await picker.getByTestId("option-replace").click();
-    await expect(page.getByTestId("row-option-0")).toContainText(ev3.model);
-    const ev3Net = shekels(await page.getByTestId("row-option-0").getByTestId("net").innerText());
+    await expect(page.getByTestId("card-option-0")).toContainText(ev3.model);
+    const ev3Net = shekels(await page.getByTestId("card-option-0").getByTestId("net").innerText());
     expect(ev3Net).toBeGreaterThan(0);
 
     await picker.getByTestId("option-select").selectOption(atto.id);
     await picker.getByTestId("option-replace").click();
-    await expect(page.getByTestId("row-option-0")).toContainText(atto.model);
-    await expect(page.getByTestId("row-option-0").getByTestId("net")).toHaveText(`${fmt(e1.expected.netAlt)} ₪`);
+    await expect(page.getByTestId("card-option-0")).toContainText(atto.model);
+    await expect(page.getByTestId("card-option-0").getByTestId("net")).toHaveText(`${fmt(e1.expected.netAlt)} ₪`);
 
     await picker.getByTestId("option-select").selectOption("waiver");
     await picker.getByTestId("option-add").click();
-    await expect(page.getByTestId("row-option-1")).toContainText("ויתור");
-    await expect(page.getByTestId("row-option-1")).toContainText("אחזקה");
+    await expect(page.getByTestId("card-option-1")).toContainText("ויתור");
+    await expect(page.getByTestId("card-option-1")).toContainText("אחזקה");
 
     await page.reload();
-    await expect(page.getByTestId("row-option-1")).toContainText("ויתור");
+    await expect(page.getByTestId("card-option-1")).toContainText("ויתור");
     await picker.getByTestId("option-remove-1").click();
-    await expect(page.getByTestId("row-option-1")).toHaveCount(0);
+    await expect(page.getByTestId("card-option-1")).toHaveCount(0);
   });
 
   test("an invalid value shows a Hebrew error and changes nothing", async ({ page }) => {
@@ -123,12 +122,15 @@ test.describe("profile and options (desktop)", () => {
 test.describe("profile and options (mobile)", () => {
   test.use({ viewport: devices["Pixel 7"].viewport, isMobile: true, hasTouch: true });
 
-  test("the panel is collapsed until opened; no horizontal scroll", async ({ page }) => {
+  test("the drawer is closed until opened; the explanation is a bottom sheet; no horizontal scroll", async ({ page }) => {
     await startE001Mobile(page);
     await expect(page.getByTestId("profile-baseSalary")).toBeHidden();
     await page.getByTestId("profile-toggle").click();
     await expect(page.getByTestId("profile-baseSalary")).toBeVisible();
-    await expect(page.getByTestId("card-option-0").getByTestId("explanation")).toContainText("שווי השימוש");
+    await page.getByTestId("drawer-close").click();
+    await expect(page.getByTestId("profile-baseSalary")).toBeHidden();
+    await page.getByTestId("explain-option-0").click();
+    await expect(page.getByTestId("explain-panel").getByTestId("explanation")).toContainText("שווי השימוש");
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
   });
