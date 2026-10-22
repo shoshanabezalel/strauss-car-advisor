@@ -19,3 +19,14 @@ export function tourSeenState(origin: string) {
     origins: [{ origin, localStorage: TOUR_SCREENS.map((s) => ({ name: seenKey(s), value: TOUR_SEEN })) }],
   };
 }
+
+/**
+ * The logo is served as the original file and decodes at full size. Production 22/10: the image optimizer
+ * garbled this palette PNG (partial palette transparency), so the logo must not go through /_next/image.
+ */
+export async function expectLogo(page: Page) {
+  const logo = page.getByRole("img", { name: "שטראוס" });
+  await expect(logo).toBeVisible();
+  await expect(logo).toHaveAttribute("src", "/brand/strauss-logo.png");
+  expect(await logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(318);
+}

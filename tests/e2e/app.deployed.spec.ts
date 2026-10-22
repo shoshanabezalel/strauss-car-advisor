@@ -3,7 +3,7 @@ import samples from "../../data/sample-employees.json" with { type: "json" };
 import { cleanConversations } from "../../scripts/clean-e2e";
 import { openingMessage } from "../../src/lib/agent/demo-messages";
 import { loadConfig } from "../../src/lib/config";
-import { loginRep } from "./helpers";
+import { expectLogo, loginRep } from "./helpers";
 
 // M7 exit criterion: Playwright green on the public URL (E2E_BASE_URL; project `deployed` in playwright.config.ts).
 // Live model, so only one LLM case (E-001); everything else needs no LLM. Conversations it creates are deleted by
@@ -28,6 +28,7 @@ test("home page renders in Hebrew RTL and loads the data config", async ({ page 
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.getByTestId("config-status")).toContainText(/\d+/);
+  await expectLogo(page);
 });
 
 test("live mode: no demo badge, and the form starts a conversation that only this browser can open", async ({ page, browser }) => {
