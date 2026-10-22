@@ -4,6 +4,7 @@ import type { GapTopic, GapType } from "./types";
 export const GAP_TYPE_LABELS: Record<GapType, string> = {
   no_data: "אין מידע",
   referred_to_rep: "הופנה לצוות הרכב",
+  pending_confirmation: "ממתין לאישור צוות הרכב",
   unknown_vehicle: "רכב שאינו בקטלוג",
 };
 

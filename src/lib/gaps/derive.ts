@@ -26,7 +26,8 @@ const tidy = (s: string) => s.trim().replace(/\s+/g, " ").slice(0, MAX_VEHICLE);
 
 /**
  * Gaps derived in code from one turn (TECH-DESIGN §7f). Only company data:
- * - a computed car option left on the catalog-default participation (needsConfirmation) → referred_to_rep;
+ * - a computed car option left on the catalog-default participation (needsConfirmation) → pending_confirmation
+ *   (no question was sent; it waits for the car team);
  * - an askRepresentative call that went through → referred_to_rep, by its field (and car);
  * - a value-of-use search or lookup (the prompt uses them only for cars not in the catalog) → unknown_vehicle.
  * Missing employee data (salary, pension, children, credit points) is never a gap. Descriptions are fixed
@@ -47,7 +48,7 @@ export function deriveGaps(turn: TurnRecord, config: Config): GapInput[] {
       // is still waiting for the employee's own data relies on nothing yet.
       if (row.needsConfirmation && row.situation.kind === "car" && row.missing.length === 0 && row.breakdown) {
         const carId = row.situation.carId;
-        gaps.push({ type: "referred_to_rep", topic: `participation/${carId}`, description: DEFAULT_PARTICIPATION, vehicle: carName(carId) });
+        gaps.push({ type: "pending_confirmation", topic: `participation/${carId}`, description: DEFAULT_PARTICIPATION, vehicle: carName(carId) });
       }
     }
   }

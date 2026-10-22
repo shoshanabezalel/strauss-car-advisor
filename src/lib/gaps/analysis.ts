@@ -32,7 +32,7 @@ export type GapAnalysis =
 // No digits in the instructions, like the agent's prompt: every number in the answer must come from the summary.
 const SYSTEM = [
   "You analyse an information-gaps summary for a company car advisor used by Strauss employees.",
-  "Gap types: no_data (the assistant had no information), referred_to_rep (a company value had to go to the car representative), unknown_vehicle (a car that is not in the catalog).",
+  "Gap types: no_data (the assistant had no information), referred_to_rep (a question was sent to the car team), pending_confirmation (a participation is still the catalog default, waiting for the car team), unknown_vehicle (a car that is not in the catalog).",
   "Write between three and five short insights in Hebrew. Each has: insight (what the data shows), action (one concrete step for the company, e.g. add a car to the catalog, confirm a participation, add a rule), basedOnCount (the exact count from the summary the insight rests on).",
   "Use only numbers that appear in the summary, exactly as written. Never compute, add, subtract, compare as a percentage or estimate a number. If a comparison needs a number that is not given, describe it in words.",
   "windowDays is the length of each week compared (thisWeek vs lastWeek). Each top topic has a Hebrew label naming what is missing; refer to cars by the make and model in the label.",

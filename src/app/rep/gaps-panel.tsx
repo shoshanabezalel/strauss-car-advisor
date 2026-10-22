@@ -180,7 +180,7 @@ export function GapsPanel() {
 function SummaryCards({ summary }: { summary: GapSummary }) {
   return (
     <div className="flex flex-col gap-3" data-testid="gaps-summary">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         {GAP_TYPES.map((t) => (
           <Card key={t} className="min-w-0" size="sm">
             <CardContent className="flex flex-col gap-1">
@@ -193,9 +193,15 @@ function SummaryCards({ summary }: { summary: GapSummary }) {
         ))}
         <Card className="min-w-0" size="sm">
           <CardContent className="flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground">{summary.windowDays} הימים האחרונים / הקודמים</span>
-            <span className="text-2xl font-semibold tabular-nums" data-testid="gaps-trend">
-              {summary.thisWeek} / {summary.lastWeek}
+            {/* Two labelled numbers: "a / b" read in the wrong order in RTL (user, 22/10). */}
+            <span className="text-xs text-muted-foreground">פניות לפי שבוע</span>
+            <span className="flex flex-col text-sm" data-testid="gaps-trend">
+              <span>
+                השבוע: <span className="text-2xl font-semibold tabular-nums" data-testid="gaps-this-week">{summary.thisWeek}</span>
+              </span>
+              <span className="text-muted-foreground">
+                שבוע קודם: <span className="font-semibold tabular-nums" data-testid="gaps-last-week">{summary.lastWeek}</span>
+              </span>
             </span>
           </CardContent>
         </Card>

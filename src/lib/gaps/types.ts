@@ -5,7 +5,7 @@ import { z } from "zod";
  * see what is missing from the catalog and the rules. Company data only: what only the employee can tell (salary,
  * pension, children, credit points) is normal chat, never a gap. No personal data is stored.
  */
-export const GAP_TYPES = ["no_data", "referred_to_rep", "unknown_vehicle"] as const;
+export const GAP_TYPES = ["no_data", "referred_to_rep", "pending_confirmation", "unknown_vehicle"] as const;
 export type GapType = (typeof GAP_TYPES)[number];
 
 /** Topics the agent may give a no_data gap (an enum, so free text never becomes a grouping key). */

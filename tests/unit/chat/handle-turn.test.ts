@@ -159,11 +159,11 @@ describe("handleChatTurn: busy and fallback", () => {
 
 // G: information gaps are recorded from the turn's tool outputs, in code.
 describe("handleChatTurn: information gaps", () => {
-  it("E-001 (catalog-default participation for the new car) records a referred_to_rep gap for this conversation", async () => {
+  it("E-001 (catalog-default participation for the new car) records a pending_confirmation gap for this conversation", async () => {
     const { result } = await send(openingMessage(config, e1));
     const groups = await store.listGapGroups("app");
     const carId = (e1.alternative as { carId: string }).carId;
-    expect(groups).toEqual([expect.objectContaining({ type: "referred_to_rep", topic: `participation/${carId}`, count: 1 })]);
+    expect(groups).toEqual([expect.objectContaining({ type: "pending_confirmation", topic: `participation/${carId}`, count: 1 })]);
     expect(result!.blocked).toBe(false);
   });
 

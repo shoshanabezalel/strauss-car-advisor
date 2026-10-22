@@ -8,7 +8,7 @@ import { analysisInput, type GapSummary } from "@/lib/gaps/summary";
 const summary: GapSummary = {
   windowDays: 7,
   total: 12,
-  byType: { no_data: 3, referred_to_rep: 7, unknown_vehicle: 2 },
+  byType: { no_data: 3, referred_to_rep: 7, pending_confirmation: 0, unknown_vehicle: 2 },
   topTopics: [
     { type: "referred_to_rep", topic: "participation/CAR-10", label: "השתתפות עצמית: BYD ATTO 3", count: 6 },
     { type: "no_data", topic: "rules", label: "כללי החברה", count: 3 },

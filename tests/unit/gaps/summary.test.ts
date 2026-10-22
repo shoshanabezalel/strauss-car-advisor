@@ -37,7 +37,7 @@ describe("summarizeGaps", () => {
   it("carries the window, the total and per-type totals", () => {
     expect(s.windowDays).toBe(7);
     expect(s.total).toBe(11);
-    expect(s.byType).toEqual({ no_data: 4, referred_to_rep: 4, unknown_vehicle: 3 });
+    expect(s.byType).toEqual({ no_data: 4, referred_to_rep: 4, pending_confirmation: 0, unknown_vehicle: 3 });
   });
 
   it("top 5 topics by count; ties broken by the most recent occurrence", () => {
@@ -66,7 +66,7 @@ describe("summarizeGaps", () => {
   });
 
   it("no rows → zeros, no topics", () => {
-    expect(summarizeGaps([], NOW)).toEqual({ windowDays: 7, total: 0, byType: { no_data: 0, referred_to_rep: 0, unknown_vehicle: 0 }, topTopics: [], thisWeek: 0, lastWeek: 0 });
+    expect(summarizeGaps([], NOW)).toEqual({ windowDays: 7, total: 0, byType: { no_data: 0, referred_to_rep: 0, pending_confirmation: 0, unknown_vehicle: 0 }, topTopics: [], thisWeek: 0, lastWeek: 0 });
   });
 
   it("holds no conversation ids or descriptions", () => {

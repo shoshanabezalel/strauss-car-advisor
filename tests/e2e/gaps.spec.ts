@@ -22,8 +22,10 @@ test.describe("information gaps", () => {
     const rep = await context.newPage();
     await loginRep(rep);
     await rep.getByTestId("rep-tab-gaps").click();
-    const group = rep.locator(`[data-testid="gap-group"][data-type="referred_to_rep"][data-topic="participation/${atto.id}"]`);
+    // No question was sent: the catalog default waits for the car team (user, 22/10), not "הופנה לצוות הרכב".
+    const group = rep.locator(`[data-testid="gap-group"][data-type="pending_confirmation"][data-topic="participation/${atto.id}"]`);
     await expect(group).toBeVisible();
+    await expect(group).toContainText("ממתין לאישור צוות הרכב");
     await expect(group).toContainText(atto.model);
     expect(Number(await group.getByTestId("gap-count").innerText())).toBeGreaterThanOrEqual(1);
   });
@@ -69,6 +71,9 @@ test.describe("information gaps", () => {
     await rep.getByTestId("rep-tab-gaps").click();
     await expect(rep.getByTestId("gaps-summary")).toBeVisible();
     expect(Number(await rep.getByTestId("gaps-total-no_data").innerText())).toBeGreaterThanOrEqual(1);
+    // Two labelled numbers, not "a / b" (reads reversed in RTL).
+    await expect(rep.getByTestId("gaps-trend")).toContainText("השבוע:");
+    await expect(rep.getByTestId("gaps-trend")).toContainText("שבוע קודם:");
 
     const csv = await context.request.get("/api/rep/gaps/csv");
     expect(csv.status()).toBe(200);

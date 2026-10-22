@@ -25,12 +25,12 @@ function turn(...entries: { toolName: string; input: unknown; output?: unknown }
 }
 
 describe("deriveGaps", () => {
-  it("a new car on the catalog-default participation → referred_to_rep for that car", async () => {
+  it("a new car on the catalog-default participation → pending_confirmation for that car (no question was sent)", async () => {
     const input = { options: [{ kind: "car" as const, carId: atto.id }] };
     const output = await handlers().compareOptions(input);
     const gaps = deriveGaps(turn({ toolName: "compareOptions", input, output }), config);
     expect(gaps).toEqual([
-      { type: "referred_to_rep", topic: `participation/${atto.id}`, description: expect.stringMatching(/[א-ת]/), vehicle: `${atto.make} ${atto.model}` },
+      { type: "pending_confirmation", topic: `participation/${atto.id}`, description: expect.stringMatching(/[א-ת]/), vehicle: `${atto.make} ${atto.model}` },
     ]);
   });
 
