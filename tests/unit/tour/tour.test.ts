@@ -150,6 +150,18 @@ describe("placeBubble", () => {
     expect(left + 343).toBeLessThanOrEqual(phone.width - GUTTER);
   });
 
+  it("goes beside a target too tall for above or below, never covering it (the profile panel)", () => {
+    const panel = { top: 80, left: 40, width: 360, height: 700 };
+    const pos = placeBubble(panel, desktop, bubble);
+    expect(pos.arrow).toBe("left");
+    expect(pos.left).toBe(400 + BUBBLE_GAP);
+    expect(pos.top).toBe(80);
+    const onRight = { top: 80, left: 880, width: 360, height: 700 };
+    const other = placeBubble(onRight, desktop, bubble);
+    expect(other.arrow).toBe("right");
+    expect(other.left + bubble.width).toBe(880 - BUBBLE_GAP);
+  });
+
   it("keeps a tall target's bubble on screen", () => {
     const tall = { top: -200, left: 100, width: 600, height: 2000 };
     const { top } = placeBubble(tall, desktop, bubble);

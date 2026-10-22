@@ -69,6 +69,13 @@ interface Layout {
   viewport: { width: number; height: number };
 }
 
+const ARROW_CLASS = {
+  up: "-top-1.5 border-r-0 border-b-0",
+  down: "-bottom-1.5 border-l-0 border-t-0",
+  left: "-left-1.5 border-t-0 border-r-0",
+  right: "-right-1.5 border-b-0 border-l-0",
+} as const;
+
 function TourBubble({ steps, index, onIndex, onClose }: { steps: TourStep[]; index: number; onIndex: (i: number) => void; onClose: () => void }) {
   const step = steps[index];
   const last = index === steps.length - 1;
@@ -131,6 +138,7 @@ function TourBubble({ steps, index, onIndex, onClose }: { steps: TourStep[]; ind
   const { text, centered } = stepContent(step, target !== null);
   const pos = target && layout ? placeBubble(target, layout.viewport, layout.bubble) : null;
   const arrowX = pos && target ? Math.min(Math.max(target.left + target.width / 2 - pos.left, 20), layout!.bubble.width - 20) : 0;
+  const side = pos?.arrow === "left" || pos?.arrow === "right";
 
   return createPortal(
     <div className="fixed inset-0 z-50" data-testid="tour-overlay">
@@ -166,8 +174,8 @@ function TourBubble({ steps, index, onIndex, onClose }: { steps: TourStep[]; ind
         {pos && (
           <span
             aria-hidden
-            className={`absolute size-3 rotate-45 border bg-popover ${pos.arrow === "up" ? "-top-1.5 border-r-0 border-b-0" : "-bottom-1.5 border-l-0 border-t-0"}`}
-            style={{ left: arrowX - 6 }}
+            className={`absolute size-3 rotate-45 border bg-popover ${ARROW_CLASS[pos.arrow]}`}
+            style={side ? { top: 24 } : { left: arrowX - 6 }}
           />
         )}
         <p id={counterId} className="text-xs text-muted-foreground">

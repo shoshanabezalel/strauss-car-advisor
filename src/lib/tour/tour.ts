@@ -56,17 +56,25 @@ export interface Rect {
 
 /**
  * Bubble position in viewport coordinates: below the target if it fits, else above; right edges aligned (RTL);
- * clamped inside the gutter. The arrow points from the bubble to the target.
+ * clamped inside the gutter. A target too tall for either (the profile panel) gets the bubble beside it, on the
+ * side with room, so it never covers the target. The arrow points from the bubble to the target.
  */
 export function placeBubble(
   target: Rect,
   viewport: { width: number; height: number },
   bubble: { width: number; height: number },
-): { top: number; left: number; arrow: "up" | "down" } {
+): { top: number; left: number; arrow: "up" | "down" | "left" | "right" } {
   const below = target.top + target.height + BUBBLE_GAP;
   const fitsBelow = below + bubble.height <= viewport.height - GUTTER;
   const above = target.top - BUBBLE_GAP - bubble.height;
   const fitsAbove = above >= GUTTER;
+  if (!fitsBelow && !fitsAbove) {
+    const top = clamp(target.top, GUTTER, viewport.height - GUTTER - bubble.height);
+    const right = target.left + target.width + BUBBLE_GAP;
+    if (right + bubble.width <= viewport.width - GUTTER) return { top, left: right, arrow: "left" };
+    const left = target.left - BUBBLE_GAP - bubble.width;
+    if (left >= GUTTER) return { top, left, arrow: "right" };
+  }
   const arrow = fitsBelow || !fitsAbove ? "up" : "down";
   const top = clamp(fitsBelow ? below : fitsAbove ? above : below, GUTTER, viewport.height - GUTTER - bubble.height);
   const left = clamp(target.left + target.width - bubble.width, GUTTER, viewport.width - GUTTER - bubble.width);
