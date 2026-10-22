@@ -6,6 +6,7 @@ import { createMockModel } from "@/lib/agent/mock-model";
 import { handleChatTurn, type ChatEvent } from "@/lib/chat/handle-turn";
 import { toModelHistory } from "@/lib/chat/history";
 import { createMemoryStore } from "@/lib/chat/memory-store";
+import { updateProfileDirect } from "@/lib/chat/direct-actions";
 import { answerRepQuestion } from "@/lib/chat/rep-answer";
 import type { ConversationStore } from "@/lib/chat/store";
 import { loadConfig } from "@/lib/config";
@@ -102,5 +103,54 @@ describe("model history after a rep answer (A7)", () => {
     const sent = JSON.stringify(contents);
     expect(sent).toContain("functionCall");
     expect(sent).toContain('"participationSource":"rep"');
+  });
+});
+
+// Production 22/10: a payslip save (or any form save) can start the conversation, so the stored history opens with
+// [assistant tool-call, tool result, assistant reply] and no user turn. Gemini rejects a function-call turn that
+// doesn't follow a user turn or a function response (400), and the next chat turn failed.
+describe("model history of a conversation started by a form save", () => {
+  async function savedFirst() {
+    const res = await updateProfileDirect({
+      store,
+      config,
+      vouSource,
+      notifier: noopNotifier,
+      source: "app",
+      ownerHash: "a".repeat(64),
+      updates: [{ field: "baseSalary", value: 18000 }],
+    });
+    if (!res.ok) throw new Error(res.message);
+    return res.conversationId;
+  }
+
+  it("the stored history starts with the tool round-trip, and stays unchanged", async () => {
+    const id = await savedFirst();
+    const stored = (await store.load(id))!.messages.map((m) => m.message);
+    expect(roles(stored)).toEqual(["assistant", "tool", "assistant"]);
+    const before = structuredClone(stored);
+    toModelHistory((await store.load(id))!.messages);
+    expect((await store.load(id))!.messages.map((m) => m.message)).toEqual(before);
+  });
+
+  it("toModelHistory starts with a user turn, so the tool call follows one", async () => {
+    const id = await savedFirst();
+    const merged = toModelHistory((await store.load(id))!.messages);
+    expect(roles(merged)).toEqual(["user", "assistant", "tool", "assistant"]);
+  });
+
+  it("the employee's next turn reaches Gemini with every function call after a user turn or a function response", async () => {
+    const id = await savedFirst();
+    const { model, bodies } = capturingGemini();
+    const res = await send("מה הנטו שלי?", id, model);
+    expect(res.blocked).toBe(false);
+
+    const contents = bodies[0].contents;
+    expect(contents[0].role).toBe("user");
+    // Gemini sends user text and function responses both as role "user".
+    contents.forEach((c, i) => {
+      if (c.parts.some((p) => "functionCall" in p)) expect(contents[i - 1]?.role).toBe("user");
+    });
+    expect(hasRepeats(contents.map((c) => c.role), "model")).toBe(false);
   });
 });

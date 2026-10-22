@@ -37,13 +37,19 @@ const assistantParts = (m: Extract<ModelMessage, { role: "assistant" }>): Assist
   typeof m.content === "string" ? [{ type: "text", text: m.content }] : m.content;
 
 /**
+ * Model-only opening turn for a conversation that a form save started (direct-actions.ts): its history begins with
+ * a tool round-trip, and Gemini rejects a function call that doesn't follow a user turn (400). Never shown or stored.
+ */
+const FORM_OPENING: ModelMessage = { role: "user", content: "(The employee filled in details in the form on the screen.)" };
+
+/**
  * The history sent to the model: consecutive assistant messages, and consecutive tool messages, merged into one.
  * A representative's answer stores a tool round-trip right after the agent's reply (rep-answer.ts), and
  * @ai-sdk/google sends each assistant message as its own `model` turn. Merging keeps every part in order;
- * the stored history is not changed.
+ * the stored history is not changed. A history that doesn't start with the employee gets FORM_OPENING first.
  */
 export function toModelHistory(messages: readonly StoredMessage[]): ModelMessage[] {
-  const out: ModelMessage[] = [];
+  const out: ModelMessage[] = messages.length && messages[0].message.role !== "user" ? [FORM_OPENING] : [];
   for (const { message } of messages) {
     const last = out.at(-1);
     if (message.role === "assistant" && last?.role === "assistant") {
