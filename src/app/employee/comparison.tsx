@@ -10,7 +10,7 @@ import { formatDiff, formatShekel, TRACK_LABELS } from "./labels";
  */
 export function Comparison({ view }: { view: ComparisonView }) {
   return (
-    <section aria-label="השוואת אפשרויות" className="flex flex-col gap-3" data-tour="comparison">
+    <section aria-label="השוואת אפשרויות" className="flex flex-col gap-3 tabular-nums" data-tour="comparison">
       <h2 className="text-lg font-semibold">השוואה</h2>
       <ComparisonTable rows={view.rows} />
       <ComparisonCards rows={view.rows} />
@@ -29,7 +29,7 @@ function Net({ row }: { row: ComparisonRow }) {
 function Diff({ row }: { row: ComparisonRow }) {
   if (row.isToday) return <span className="text-muted-foreground">—</span>;
   if (row.amounts.diffVsToday === undefined) return <span className="text-muted-foreground">—</span>;
-  const tone = row.direction === "up" ? "text-emerald-700" : row.direction === "down" ? "text-red-700" : "";
+  const tone = row.direction === "up" ? "text-brand-green-ink" : "";
   return <span className={`font-semibold ${tone}`}>{formatDiff(row.amounts.diffVsToday, row.direction)}</span>;
 }
 
@@ -37,7 +37,7 @@ function Eligibility({ row }: { row: ComparisonRow }) {
   if (row.isToday) return <Badge variant="secondary">המצב היום</Badge>;
   return (
     <div className="flex flex-col gap-1">
-      <Badge variant={row.eligible ? "default" : "destructive"}>{row.eligible ? "זכאי/ת" : "לא זכאי/ת"}</Badge>
+      <Badge variant={row.eligible ? "default" : "destructive"}>{row.eligible ? "בזכאות" : "לא בזכאות"}</Badge>
       <span className="text-xs text-muted-foreground">{row.reason}</span>
     </div>
   );
@@ -51,7 +51,7 @@ function Participation({ row }: { row: ComparisonRow }) {
       {row.needsConfirmation && <Badge variant="outline">טרם אושרה</Badge>}
       {row.participationSource === "rep" && (
         <Badge variant="secondary" data-testid="participation-rep">
-          אושרה ע״י נציג/ת
+          אושרה ע״י צוות הרכב
         </Badge>
       )}
     </span>

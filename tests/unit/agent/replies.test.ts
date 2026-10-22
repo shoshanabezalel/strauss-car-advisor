@@ -18,7 +18,7 @@ describe("repAnsweredReply", () => {
   it("states the confirmed value and the new net, all numbers traceable", async () => {
     const { state, compare } = await confirmedCompare();
     const text = repAnsweredReply({ answer: a7.repAnswer, compare, config });
-    expect(text).toMatch(/נציג\/ת הרכב/);
+    expect(text).toMatch(/צוות הרכב/);
     expect(text).toContain(a7.repAnswer.value.toLocaleString("en-US"));
     expect(text).toContain(compare.options[0].display.net!.toLocaleString("en-US"));
     expect(text).not.toContain("צריך לאשר"); // no longer unconfirmed

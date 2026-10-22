@@ -49,8 +49,8 @@ export function RepQueue({ mock, options }: { mock: boolean; options: RepOptions
     <div className="flex w-full flex-col gap-6 pb-6" data-realtime={realtime} data-testid="rep-queue">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold">שאלות לנציג/ת הרכב</h1>
-          <p className="text-sm text-muted-foreground">תשובה כאן מעדכנת את ההשוואה של העובד/ת מיד, לפי כללי החברה.</p>
+          <h1 className="text-2xl font-semibold">שאלות לצוות הרכב</h1>
+          <p className="text-sm text-muted-foreground">תשובה כאן מעדכנת מיד את ההשוואה בצד העובדים, לפי כללי החברה.</p>
         </div>
         <div className="flex items-center gap-2">
           {questions && <Badge variant="secondary" data-testid="open-count">{questions.length} פתוחות</Badge>}
@@ -105,7 +105,7 @@ function QuestionCard({ q, options, onAnswered }: { q: RepQuestionView; options:
         </p>
 
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm" data-testid="rep-context">
-          <dt className="text-muted-foreground">מי שואל/ת</dt>
+          <dt className="text-muted-foreground">פרטי הפנייה</dt>
           <dd>
             {[q.asker.occupation, q.asker.group && `קבוצת זכאות ${q.asker.group}`].filter(Boolean).join(" · ") || "עדיין לא ידוע"}
           </dd>

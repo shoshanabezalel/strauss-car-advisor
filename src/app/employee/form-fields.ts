@@ -2,7 +2,7 @@ import type { ProfileField } from "@/lib/agent/schemas";
 
 /** Shared by "הפרטים שלי" and the payslip confirm card. */
 export const INPUT =
-  "w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-amber-500 md:text-sm dark:bg-input/30";
+  "w-full min-w-0 min-h-11 rounded-lg border border-input bg-card px-3 py-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-brand-orange md:text-sm dark:bg-input/30";
 
 export const NUMBER_FIELDS = [
   { field: "baseSalary", label: "שכר בסיס (₪)", step: 1 },

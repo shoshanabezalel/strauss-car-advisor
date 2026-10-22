@@ -26,7 +26,7 @@ export function compareReply(c: Compare | undefined): string {
     direction === "none" ? "ללא שינוי" : `${direction === "up" ? "עלייה" : "ירידה"} של ${fmt(Math.abs(diffVsToday))} ₪`;
   const lines = [`הנטו החדש שלך: ${fmt(net)} ₪, ${change} לעומת היום (${fmt(c.today.display.net)} ₪).`];
   lines.push(...explainOption(c.today, opt));
-  if (opt.needsConfirmation) lines.push("ההשתתפות העצמית ברכב החדש לפי ברירת המחדל בקטלוג, וצריך לאשר אותה מול נציג/ת הרכב.");
+  if (opt.needsConfirmation) lines.push("ההשתתפות העצמית ברכב החדש לפי ברירת המחדל בקטלוג, וצריך לאשר אותה מול צוות הרכב.");
   return lines.join("\n");
 }
 
@@ -45,7 +45,7 @@ export function optionsReply(c: Compare, config: Config): string {
     return `${name}: נטו ${fmt(net)} ₪, ${change}`;
   });
   if (c.today.display.net !== undefined) lines.push(`הנטו היום: ${fmt(c.today.display.net)} ₪.`);
-  if (c.options.some((o) => o.needsConfirmation)) lines.push("ההשתתפות העצמית ברכב חדש לפי ברירת המחדל בקטלוג, וצריך לאשר אותה מול נציג/ת הרכב.");
+  if (c.options.some((o) => o.needsConfirmation)) lines.push("ההשתתפות העצמית ברכב חדש לפי ברירת המחדל בקטלוג, וצריך לאשר אותה מול צוות הרכב.");
   return lines.join("\n");
 }
 
@@ -62,22 +62,22 @@ export function profileUpdatedReply({ fields, compare, missing, config }: { fiel
 export const DIRECT_FALLBACK = "עדכנתי, וההשוואה חושבה מחדש. אפשר לראות את הסכומים בטבלה.";
 
 /** Used when a built reply fails the number-guard (should not happen). No digits. */
-export const REP_ANSWERED_FALLBACK = "נציג/ת הרכב ענה/תה על השאלה, וההשוואה עודכנה. אפשר לראות את הסכומים בטבלה.";
+export const REP_ANSWERED_FALLBACK = "צוות הרכב ענה על השאלה, וההשוואה עודכנה. אפשר לראות את הסכומים בטבלה.";
 
 function answerLine(answer: RepAnswer, config: Config): string {
   switch (answer.field) {
     case "participation":
-      return `נציג/ת הרכב אישר/ה את ההשתתפות העצמית ב-${carName(config, answer.carId)}: ${fmt(answer.value)} ₪.`;
+      return `צוות הרכב אישר את ההשתתפות העצמית ב-${carName(config, answer.carId)}: ${fmt(answer.value)} ₪.`;
     case "current": {
       const s = answer.situation;
-      if (s.kind === "waiver") return "נציג/ת הרכב עדכן/ה שהיום יש לך ויתור על רכב ואחזקת רכב.";
+      if (s.kind === "waiver") return "צוות הרכב עדכן שהיום יש לך ויתור על רכב ואחזקת רכב.";
       const p = s.participation === undefined ? "" : `, השתתפות עצמית ${fmt(s.participation)} ₪`;
-      return `נציג/ת הרכב עדכן/ה את הרכב שלך היום: ${carName(config, s.carId)}${p}.`;
+      return `צוות הרכב עדכן את הרכב שלך היום: ${carName(config, s.carId)}${p}.`;
     }
     case "group":
-      return `נציג/ת הרכב עדכן/ה את קבוצת הזכאות שלך: ${answer.value}.`;
+      return `צוות הרכב עדכן את קבוצת הזכאות שלך: ${answer.value}.`;
     case "occupation":
-      return `נציג/ת הרכב עדכן/ה את העיסוק שלך: ${answer.value}.`;
+      return `צוות הרכב עדכן את העיסוק שלך: ${answer.value}.`;
   }
 }
 

@@ -7,7 +7,7 @@ import { toProfileView } from "@/lib/chat/profile-view";
 import { loadConfig } from "@/lib/config";
 import { EmployeeChat } from "./employee-chat";
 
-export const metadata: Metadata = { title: "יועץ הרכב – עובד/ת" };
+export const metadata: Metadata = { title: "יועץ הרכב – עובדים" };
 
 export default function EmployeePage() {
   const config = loadConfig();

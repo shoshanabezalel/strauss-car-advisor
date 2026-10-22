@@ -33,7 +33,7 @@ export function RepScreen({ mock, options }: { mock: boolean; options: RepOption
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 pt-4">
-      <nav className="flex items-center justify-between gap-2 border-b" aria-label="מסכי הנציג/ה" data-tour="rep-welcome">
+      <nav className="flex items-center justify-between gap-2 border-b" aria-label="מסכי צוות הרכב" data-tour="rep-welcome">
         <div className="flex gap-1" role="tablist">
           {TABS.map((t) => (
             <button

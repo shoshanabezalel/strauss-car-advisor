@@ -22,7 +22,7 @@ describe("gapsToCsv", () => {
 
   it("Hebrew header row, CRLF line ends, one line per group", () => {
     expect(lines[0]).toBe("סוג,נושא,רכב,תיאור,פניות,נראה לאחרונה,טופל");
-    expect(lines[1]).toBe("הופנה לנציג/ת,השתתפות עצמית: BYD ATTO 3,BYD ATTO 3,השתתפות עצמית לא אושרה,6,2026-10-21 09:30,לא");
+    expect(lines[1]).toBe("הופנה לצוות הרכב,השתתפות עצמית: BYD ATTO 3,BYD ATTO 3,השתתפות עצמית לא אושרה,6,2026-10-21 09:30,לא");
     expect(csv.endsWith("\r\n")).toBe(true);
   });
 

@@ -159,7 +159,7 @@ function ConfirmForm({ fields, notes, conversationId, disabled, onCancel, onSave
                 aria-invalid={unread && values[f] === ""}
                 data-testid={`payslip-${f}`}
               />
-              {unread && <span className="text-xs text-amber-700" data-testid={`payslip-unread-${f}`}>{NOT_READ}</span>}
+              {unread && <span className="text-xs text-brand-orange-ink" data-testid={`payslip-unread-${f}`}>{NOT_READ}</span>}
               {notes[f] && (
                 <span className="text-xs text-muted-foreground" data-testid={`payslip-note-${f}`}>
                   {NOTE_TEXT[notes[f]]}

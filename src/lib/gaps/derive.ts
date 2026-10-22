@@ -13,7 +13,7 @@ type Compare = z.output<typeof CompareOptionsOutput>;
 
 const REP_FIELD_TEXT: Record<RepField, string> = {
   participation: "השתתפות עצמית ברכב",
-  current: "הרכב הנוכחי של העובד/ת",
+  current: "הרכב הנוכחי בפנייה",
   group: "קבוצת הזכאות",
   occupation: "העיסוק",
 };
@@ -62,7 +62,7 @@ export function deriveGaps(turn: TurnRecord, config: Config): GapInput[] {
         gaps.push({
           type: "referred_to_rep",
           topic: field === "participation" && carId ? `participation/${carId}` : field,
-          description: `הועברה שאלה לנציג/ת: ${REP_FIELD_TEXT[field]}`,
+          description: `הועברה שאלה לצוות הרכב: ${REP_FIELD_TEXT[field]}`,
           ...(carId && carName(carId) ? { vehicle: carName(carId) } : {}),
         });
         break;

@@ -64,7 +64,7 @@ export async function updateProfileDirect(input: Deps & { conversationId?: strin
 
   const locked = lockedFields(state).filter((f) => edits.data.some((e) => e.field === f));
   if (locked.length) {
-    return fail("locked", `${locked.map(label).join(", ")} אושר/ו על ידי נציג/ת הרכב ואי אפשר לשנות כאן. אפשר לכתוב בשיחה.`, { fields: locked });
+    return fail("locked", `${locked.map(label).join(", ")}: אושר על ידי צוות הרכב, ואי אפשר לשנות כאן. אפשר לכתוב בשיחה.`, { fields: locked });
   }
 
   // A current car from the client carries no participationSource: the tool marks it as the employee's.

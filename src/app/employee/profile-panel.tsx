@@ -100,10 +100,10 @@ export function ProfilePanel({
         {label}
         {locked.has(key) && (
           <Badge variant="secondary" data-testid={`locked-${key}`}>
-            <Lock /> אושר ע״י נציג/ת
+            <Lock /> אושר ע״י צוות הרכב
           </Badge>
         )}
-        {missing.has(key) && <span className="text-xs text-amber-700">חסר</span>}
+        {missing.has(key) && <span className="text-xs text-brand-orange-ink">חסר</span>}
       </span>
       {control}
     </label>

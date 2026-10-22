@@ -26,7 +26,7 @@ export function Notices({ notices, carLabels, resolved = NOTHING_RESOLVED }: { n
 function ResolvedAlert({ kind, title, children }: { kind: string; title: string; children: React.ReactNode }) {
   return (
     <Alert data-testid={`notice-${kind}`} data-resolved="true" className="opacity-80">
-      <CircleCheck className="text-emerald-700" />
+      <CircleCheck className="text-brand-green-ink" />
       <AlertTitle>{title}</AlertTitle>
       <AlertDescription>{children}</AlertDescription>
     </Alert>
@@ -47,7 +47,7 @@ function NoticeAlert({ notice: n, carLabels, resolved }: { notice: Notice; carLa
       if (resolved.cars.has(n.carId)) {
         return (
           <ResolvedAlert kind={n.kind} title="ההשתתפות העצמית אושרה">
-            נציג/ת הרכב אישר/ה את ההשתתפות ב-{carLabels[n.carId] ?? n.carId}. ההשוואה עודכנה.
+            צוות הרכב אישר את ההשתתפות ב-{carLabels[n.carId] ?? n.carId}. ההשוואה עודכנה.
           </ResolvedAlert>
         );
       }
@@ -56,7 +56,7 @@ function NoticeAlert({ notice: n, carLabels, resolved }: { notice: Notice; carLa
           <CircleAlert />
           <AlertTitle>ההשתתפות העצמית טרם אושרה</AlertTitle>
           <AlertDescription>
-            ההשתתפות ב-{carLabels[n.carId] ?? n.carId} היא ברירת המחדל מהקטלוג. הנטו עשוי להשתנות אחרי אישור של נציג/ת הרכב.
+            ההשתתפות ב-{carLabels[n.carId] ?? n.carId} היא ברירת המחדל מהקטלוג. הנטו עשוי להשתנות אחרי אישור של צוות הרכב.
           </AlertDescription>
         </Alert>
       );
@@ -90,7 +90,7 @@ function NoticeAlert({ notice: n, carLabels, resolved }: { notice: Notice; carLa
     case "rep_question_open":
       if (resolved.questions.has(n.questionId)) {
         return (
-          <ResolvedAlert kind={n.kind} title="נציג/ת הרכב ענה/תה">
+          <ResolvedAlert kind={n.kind} title="צוות הרכב ענה">
             התשובה התקבלה וההשוואה עודכנה.
           </ResolvedAlert>
         );
@@ -98,15 +98,15 @@ function NoticeAlert({ notice: n, carLabels, resolved }: { notice: Notice; carLa
       return (
         <Alert data-testid="notice-rep_question_open">
           <Send />
-          <AlertTitle>השאלה הועברה לנציג/ת הרכב</AlertTitle>
+          <AlertTitle>השאלה הועברה לצוות הרכב</AlertTitle>
           <AlertDescription>ההשוואה תתעדכן כשתגיע תשובה.</AlertDescription>
         </Alert>
       );
     case "rep_answered":
       return (
         <Alert data-testid="notice-rep_answered">
-          <CircleCheck className="text-emerald-700" />
-          <AlertTitle>תשובה מנציג/ת הרכב</AlertTitle>
+          <CircleCheck className="text-brand-green-ink" />
+          <AlertTitle>תשובה מצוות הרכב</AlertTitle>
           <AlertDescription>{REP_FIELD_DONE_LABELS[n.field]}. החישוב נעשה מחדש לפי כללי החברה.</AlertDescription>
         </Alert>
       );

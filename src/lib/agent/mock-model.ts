@@ -48,7 +48,7 @@ type Vou = z.output<typeof GetValueOfUseOutput>;
 const fmt = (n: number) => n.toLocaleString("en-US");
 
 const FALLBACK_REPLY =
-  "אני במצב הדגמה ועונה רק על השאלות המוכנות. אפשר לבחור אחת מהן מתחת לשיחה, או לשאול את נציג/ת הרכב.";
+  "אני במצב הדגמה ועונה רק על השאלות המוכנות. אפשר לבחור אחת מהן מתחת לשיחה, או לשאול את צוות הרכב.";
 
 const compareFromResults = (results: ToolResults) => compareReply(results.compareOptions as Compare | undefined);
 
@@ -101,18 +101,18 @@ function buildScenarios(config: Config): Scenario[] {
     profileScenario({ id: "a7", label: "A7: תסריט האתגר", text: challengeOpeningMessage(config) }, a7.profile, a7.alternative),
     {
       id: "ask-rep",
-      label: "לבקש אישור השתתפות מנציג/ת",
+      label: "לבקש אישור השתתפות מצוות הרכב",
       text: ASK_REP_MESSAGE,
       calls: (prompt) => {
         const carId = unconfirmedCar(prompt);
         if (!carId) return [];
-        const question = `מה ההשתתפות העצמית של העובד/ת ב-${carName(config, carId)}?`;
+        const question = `מה ההשתתפות העצמית ב-${carName(config, carId)}?`;
         return [{ toolName: "askRepresentative", input: { question, field: "participation", carId } }];
       },
       reply: (results, prompt) => {
         if (!results.askRepresentative) return "אין כרגע השתתפות שממתינה לאישור. אפשר לבקש השוואה לרכב מסוים קודם.";
         const carId = unconfirmedCar(prompt);
-        return `שלחתי לנציג/ת הרכב שאלה על ההשתתפות העצמית ב-${carId ? carName(config, carId) : "רכב החדש"}. ההשוואה תתעדכן כשתגיע תשובה.`;
+        return `שלחתי לצוות הרכב שאלה על ההשתתפות העצמית ב-${carId ? carName(config, carId) : "רכב החדש"}. ההשוואה תתעדכן כשתגיע תשובה.`;
       },
     },
     {
@@ -120,7 +120,7 @@ function buildScenarios(config: Config): Scenario[] {
       label: "פרטים חסרים",
       text: missingDataMessage(config),
       calls: [{ toolName: "updateProfile", input: { source: "employee", profile: { group: config.employees.employees[0].profile.group } } }],
-      reply: () => "רשמתי את קבוצת הזכאות. כדי לחשב אני צריך/ה עוד כמה פרטים: מה שכר הבסיס שלך, ואיזה רכב יש לך היום?",
+      reply: () => "רשמתי את קבוצת הזכאות. כדי לחשב חסרים לי עוד כמה פרטים: מה שכר הבסיס שלך, ואיזה רכב יש לך היום?",
     },
     {
       id: "rep",
@@ -129,17 +129,17 @@ function buildScenarios(config: Config): Scenario[] {
       calls: [
         {
           toolName: "askRepresentative",
-          input: { question: "מה הרכב הנוכחי של העובד/ת ומה ההשתתפות העצמית בו?", field: "current", context: { reason: "employee_does_not_know" } },
+          input: { question: "מה הרכב הנוכחי בפנייה ומה ההשתתפות העצמית בו?", field: "current", context: { reason: "employee_does_not_know" } },
         },
       ],
-      reply: () => "שלחתי את השאלה לנציג/ת הרכב. ההשוואה תתעדכן כשתגיע תשובה.",
+      reply: () => "שלחתי את השאלה לצוות הרכב. ההשוואה תתעדכן כשתגיע תשובה.",
     },
     {
       id: "no-data",
       label: "שאלה שאין עליה מידע",
       text: NO_DATA_MESSAGE,
       calls: [{ toolName: "logInformationGap", input: { topic: "rules", description: "כיסוי ביטוחי לרכב צמוד בזמן חופשת לידה" } }],
-      reply: () => "אין לי מידע על כך בכללי החברה. רשמתי את השאלה כפער מידע כדי שהחברה תשלים אותה, ואפשר גם לשאול את נציג/ת הרכב.",
+      reply: () => "אין לי מידע על כך בכללי החברה. רשמתי את השאלה כפער מידע כדי שהחברה תשלים אותה, ואפשר גם לשאול את צוות הרכב.",
     },
     {
       id: "ambiguous",
@@ -153,7 +153,7 @@ function buildScenarios(config: Config): Scenario[] {
           return `מצאתי יותר מדגם אחד עם הקודים האלה: ${names}. איזה מהם הרכב שלך?`;
         }
         if (v?.status === "found") return `שווי השימוש לפי רשות המסים: ${fmt(v.value)} ₪.`;
-        return "לא מצאתי את הרכב בטבלת שווי השימוש. אעביר את השאלה לנציג/ת הרכב.";
+        return "לא מצאתי את הרכב בטבלת שווי השימוש. אעביר את השאלה לצוות הרכב.";
       },
     },
   ];

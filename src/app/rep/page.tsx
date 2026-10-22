@@ -10,7 +10,7 @@ import { RepLogin } from "./rep-login";
 import type { RepOptions } from "./rep-queue";
 import { RepScreen } from "./rep-screen";
 
-export const metadata: Metadata = { title: "יועץ הרכב – נציג/ת" };
+export const metadata: Metadata = { title: "יועץ הרכב – צוות הרכב" };
 
 export default function RepPage() {
   return (

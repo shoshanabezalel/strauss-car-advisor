@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, LoaderCircle, Send, X } from "lucide-react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -213,9 +214,12 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6" data-realtime={conversationId ? realtime : undefined}>
       <header className="flex flex-wrap items-center justify-between gap-2" data-tour="welcome">
-        <div>
-          <h1 className="text-2xl font-semibold">יועץ הרכב</h1>
-          <p className="text-sm text-muted-foreground">מה יקרה לנטו שלי אם אחליף רכב, אעבור לחשמלי או אוותר על הרכב?</p>
+        <div className="flex items-center gap-3">
+          <Image src="/brand/strauss-logo.png" alt="שטראוס" width={48} height={36} priority />
+          <div>
+            <h1 className="text-2xl font-semibold">יועץ הרכב</h1>
+            <p className="text-sm text-muted-foreground">מה יקרה לנטו שלי אם אחליף רכב, אעבור לחשמלי או אוותר על הרכב?</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {mock && (
@@ -238,7 +242,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
               {loading && <p className="text-sm text-muted-foreground">טוען את השיחה…</p>}
               {!loading && messages.length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  ספר/י לי על השכר, ההפרשות והרכב שיש לך היום, ומה היית רוצה לבדוק.
+                  ספרו לי על השכר, ההפרשות והרכב שיש לכם היום, ומה תרצו לבדוק.
                 </p>
               )}
               {messages.map((m, i) => (
@@ -280,14 +284,14 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
                     void send(draft);
                   }
                 }}
-                placeholder="כתב/י הודעה…"
+                placeholder="כתבו הודעה…"
                 aria-label="הודעה"
                 data-tour="chat-input"
                 rows={2}
                 disabled={pending}
               />
               <PayslipButton variant="icon" disabled={payslipBusy} onClick={payslip.pick} />
-              <Button type="submit" disabled={pending || !draft.trim()} aria-label="שליחה">
+              <Button type="submit" variant="brand" disabled={pending || !draft.trim()} aria-label="שליחה">
                 <Send className="rtl:-scale-x-100" />
               </Button>
             </form>

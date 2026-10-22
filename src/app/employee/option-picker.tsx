@@ -9,7 +9,7 @@ import type { ComparisonView } from "@/lib/chat/comparison-view";
 import type { ProfileView } from "@/lib/chat/profile-view";
 
 const SELECT =
-  "min-w-0 flex-1 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30";
+  "min-h-11 min-w-0 flex-1 rounded-lg border border-input bg-card px-3 py-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30";
 const WAIVER = "waiver";
 const MAX_OPTIONS = 3;
 
@@ -75,13 +75,13 @@ export function OptionPicker({
             {current.length > 1 && (
               <button
                 type="button"
-                className="rounded-full p-0.5 hover:bg-muted"
+                className="-me-2 inline-flex size-11 items-center justify-center rounded-md hover:bg-muted"
                 aria-label={`הסרת ${o.label}`}
                 disabled={busy}
                 onClick={() => send(plain.filter((_, j) => j !== i))}
                 data-testid={`option-remove-${i}`}
               >
-                <X className="size-3" />
+                <X className="size-4" aria-hidden />
               </button>
             )}
           </Badge>

@@ -36,7 +36,7 @@ export interface RunTurnOptions {
 
 /** Shown when the reply still has an untraceable number after one regeneration. Must contain no digits. */
 export const BLOCKED_REPLY =
-  "סליחה, לא הצלחתי לנסח תשובה מדויקת הפעם. אפשר לשאול שוב, או שאעביר את השאלה לנציג/ת הרכב.";
+  "סליחה, לא הצלחתי לנסח תשובה מדויקת הפעם. אפשר לשאול שוב, או שאעביר את השאלה לצוות הרכב.";
 
 const MAX_ATTEMPTS = 2;
 

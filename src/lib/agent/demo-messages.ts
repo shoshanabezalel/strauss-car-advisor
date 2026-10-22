@@ -10,7 +10,7 @@ export function carName(config: Config, id: string): string {
 }
 
 function describeSituation(config: Config, s: Situation): string {
-  if (s.kind === "waiver") return "היום ויתרתי על רכב ואני מקבל/ת אחזקת רכב.";
+  if (s.kind === "waiver") return "היום ויתרתי על רכב, ויש לי אחזקת רכב.";
   const p = s.participation !== undefined ? ` עם השתתפות עצמית של ${s.participation} ₪` : "";
   return `היום יש לי ${carName(config, s.carId)}${p}.`;
 }
@@ -41,7 +41,7 @@ export function challengeOpeningMessage(config: Config): string {
 }
 
 /** A7 follow-up: the employee asks to confirm the new car's participation with the representative. */
-export const ASK_REP_MESSAGE = "אפשר לבדוק מול נציג/ת הרכב מה ההשתתפות העצמית ברכב החדש?";
+export const ASK_REP_MESSAGE = "אפשר לבדוק מול צוות הרכב מה ההשתתפות העצמית ברכב החדש?";
 
 /** A partial profile: only the group, so the agent has to ask for the rest. */
 export function missingDataMessage(config: Config): string {
@@ -52,7 +52,7 @@ export function missingDataMessage(config: Config): string {
 export const NO_DATA_MESSAGE = "האם הרכב הצמוד מכוסה בביטוח כשאני בחופשת לידה?";
 
 /** A12: the employee doesn't know their participation, so it goes to the representative. */
-export const UNKNOWN_PARTICIPATION_MESSAGE = "אני לא יודע/ת מה ההשתתפות העצמית שלי ברכב הנוכחי. אפשר לברר?";
+export const UNKNOWN_PARTICIPATION_MESSAGE = "אין לי מידע מה ההשתתפות העצמית שלי ברכב הנוכחי. אפשר לברר?";
 
 /** A car whose make/model codes match two tax-authority rows without the vehicle type code (ATTO 3 / TANG). */
 export function ambiguousVouCar(config: Config) {
