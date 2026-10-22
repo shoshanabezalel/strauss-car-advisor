@@ -8,7 +8,7 @@
  * Strauss brand tokens (docs/DESIGN.md). Exact colors sampled from public/brand/strauss-logo.png (solid pixels,
  * 22/10), never guessed. "-ink" = the same color darkened by a fixed factor until text reaches WCAG AA
  * 4.5:1 on the light-gray page and on 10% tints (computed); red-ink only behind white text (4.54:1).
- * Red: logo and primary button only.
+ * Red: logo only; buttons and accents are blue.
  */
 :root {
   --brand-red: #ee2a24;
@@ -86,8 +86,8 @@
 }
 
 :root {
-  /* Neutral base: white and very light gray, near-black text. Focus = brand blue; errors = brand orange, never red. */
-  --background: oklch(0.985 0.002 247);
+  /* Neutral base: white panels on a very light blue-gray page, near-black text. Focus = brand blue; errors = brand orange, never red. */
+  --background: oklch(0.972 0.008 240);
   --foreground: oklch(0.2 0.01 255);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);

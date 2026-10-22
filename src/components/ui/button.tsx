@@ -9,8 +9,8 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/80",
-        /** The screen's primary action. Brand red is used here and in the logo only (docs/DESIGN.md). */
-        brand: "bg-brand-red-ink text-white hover:bg-[color-mix(in_oklch,var(--brand-red-ink),black_12%)]",
+        /** The screen's primary action, in the logo blue. Brand red is used in the logo only (docs/DESIGN.md). */
+        brand: "bg-primary text-primary-foreground hover:bg-[color-mix(in_oklch,var(--primary),black_12%)]",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:

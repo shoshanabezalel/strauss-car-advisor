@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +32,8 @@ function toForm(v: ProfileView["values"]): Form {
 
 /**
  * "My details" next to the chat (F5). Sends only the changed fields to POST /api/profile; the server applies them
- * with updateProfile and recomputes. Rep-confirmed fields are read-only. Collapsible on phones.
+ * with updateProfile and recomputes. Rep-confirmed fields are read-only. On phones it
+ * opens as a drawer (employee-chat.tsx).
  */
 export function ProfilePanel({
   profile,
@@ -57,7 +58,6 @@ export function ProfilePanel({
     setForm((f) => Object.fromEntries(Object.keys(fresh).map((k) => [k, f[k] === initial[k] ? fresh[k] : f[k]])));
     setInitial(fresh);
   }
-  const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const locked = new Set(profile.locked);
@@ -109,26 +109,13 @@ export function ProfilePanel({
   const busy = disabled || saving;
 
   return (
-    <Card data-testid="profile-panel" className="lg:self-start">
+    <Card data-testid="profile-panel" className="rounded-2xl shadow-sm">
       <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-2 text-base">
+        <CardTitle className="text-base">
           הפרטים שלי
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="lg:hidden"
-            aria-expanded={open}
-            aria-controls="profile-form"
-            onClick={() => setOpen((o) => !o)}
-            data-testid="profile-toggle"
-          >
-            {open ? "הסתרה" : "עריכה"}
-            <ChevronDown className={open ? "rotate-180" : ""} />
-          </Button>
         </CardTitle>
       </CardHeader>
-      <CardContent id="profile-form" className={open ? "block" : "hidden lg:block"}>
+      <CardContent id="profile-form">
         <form className="flex flex-col gap-3" onSubmit={save}>
           <PayslipButton variant="text" disabled={busy} onClick={onPayslip} />
           {field(

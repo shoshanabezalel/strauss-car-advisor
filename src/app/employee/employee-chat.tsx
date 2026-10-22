@@ -1,13 +1,12 @@
 "use client";
 
-import { Check, LoaderCircle, Send, X } from "lucide-react";
+import { Check, LoaderCircle, Menu, Send, X } from "lucide-react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { TourHelpButton, useTour } from "@/components/tour/tour";
 import type { AgentEvent, ToolName } from "@/lib/agent";
@@ -20,6 +19,7 @@ import type { ProfileView } from "@/lib/chat/profile-view";
 import { EMPLOYEE_TOUR } from "@/lib/tour/steps";
 import { createNdjsonParser } from "@/lib/chat/ndjson";
 import { usePing } from "@/lib/realtime/use-ping";
+import { AssistantAvatar, UserAvatar } from "./avatars";
 import { Comparison } from "./comparison";
 import { STATUS_LABELS, TOOL_LABELS } from "./labels";
 import { Notices, type Resolved } from "./notices";
@@ -56,6 +56,8 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
   const [repQuestions, setRepQuestions] = useState<RepQuestionStatusView[]>([]);
   const [profile, setProfile] = useState<ProfileView>(emptyProfile);
   const [loading, setLoading] = useState(Boolean(params.get("c")));
+  /** Phones: "הפרטים שלי" opens as a drawer from the ☰ button; from lg up it is the sidebar. */
+  const [drawer, setDrawer] = useState(false);
   // The Realtime topic is an HMAC of the id that only the owner gets from the API (M7), so it arrives with the first load.
   const [topic, setTopic] = useState<string | undefined>();
   const endRef = useRef<HTMLDivElement>(null);
@@ -212,22 +214,36 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6" data-realtime={conversationId ? realtime : undefined}>
-      <header className="flex flex-wrap items-center justify-between gap-2" data-tour="welcome">
-        <div className="flex items-center gap-3">
-          <Image src="/brand/strauss-logo.png" alt="שטראוס" width={48} height={36} priority unoptimized />
-          <div>
-            <h1 className="text-2xl font-semibold">יועץ הרכב</h1>
-            <p className="text-sm text-muted-foreground">כמה אקבל בחודש אם אחליף רכב, אעבור לחשמלי או אוותר על הרכב?</p>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4" data-realtime={conversationId ? realtime : undefined}>
+      <header className="flex items-center justify-between gap-2 rounded-2xl bg-card p-3 shadow-sm" data-tour="welcome">
+        <div className="flex min-w-0 items-center gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            aria-label="הפרטים שלי"
+            aria-expanded={drawer}
+            aria-controls="profile-drawer"
+            onClick={() => setDrawer(true)}
+            data-testid="profile-toggle"
+          >
+            <Menu />
+          </Button>
+          <AssistantAvatar size="lg" />
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold">יועץ הרכב</h1>
+            <p className="text-xs text-muted-foreground">כמה אקבל בחודש אם אחליף רכב, אעבור לחשמלי או אוותר על הרכב?</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {mock && (
             <Badge variant="outline" data-testid="mock-badge">
               מצב הדגמה
             </Badge>
           )}
           <TourHelpButton onClick={tour.start} />
+          <Image src="/brand/strauss-logo.png" alt="שטראוס" width={48} height={36} priority unoptimized className="hidden sm:block" />
         </div>
       </header>
 
@@ -235,15 +251,45 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
 
       <PayslipFlow payslip={payslip} conversationId={conversationId} disabled={pending} onSaved={onDirectChange} />
 
-      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-        <Card className="min-w-0">
-          <CardContent className="flex flex-col gap-4">
-            <div className="flex max-h-[60vh] min-h-40 flex-col gap-3 overflow-y-auto" aria-live="polite" data-testid="chat-log">
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start">
+        {drawer && <div className="fixed inset-0 z-40 bg-foreground/30 lg:hidden" aria-hidden onClick={() => setDrawer(false)} />}
+        <aside
+          id="profile-drawer"
+          className={
+            drawer
+              ? "fixed inset-y-0 start-0 z-50 flex w-[min(22rem,88vw)] flex-col gap-2 overflow-y-auto bg-background p-3 shadow-xl lg:static lg:z-auto lg:w-auto lg:overflow-visible lg:bg-transparent lg:p-0 lg:shadow-none"
+              : "hidden lg:block"
+          }
+          onKeyDown={(e) => e.key === "Escape" && setDrawer(false)}
+        >
+          {drawer && (
+            <Button type="button" variant="ghost" size="icon" className="self-end lg:hidden" aria-label="סגירה" onClick={() => setDrawer(false)}>
+              <X />
+            </Button>
+          )}
+          <ProfilePanel
+            profile={profile}
+            conversationId={conversationId}
+            disabled={pending}
+            onSaved={(id) => {
+              setDrawer(false);
+              onDirectChange(id);
+            }}
+            onPayslip={payslip.pick}
+          />
+        </aside>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          <section className="flex min-w-0 flex-col gap-4 rounded-2xl border bg-card p-4 shadow-sm">
+            <div className="flex max-h-[65vh] min-h-48 flex-col gap-4 overflow-y-auto" aria-live="polite" data-testid="chat-log">
               {loading && <p className="text-sm text-muted-foreground">טוען את השיחה…</p>}
               {!loading && messages.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  ספרו לי על השכר, ההפרשות והרכב שיש לכם היום, ומה תרצו לבדוק.
-                </p>
+                <div className="flex items-start gap-2 self-end">
+                  <p className="rounded-2xl border bg-card px-3 py-2 text-sm text-muted-foreground">
+                    ספרו לי על השכר, ההפרשות והרכב שיש לכם היום, ומה תרצו לבדוק.
+                  </p>
+                  <AssistantAvatar />
+                </div>
               )}
               {messages.map((m, i) => (
                 <Bubble key={i} message={m} carLabels={carLabels} resolved={resolved} />
@@ -261,7 +307,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
             {mock && demoPrompts.length > 0 && (
               <div className="flex flex-wrap gap-2" aria-label="שאלות לדוגמה">
                 {demoPrompts.map((p) => (
-                  <Button key={p.id} variant="outline" size="sm" disabled={pending} onClick={() => send(p.text)} data-testid={`demo-${p.id}`}>
+                  <Button key={p.id} variant="outline" size="sm" className="rounded-full" disabled={pending} onClick={() => send(p.text)} data-testid={`demo-${p.id}`}>
                     {p.label}
                   </Button>
                 ))}
@@ -269,12 +315,13 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
             )}
 
             <form
-              className="flex items-end gap-2"
+              className="flex items-center gap-1 rounded-full border border-input bg-card p-1 shadow-xs focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30"
               onSubmit={(e) => {
                 e.preventDefault();
                 void send(draft);
               }}
             >
+              <PayslipButton variant="icon" disabled={payslipBusy} onClick={payslip.pick} />
               <Textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -287,57 +334,59 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
                 placeholder="כתבו הודעה…"
                 aria-label="הודעה"
                 data-tour="chat-input"
-                rows={2}
+                rows={1}
+                className="max-h-32 min-h-11 resize-none border-0 bg-transparent px-2 py-2.5 shadow-none focus-visible:ring-0 dark:bg-transparent"
                 disabled={pending}
               />
-              <PayslipButton variant="icon" disabled={payslipBusy} onClick={payslip.pick} />
-              <Button type="submit" variant="brand" disabled={pending || !draft.trim()} aria-label="שליחה">
+              <Button type="submit" size="icon" className="rounded-full" disabled={pending || !draft.trim()} aria-label="שליחה">
                 <Send className="rtl:-scale-x-100" />
               </Button>
             </form>
-          </CardContent>
-        </Card>
+          </section>
 
-        <ProfilePanel
-          profile={profile}
-          conversationId={conversationId}
-          disabled={pending}
-          onSaved={onDirectChange}
-          onPayslip={payslip.pick}
-        />
+          {conversationId && profile.missing.length === 0 && (
+            <OptionPicker
+              conversationId={conversationId}
+              comparison={comparison}
+              choices={profile.choices}
+              disabled={pending}
+              onChanged={() => onDirectChange(conversationId)}
+            />
+          )}
+
+          <div aria-live="polite">{comparison && <Comparison view={comparison} />}</div>
+        </div>
       </div>
-
-      {conversationId && profile.missing.length === 0 && (
-        <OptionPicker
-          conversationId={conversationId}
-          comparison={comparison}
-          choices={profile.choices}
-          disabled={pending}
-          onChanged={() => onDirectChange(conversationId)}
-        />
-      )}
-
-      <div aria-live="polite">{comparison && <Comparison view={comparison} />}</div>
       {tour.node}
     </div>
   );
 }
 
+/** RTL: the employee's bubbles on the right with the avatar outside, the assistant's on the left. */
 function Bubble({ message: m, carLabels, resolved }: { message: VisibleMessage; carLabels: Record<string, string>; resolved: Resolved }) {
   if (m.role === "user") {
     return (
-      <div className="max-w-[85%] self-start rounded-2xl bg-primary px-3 py-2 text-sm whitespace-pre-line text-primary-foreground" data-testid="msg-user">
-        {m.text}
+      <div className="flex max-w-[85%] items-start gap-2 self-start">
+        <UserAvatar />
+        <div
+          className="rounded-2xl rounded-ss-sm bg-[color-mix(in_oklch,var(--brand-blue),white_86%)] px-3 py-2 text-sm whitespace-pre-line"
+          data-testid="msg-user"
+        >
+          {m.text}
+        </div>
       </div>
     );
   }
   return (
-    <div className="flex max-w-[90%] flex-col gap-2 self-end">
-      <div className="rounded-2xl bg-muted px-3 py-2 text-sm whitespace-pre-line" data-testid="msg-assistant">
-        {m.text}
+    <div className="flex max-w-[90%] items-start gap-2 self-end">
+      <div className="flex min-w-0 flex-col gap-2">
+        <div className="rounded-2xl rounded-se-sm border bg-card px-3 py-2 text-sm whitespace-pre-line" data-testid="msg-assistant">
+          {m.text}
+        </div>
+        {m.breakdown && <Breakdown breakdown={m.breakdown} />}
+        <Notices notices={m.notices ?? []} carLabels={carLabels} resolved={resolved} />
       </div>
-      {m.breakdown && <Breakdown breakdown={m.breakdown} />}
-      <Notices notices={m.notices ?? []} carLabels={carLabels} resolved={resolved} />
+      <AssistantAvatar />
     </div>
   );
 }
@@ -368,7 +417,7 @@ function Breakdown({ breakdown }: { breakdown: NonNullable<VisibleMessage["break
 
 function ProgressView({ progress }: { progress: Progress }) {
   return (
-    <div className="flex flex-col gap-2 self-end" data-testid="progress">
+    <div className="flex flex-col gap-2 self-end pe-10" data-testid="progress">
       <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
         <LoaderCircle className="size-4 animate-spin" />
         {progress.status ? STATUS_LABELS[progress.status] : "שולח…"}

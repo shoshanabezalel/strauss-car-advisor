@@ -38,7 +38,7 @@ type Payslip = ReturnType<typeof usePayslip>;
 export function PayslipButton({ variant, disabled, onClick }: { variant: "icon" | "text"; disabled: boolean; onClick: () => void }) {
   if (variant === "icon") {
     return (
-      <Button type="button" variant="outline" size="icon" disabled={disabled} onClick={onClick} aria-label="העלאת תלוש שכר" title="העלאת תלוש שכר" data-testid="payslip-chat" data-tour="payslip-chat">
+      <Button type="button" variant="ghost" size="icon" className="rounded-full text-muted-foreground" disabled={disabled} onClick={onClick} aria-label="העלאת תלוש שכר" title="העלאת תלוש שכר" data-testid="payslip-chat" data-tour="payslip-chat">
         <Paperclip />
       </Button>
     );
