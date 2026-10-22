@@ -93,8 +93,10 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  /* Library primary (default buttons, badges, selected tab, own chat bubble, tour ring) = the blue tech accent;
+   * white on it is 4.96:1. Brand red stays on the `brand` button only. */
+  --primary: var(--brand-blue-ink);
+  --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.96 0.004 255);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.965 0.003 255);
