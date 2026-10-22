@@ -222,7 +222,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
   }
 
   return (
-    <>
+    <div className="flex h-dvh flex-col overflow-hidden">
       <TopBar
         title="יועץ הרכב"
         subtitle="כמה אקבל בחודש אם אחליף רכב, אעבור לחשמלי או אוותר על הרכב?"
@@ -253,20 +253,20 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
           </>
         }
       />
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4" data-realtime={conversationId ? realtime : undefined}>
+    <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-3 px-4 py-3" data-realtime={conversationId ? realtime : undefined}>
 
       <RepStatus questions={repQuestions} carLabels={carLabels} />
 
       <PayslipFlow payslip={payslip} conversationId={conversationId} disabled={pending} onSaved={onDirectChange} />
 
-      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)]">
         {drawer && <div className="fixed inset-0 z-40 bg-foreground/30 lg:hidden" aria-hidden onClick={() => setDrawer(false)} />}
         <aside
           id="profile-drawer"
           className={
             drawer
-              ? "fixed inset-y-0 start-0 z-50 flex w-[min(22rem,88vw)] flex-col gap-2 overflow-y-auto bg-background p-3 shadow-xl lg:static lg:z-auto lg:w-auto lg:overflow-visible lg:bg-transparent lg:p-0 lg:shadow-none"
-              : "hidden lg:block"
+              ? "fixed inset-y-0 start-0 z-50 flex w-[min(22rem,88vw)] flex-col gap-2 overflow-y-auto bg-background p-3 shadow-xl lg:static lg:z-auto lg:w-auto lg:bg-transparent lg:p-0 lg:shadow-none"
+              : "hidden lg:block lg:min-h-0 lg:overflow-y-auto"
           }
           onKeyDown={(e) => e.key === "Escape" && setDrawer(false)}
         >
@@ -287,9 +287,9 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
           />
         </aside>
 
-        <div className="flex min-w-0 flex-col gap-4">
-          <section className="flex min-w-0 flex-col gap-4 rounded-2xl border bg-card p-4 shadow-sm">
-            <div className="flex max-h-[75vh] min-h-48 flex-col gap-4 overflow-y-auto" aria-live="polite" data-testid="chat-log">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+          <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 rounded-2xl border bg-card p-3 shadow-sm sm:p-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto" aria-live="polite" data-testid="chat-log">
               {loading && <p className="text-sm text-muted-foreground">טוען את השיחה…</p>}
               {!loading && messages.length === 0 && (
                 <div className="flex items-start gap-2 self-end">
@@ -317,7 +317,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
             )}
 
             {mock && demoPrompts.length > 0 && (
-              <div className="flex flex-wrap gap-2" aria-label="שאלות לדוגמה">
+              <div className="flex shrink-0 gap-2 overflow-x-auto pb-1" aria-label="שאלות לדוגמה">
                 {demoPrompts.map((p) => (
                   <Button key={p.id} variant="outline" size="sm" className="rounded-full" disabled={pending} onClick={() => send(p.text)} data-testid={`demo-${p.id}`}>
                     {p.label}
@@ -327,7 +327,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
             )}
 
             <form
-              className="flex items-center gap-1 rounded-full border border-input bg-card p-1 shadow-xs focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30"
+              className="flex shrink-0 items-center gap-1 rounded-full border border-input bg-card p-1 shadow-xs focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30"
               onSubmit={(e) => {
                 e.preventDefault();
                 void send(draft);
@@ -371,7 +371,7 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
       {comparison && explain && <ExplainPanel view={comparison} selected={explain} onSelect={setExplain} onClose={() => setExplain(null)} />}
       {tour.node}
     </div>
-    </>
+    </div>
   );
 }
 
