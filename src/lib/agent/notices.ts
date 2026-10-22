@@ -41,7 +41,7 @@ export function deriveNotices(outputs: readonly ToolOutput[]): Notice[] {
         const rows = [c.today, ...c.options];
         missing = [...new Set(rows.flatMap((r) => r.missing))];
         for (const r of c.options) {
-          if (r.needsConfirmation && r.situation.kind === "car") {
+          if (r.needsConfirmation && r.eligibility.eligible && r.situation.kind === "car") {
             notices.push({ kind: "participation_unconfirmed", carId: r.situation.carId });
           }
         }

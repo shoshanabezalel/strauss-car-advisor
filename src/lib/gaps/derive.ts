@@ -46,7 +46,7 @@ export function deriveGaps(turn: TurnRecord, config: Config): GapInput[] {
     for (const row of (output as Compare).options) {
       // Only when the employee actually got a net built on the catalog default (a computed row): a comparison that
       // is still waiting for the employee's own data relies on nothing yet.
-      if (row.needsConfirmation && row.situation.kind === "car" && row.missing.length === 0 && row.breakdown) {
+      if (row.needsConfirmation && row.eligibility.eligible && row.situation.kind === "car" && row.missing.length === 0 && row.breakdown) {
         const carId = row.situation.carId;
         gaps.push({ type: "pending_confirmation", topic: `participation/${carId}`, description: DEFAULT_PARTICIPATION, vehicle: carName(carId) });
       }

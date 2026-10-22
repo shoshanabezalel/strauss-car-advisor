@@ -32,6 +32,18 @@ describe("deriveNotices", () => {
     expect(deriveNotices([{ toolName: "compareOptions", output }])).toEqual([]);
   });
 
+  it("no participation notice for a car outside the employee's group", async () => {
+    let checked = 0;
+    for (const c of config.catalog.cars) {
+      const output = await tools.compareOptions({ options: [{ kind: "car", carId: c.id }] });
+      const row = output.options[0];
+      if (row.eligibility.eligible || !row.needsConfirmation) continue;
+      checked++;
+      expect(deriveNotices([{ toolName: "compareOptions", output }]).filter((n) => n.kind === "participation_unconfirmed")).toEqual([]);
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
   it("missing fields from the latest compareOptions or updateProfile", () => {
     const update = { ok: true, profile: {}, sources: {}, missing: ["baseSalary", "current"] };
     expect(deriveNotices([{ toolName: "updateProfile", output: update }])).toEqual([

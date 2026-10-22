@@ -34,6 +34,19 @@ describe("deriveGaps", () => {
     ]);
   });
 
+  it("a car outside the employee's group logs no pending_confirmation", async () => {
+    let checked = 0;
+    for (const c of config.catalog.cars) {
+      const input = { options: [{ kind: "car" as const, carId: c.id }] };
+      const output = await handlers().compareOptions(input);
+      const row = output.options[0];
+      if (row.eligibility.eligible || !row.needsConfirmation) continue;
+      checked++;
+      expect(deriveGaps(turn({ toolName: "compareOptions", input, output }), config).filter((g) => g.type === "pending_confirmation")).toEqual([]);
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
   it("an askRepresentative call → referred_to_rep with its field (and car)", async () => {
     const h = handlers();
     const byCar = { question: "?", field: "participation" as const, carId: atto.id };
