@@ -5,6 +5,37 @@ Every number comes from a deterministic engine driven by `data/strauss-rules.jso
 
 Built for the Open Code AI 2026 hackathon. Docs: [SPEC](docs/SPEC.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [TECH-DESIGN](docs/TECH-DESIGN.md) · [PLAN](docs/PLAN.md) · [AI-PROCESS](docs/AI-PROCESS.md)
 
+## For judges
+
+**Live:** https://strauss-car-advisor-smoky.vercel.app
+
+### What it does
+An employee describes their salary and current car in Hebrew, or uploads a payslip. The agent asks only for what is missing, then shows the net salary for each option (another car, an electric car, or giving up the car) next to today's net, with the change explained one line per component. When something only the company knows is missing (for example the employee's participation in a new car), the question goes to the car team. The comparison updates live once they answer.
+
+### Try it in 3 steps
+1. **Employee:** open the live URL and click **להתחלת שיחה**. Write your situation in Hebrew, e.g. *"שכר בסיס 18,000, קבוצה ג, 2 ילדים, יש לי היום BYD ATTO 3. כמה יישאר לי בנטו אם אוותר על הרכב?"*, or attach a payslip. A short tour explains the screen on the first visit.
+2. **Ask the car team:** pick a car whose participation is not confirmed yet, then ask the agent to check it with the car team (*"אפשר לבדוק מול צוות הרכב?"*). The comparison marks that option as waiting for an answer.
+3. **Car team:** open **מסך צוות הרכב** in another tab and enter the access code. The code is not in this repo: it is the deploy's `REP_ACCESS_CODE` and comes with the submission form. Answer the question; the employee tab updates without a refresh. The **פערי מידע** tab shows what the catalog and rules were missing.
+
+### Architecture in 5 lines
+- Next.js 16 (App Router) on Vercel; Supabase Postgres + Realtime; Gemini through the Vercel AI SDK, with a fallback model.
+- The LLM only talks and calls tools (Zod-validated); it never computes.
+- A pure, deterministic engine computes every number from `data/strauss-rules.json`, the car catalog and the tax-authority value-of-use table.
+- A number-guard rejects any reply with a number that is not in that turn's tool results; the comparison table is rendered from the engine's JSON, not from model text.
+- Conversation state lives in the DB (survives refresh). RLS is on; the browser key reads no conversation table; every route is rate-limited.
+
+### Original feature: information gaps log (מאגר פערי מידע)
+Whenever the system cannot answer from real data, it records the gap: a participation still on the catalog default, a question sent to the car team, a car outside the catalog, or a question the agent has no rules for. The car team's **פערי מידע** tab groups them by topic with counts, a summary computed in code, an AI analysis that may cite only that summary's numbers, and a CSV export. It records company data only, no personal data. Strauss sees exactly what its catalog and rules are missing.
+
+### Known limitations
+- The net is an estimate from the company rules and 2026 tax tables, rounded to the shekel. It is not a payslip, and there is no payroll or HR integration (demo data from the challenge files).
+- The car team signs in with one shared code (demo scope). A pilot needs per-person sign-in.
+- A conversation opens only in the browser that started it (owner cookie). Another device starts a new one.
+- Payslip reading uses the LLM; the employee must confirm every value, and unclear values stay empty. The file is not stored.
+- The live agent depends on the Gemini API; rate limits apply per visitor.
+- Some filtered networks (e.g. NetFree) block `*.vercel.app`.
+- Hebrew only. Not yet tested with real employees.
+
 ## Stack
 Next.js 16 (App Router) · React 19 · Tailwind 4 + shadcn/ui · Supabase (Postgres + Realtime) · Zod · Vitest · Playwright
 
