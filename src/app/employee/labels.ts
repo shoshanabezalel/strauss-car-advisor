@@ -12,6 +12,7 @@ export const TOOL_LABELS: Record<ToolName, string> = {
   searchValueOfUse: "מחפש רכב בטבלת שווי שימוש",
   updateProfile: "שומר את הפרטים",
   compareOptions: "מחשב השוואה",
+  findOptions: "מחפש רכבים לפי התנאים",
   askRepresentative: "שולח שאלה לצוות הרכב",
   logInformationGap: "רושם פער מידע",
 };

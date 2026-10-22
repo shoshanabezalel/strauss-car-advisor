@@ -128,6 +128,8 @@ export const RulesSchema = z
       }),
       note,
     }),
+    // F8: how many cars a constraint search shows: matches, and the nearest misses when nothing matches.
+    search: z.object({ maxMatches: z.number().int().positive(), nearestCount: z.number().int().positive(), note }),
   })
   .superRefine((r, ctx) => {
     for (const g of r.groupOrder) {

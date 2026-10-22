@@ -10,6 +10,21 @@ import { breakdownOf, toComparisonView, type Breakdown, type ComparisonView } fr
 import { toModelHistory } from "./history";
 import { applyRepAnswer, recompute } from "./rep-answer";
 import type { CompareOutput, ConversationSource, ConversationStore } from "./store";
+import type { FindOptionsOutput } from "@/lib/agent";
+import type { z } from "zod";
+
+/**
+ * The comparison table after a turn: the latest compareOptions output, or the cars a findOptions search showed
+ * (F8: search results go into the same table).
+ */
+export function latestComparison(outputs: readonly { toolName: string; output: unknown }[]): CompareOutput | undefined {
+  const last = outputs.findLast(
+    (o) => o.toolName === "compareOptions" || (o.toolName === "findOptions" && (o.output as z.output<typeof FindOptionsOutput>).status === "ok"),
+  );
+  if (!last) return undefined;
+  if (last.toolName === "compareOptions") return last.output as CompareOutput;
+  return (last.output as Extract<z.output<typeof FindOptionsOutput>, { status: "ok" }>).comparison;
+}
 
 /** NDJSON events of POST /api/chat. Reply text only ever arrives in `result`, after the number-guard. */
 export type ChatEvent =
@@ -87,7 +102,7 @@ export async function handleChatTurn(input: ChatTurnInput): Promise<void> {
 
     // A representative may have answered while the model was working: re-apply those answers so the state loaded
     // at the start doesn't overwrite them, and recompute the table with them.
-    let compared = turn.toolOutputs.findLast((o) => o.toolName === "compareOptions")?.output as CompareOutput | undefined;
+    let compared = latestComparison(turn.toolOutputs);
     const late = snapshot ? await store.repQuestionsAnsweredSince(id, loadedAt) : [];
     if (late.length) {
       const rep = createToolHandlers({ config, vouSource, state, repQueue: store.repQueue(id) }, { origin: "rep" });

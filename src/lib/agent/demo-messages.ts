@@ -49,6 +49,9 @@ export function missingDataMessage(config: Config): string {
 }
 
 /** G: a question the rules don't cover: the agent says it has no information and logs a no_data gap. */
+/** F8: a constraint search in the employee's words (the mock model maps it to findOptions). */
+export const FIND_EV_MESSAGE = "אני רוצה רכב חשמלי, אבל שהנטו לא ירד ביותר מ־100 ₪ בחודש";
+
 export const NO_DATA_MESSAGE = "האם הרכב הצמוד מכוסה בביטוח כשאני בחופשת לידה?";
 
 /** A12: the employee doesn't know their participation, so it goes to the representative. */

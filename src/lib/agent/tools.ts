@@ -1,11 +1,12 @@
 import { tool, type ToolSet } from "ai";
 import type { z } from "zod";
 import type { Config, Situation } from "@/lib/config";
-import { allowedCars, checkEligibility, compareOptions, missingProfileFields, type EmployeeProfile, type OptionResult } from "@/lib/engine";
+import { allowedCars, checkEligibility, compareOptions, findOptions, missingProfileFields, type EmployeeProfile, type OptionResult } from "@/lib/engine";
 import { displayDiff, displayParts, roundShekel } from "@/lib/format/money";
 import { getValueOfUse, searchValueOfUse, type VouSource } from "@/lib/vou";
 import { LogInformationGapInput, LogInformationGapOutput, noopGapLog, type GapLog } from "@/lib/gaps/types";
 import type { AgentEventSink } from "./events";
+import { findOptionsOutput } from "./find-options";
 import * as S from "./schemas";
 import type { AgentState, RepQueue } from "./state";
 
@@ -25,6 +26,7 @@ export const TOOL_NAMES = [
   "searchValueOfUse",
   "updateProfile",
   "compareOptions",
+  "findOptions",
   "askRepresentative",
   "logInformationGap",
 ] as const;
@@ -39,6 +41,7 @@ export interface ToolHandlers {
   searchValueOfUse: Handler<typeof S.SearchValueOfUseInput, typeof S.SearchValueOfUseOutput>;
   updateProfile: Handler<typeof S.UpdateProfileInput, typeof S.UpdateProfileOutput>;
   compareOptions: Handler<typeof S.CompareOptionsInput, typeof S.CompareOptionsOutput>;
+  findOptions: Handler<typeof S.FindOptionsInput, typeof S.FindOptionsOutput>;
   askRepresentative: Handler<typeof S.AskRepresentativeInput, typeof S.AskRepresentativeOutput>;
   logInformationGap: Handler<typeof LogInformationGapInput, typeof LogInformationGapOutput>;
 }
@@ -64,6 +67,24 @@ function amounts(r: OptionResult) {
     maintenance: roundShekel(r.maintenance),
     familyGapEmployee: roundShekel(r.familyGapEmployee),
   };
+}
+
+/** The engine's comparison with display values (rounded by the existing formatters), as compareOptions returns it. */
+function displayed(today: OptionResult, results: OptionResult[]) {
+  const todayNet = today.breakdown?.net;
+  const net = (r: OptionResult) => (r.breakdown ? roundShekel(r.breakdown.net) : undefined);
+  return S.CompareOptionsOutput.parse({
+    today: { ...today, display: { ...amounts(today), net: net(today) } },
+    options: results.map((r) => {
+      const diff = r.breakdown && todayNet !== undefined ? displayDiff(r.breakdown.net, todayNet) : undefined;
+      const direction = diff === undefined ? undefined : diff > 0 ? "up" : diff < 0 ? "down" : "none";
+      const netDelta =
+        r.netDelta && diff !== undefined
+          ? displayParts(r.netDelta.map((l) => l.amount), diff).map((amount, i) => ({ kind: r.netDelta![i].kind, amount }))
+          : undefined;
+      return { ...r, display: { ...amounts(r), net: net(r), diffVsToday: diff, direction, netDelta } };
+    }),
+  });
 }
 
 /** Plain handlers: Zod-parse the input, call the engine / lookup, Zod-parse the output. No calculation here. */
@@ -154,20 +175,15 @@ export function createToolHandlers(deps: AgentDeps, { origin = "agent" }: { orig
       }
       const options = parsed.options.map(withParticipation);
       const { today, options: results } = compareOptions(state.profile, options, config);
-      const todayNet = today.breakdown?.net;
-      const net = (r: OptionResult) => (r.breakdown ? roundShekel(r.breakdown.net) : undefined);
-      return S.CompareOptionsOutput.parse({
-        today: { ...today, display: { ...amounts(today), net: net(today) } },
-        options: results.map((r) => {
-          const diff = r.breakdown && todayNet !== undefined ? displayDiff(r.breakdown.net, todayNet) : undefined;
-          const direction = diff === undefined ? undefined : diff > 0 ? "up" : diff < 0 ? "down" : "none";
-          const netDelta =
-            r.netDelta && diff !== undefined
-              ? displayParts(r.netDelta.map((l) => l.amount), diff).map((amount, i) => ({ kind: r.netDelta![i].kind, amount }))
-              : undefined;
-          return { ...r, display: { ...amounts(r), net: net(r), diffVsToday: diff, direction, netDelta } };
-        }),
-      });
+      return displayed(today, results);
+    },
+
+    async findOptions(input) {
+      const constraints = S.FindOptionsInput.parse(input);
+      const r = findOptions(state.profile, constraints, config, state.repParticipation);
+      const shown = r.matches.length ? r.matches : r.nearest;
+      const compare = r.today && shown.length ? displayed(r.today, shown.map((f) => f.option)) : undefined;
+      return S.FindOptionsOutput.parse(findOptionsOutput(r, constraints, compare, config));
     },
 
     async askRepresentative(input) {
@@ -196,6 +212,8 @@ const DESCRIPTIONS: Record<ToolName, string> = {
   updateProfile: "Save data the employee stated. Percent fields as the employee said them (six for six percent). Returns missing fields.",
   compareOptions:
     "Net today vs each requested option. Quote numbers only from display. Omit participation for a new car: the tool applies the representative's answer or the catalog default.",
+  findOptions:
+    "Search catalog cars by the employee's constraints (drive types, net drop or gain limit vs today, max participation). The engine checks eligibility and the net. Quote only its reasons and the comparison's display.",
   askRepresentative:
     'Send a question to the car representative for company data the employee cannot know. field "participation" needs the carId; "current" for an unknown current car or one not in the catalog.',
   logInformationGap:
@@ -213,6 +231,7 @@ const inputs = (config: Config): Record<ToolName, z.ZodType> => ({
     groups: config.rules.groupOrder,
   }),
   compareOptions: S.AgentCompareOptionsInput,
+  findOptions: S.FindOptionsInput,
   askRepresentative: S.AskRepresentativeInput,
   logInformationGap: LogInformationGapInput,
 });

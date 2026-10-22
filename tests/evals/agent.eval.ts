@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 import {
   ASK_REP_MESSAGE,
+  FIND_EV_MESSAGE,
   carName as carNameOf,
   challengeOpeningMessage,
   createAgentState,
@@ -201,5 +202,23 @@ describe.skipIf(!hasKey)(`agent evals (live model: ${evalModelName})`, () => {
     expect(gapLog.gaps[0].description).not.toMatch(/[A-Za-z]/);
     // "אין לי / בידיי / ברשותי מידע …": the wording varies by model; the tool call and the gap above are the real check.
     expect(t.text).toMatch(/אין(\s+\S+)?\s+מידע|אין לי נתונים|לא יודע/);
+  });
+
+  it("F8: electric, net may drop at most 100 → findOptions with those parameters, numbers only from the tool", async () => {
+    const e1 = config.employees.employees.find((e) => e.id === "E-001")!;
+    const deps = { ...newDeps(), state: createAgentState(structuredClone(e1.profile)) };
+    const calledFind = (t: AgentTurn) => t.toolCalls.some((c) => c.toolName === "findOptions");
+    const turns = await chat(FIND_EV_MESSAGE, deps, calledFind);
+    for (const t of turns) expect(t.blocked, `blocked: ${t.guard.invented.join(", ")}`).toBe(false);
+    for (const t of turns) expect(t.guard.ok, t.guard.invented.join(", ")).toBe(true);
+    const last = turns.at(-1)!;
+    const call = last.toolCalls.findLast((c) => c.toolName === "findOptions");
+    expect(call, last.text).toBeDefined();
+    expect(call!.input).toMatchObject({ drives: ["electric"], maxNetDrop: 100 });
+    expect((call!.input as { minNetGain?: number }).minNetGain).toBeUndefined();
+    const out = last.toolOutputs.findLast((o) => o.toolName === "findOptions")!.output as { status: string; matches: { label: string }[] };
+    expect(out.status).toBe("ok");
+    // the reply names at least one of the cars the engine found
+    expect(out.matches.some((m) => last.text.includes(m.label.split(" ").at(-1)!)), last.text).toBe(true);
   });
 });

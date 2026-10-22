@@ -2,7 +2,7 @@ import type { z } from "zod";
 import type { Config } from "@/lib/config";
 import { carName } from "./demo-messages";
 import { explainOption } from "./explain";
-import type { CompareOptionsOutput, RepAnswer } from "./schemas";
+import type { CompareOptionsOutput, FindOptionsOutput, RepAnswer } from "./schemas";
 
 /**
  * Hebrew replies built in code from tool outputs, for the mock model and the representative-answer service.
@@ -27,6 +27,25 @@ export function compareReply(c: Compare | undefined): string {
   const lines = [`הנטו החדש שלך: ${fmt(net)} ₪, ${change} לעומת היום (${fmt(c.today.display.net)} ₪).`];
   lines.push(...explainOption(c.today, opt));
   if (opt.needsConfirmation) lines.push("ההשתתפות העצמית ברכב החדש לפי ברירת המחדל בקטלוג, וצריך לאשר אותה מול צוות הרכב.");
+  return lines.join("\n");
+}
+
+type Find = z.output<typeof FindOptionsOutput>;
+
+/** F8: the search result, one line per car with the tool's own reason. */
+export function findReply(f: Find | undefined): string {
+  if (!f) return "לא הצלחתי לחפש לפי התנאים. אפשר לנסות שוב?";
+  if (f.status === "missing") return "כדי לחפש רכבים לפי התנאים חסרים לי עוד פרטים. אפשר להשלים אותם?";
+  const rows = f.matches.length ? f.matches : f.nearest;
+  if (!rows.length) {
+    return ["לא מצאתי רכב מהסוג הזה שאפשר לבחור.", ...f.notEligible.map((n) => `${n.label}: ${n.reason}`)].join("\n");
+  }
+  const lines = [f.matches.length ? "אלה הרכבים שמתאימים לתנאים, מהנטו הגבוה לנמוך:" : "אין רכב שעומד בכל התנאים. הכי קרובים:"];
+  lines.push(...rows.map((r) => `${r.label}: ${r.reason}`));
+  if (f.comparison?.options.some((o) => o.needsConfirmation)) {
+    lines.push("ההשתתפות העצמית לפי ברירת המחדל בקטלוג, וצריך לאשר אותה מול צוות הרכב.");
+  }
+  lines.push("אפשר לבחור רכב להשוואה מלאה, או לשנות את התנאים.");
   return lines.join("\n");
 }
 

@@ -484,6 +484,18 @@ credit points) is normal chat, never a gap.
   and reply. The `"payslip"` profile source stays unused. Salary fields never become information gaps (`deriveGaps`
   reads only company data; tested).
 
+## 7h. Constraint search (F8)
+- Engine `findOptions(profile, constraints, config, repParticipation?)` (src/lib/engine/find.ts): every catalog car of the
+  requested drive types except today's car goes through `compareOptions`, so eligibility and the net are the existing
+  rules. Constraints: `drives`, `maxNetDrop`, `minNetGain`, `maxParticipation`, all checked unrounded. Matches sorted by
+  net change (best first), at most `rules.search.maxMatches`; with no match, the `rules.search.nearestCount` cars with
+  the smallest total miss, each miss `{kind, by}`. Incomplete profile → only `missing`, nothing computed.
+- Tool `findOptions` (input = constraints only, unknown drive types rejected by the enum). Output: per car a `reason`
+  from fixed Hebrew templates (src/lib/agent/find-options.ts) filled with display values; the miss shown as the
+  shown amount minus the limit (like `displayDiff`), "less than a shekel" when it disappears in rounding. The shown
+  cars come as a `comparison` in the compareOptions shape, which handle-turn puts in the existing table
+  (`latestComparison`). needsConfirmation is unchanged; gaps logging is unchanged (findOptions rows are not gaps).
+
 ## 8. DB (Supabase)
 ```sql
 conversations(id uuid pk, status text check (status in ('active','waiting_rep','done')), created_at, updated_at)
@@ -595,6 +607,9 @@ from public / anon / authenticated (Supabase grants it by default). The only adv
     10/10 on the primary).
 
 ## 10. Open decisions
+- [x] F8 search scope (22/10, my call under the hard stop): cars only (no waiver), today's car excluded, drive types
+  a hard filter (the nearest misses are within the requested drive types), net and participation limits soft
+  (they produce the nearest list). Limits 5 / 2 live in `rules.search`.
 - [x] Participation for a new car (decided 18/10): the catalog `defaultParticipation`, with `participationSource: 'catalog_default'`
   and `needsConfirmation: true`. A value with source `rep` overrides it and clears the flag. Values stated by the employee
   (current car) need no confirmation.

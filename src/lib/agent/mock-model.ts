@@ -8,13 +8,14 @@ import {
   ASK_REP_MESSAGE,
   carName,
   challengeOpeningMessage,
+  FIND_EV_MESSAGE,
   missingDataMessage,
   openingMessage,
   NO_DATA_MESSAGE,
   UNKNOWN_PARTICIPATION_MESSAGE,
 } from "./demo-messages";
-import { compareReply } from "./replies";
-import type { CompareOptionsOutput, GetValueOfUseOutput } from "./schemas";
+import { compareReply, findReply } from "./replies";
+import type { CompareOptionsOutput, FindOptionsOutput, GetValueOfUseOutput } from "./schemas";
 import type { ToolName } from "./tools";
 
 /**
@@ -114,6 +115,13 @@ function buildScenarios(config: Config): Scenario[] {
         const carId = unconfirmedCar(prompt);
         return `שלחתי לצוות הרכב שאלה על ההשתתפות העצמית ב-${carId ? carName(config, carId) : "רכב החדש"}. ההשוואה תתעדכן כשתגיע תשובה.`;
       },
+    },
+    {
+      id: "find-ev",
+      label: "חיפוש לפי תנאים: חשמלי",
+      text: FIND_EV_MESSAGE,
+      calls: [{ toolName: "findOptions", input: { drives: ["electric"], maxNetDrop: 100 } }],
+      reply: (r) => findReply(r.findOptions as z.output<typeof FindOptionsOutput> | undefined),
     },
     {
       id: "missing",

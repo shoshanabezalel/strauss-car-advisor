@@ -464,3 +464,14 @@ Per milestone: what I asked, how (plan mode / subagent / MCP), what came out, wh
 - E2E written but not run (another session owns e2e): `tour.spec.ts` starts from empty storage; every other spec
   gets a default storageState with the tour seen (`tourSeenState` in helpers, unit-checked against `markSeen`). The
   two `browser.newContext()` specs need no seed: one only asserts visibility and counts, the other makes API calls.
+
+### F8 — Constraint search, in a worktree next to the design session (22/10/2026)
+- Built test-first on `f8-constraints` under a hard stop (18:00, moved to 19:30). Engine first (reuses
+  compareOptions, so no new net or eligibility logic), then the tool, the prompt line, the mock scenario, a live eval.
+- Results reuse the compareOptions output shape, so the table, notices and history needed no UI change; only the
+  tool label and a mock demo prompt were added.
+- What went wrong: a test asserted "no digits" in a missing-fields output, but the field name `childrenUnder23`
+  has digits; a heredoc turned "
+" into real newlines in replies.ts. Both caught by the test run.
+- The miss amount is the shown amount minus the limit, so it matches the table; when the unrounded miss rounds away,
+  the reason says "less than a shekel" instead of "0".

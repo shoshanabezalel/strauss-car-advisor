@@ -107,3 +107,25 @@ describe("demoPrompts", () => {
     expect(new Set(prompts.map((p) => p.id)).size).toBe(prompts.length);
   });
 });
+
+describe("mock model: F8 constraint search", () => {
+  const e1 = config.employees.employees.find((e) => e.id === "E-001")!;
+  const ev = demoPrompts(config).find((p) => p.id === "find-ev")!;
+
+  it("electric, net drop ≤ 100 → findOptions with those parameters, reply passes the guard", async () => {
+    const t = await turn(ev.text, { ...deps(), state: createAgentState(e1.profile) });
+    expect(t.toolCalls).toEqual([expect.objectContaining({ toolName: "findOptions", input: { drives: ["electric"], maxNetDrop: 100 } })]);
+    expect(t.guard).toEqual({ ok: true, invented: [] });
+    expect(t.blocked).toBe(false);
+    const out = t.toolOutputs[0].output as { status: string; matches: { reason: string }[] };
+    expect(out.status).toBe("ok");
+    for (const m of out.matches) expect(t.text).toContain(m.reason);
+  });
+
+  it("incomplete profile → asks instead of listing cars", async () => {
+    const t = await turn(ev.text);
+    expect(t.guard.ok).toBe(true);
+    expect(t.text).toContain("חסרים");
+    expect(t.notices[0]).toMatchObject({ kind: "missing" });
+  });
+});

@@ -2,7 +2,7 @@ import type { Car } from "@/lib/config";
 import type { MissingField } from "@/lib/engine";
 import type { VouRecord } from "@/lib/vou";
 import type { z } from "zod";
-import type { CompareOptionsOutput, GetValueOfUseOutput, RepField, UpdateProfileOutput } from "./schemas";
+import type { CompareOptionsOutput, FindOptionsOutput, GetValueOfUseOutput, RepField, UpdateProfileOutput } from "./schemas";
 
 export interface ToolOutput {
   /** Pairs the output with its call (information gaps, src/lib/gaps/derive.ts). */
@@ -23,6 +23,7 @@ export type Notice =
 
 type Compare = z.output<typeof CompareOptionsOutput>;
 type Update = z.output<typeof UpdateProfileOutput>;
+type Find = z.output<typeof FindOptionsOutput>;
 type Vou = z.output<typeof GetValueOfUseOutput>;
 
 /**
@@ -44,6 +45,11 @@ export function deriveNotices(outputs: readonly ToolOutput[]): Notice[] {
             notices.push({ kind: "participation_unconfirmed", carId: r.situation.carId });
           }
         }
+        break;
+      }
+      case "findOptions": {
+        const f = output as Find;
+        if (f.status === "missing") missing = f.missing;
         break;
       }
       case "updateProfile": {

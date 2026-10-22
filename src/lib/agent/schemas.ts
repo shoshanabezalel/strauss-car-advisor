@@ -298,6 +298,45 @@ export const CompareOptionsOutput = z.object({
   options: z.array(DisplayedOptionSchema),
 });
 
+// ---------- findOptions (F8) ----------
+
+/** Constraints only: the profile comes from the saved state. At least one constraint; unknown drive types are rejected. */
+export const FindOptionsInput = z
+  .object({
+    drives: z.array(DriveSchema).optional(),
+    maxNetDrop: money.optional(),
+    minNetGain: money.optional(),
+    maxParticipation: money.optional(),
+  })
+  .refine((c) => Boolean(c.drives?.length) || c.maxNetDrop !== undefined || c.minNetGain !== undefined || c.maxParticipation !== undefined, {
+    message: "at least one constraint",
+  });
+
+const MissSchema = z.object({
+  kind: z.enum(["netDrop", "netGain", "participation"]),
+  /** Unrounded, from the engine. */
+  by: z.number().positive(),
+  /** Whole shekels, from the shown amounts (difference of rounded values, like display.diffVsToday). */
+  display: z.number().int(),
+});
+
+/** One car in the search result. `reason` is a fixed Hebrew template filled with display values (find-options.ts). */
+export const FoundOptionSchema = z.object({ carId: z.string(), label: z.string(), fits: z.boolean(), misses: z.array(MissSchema), reason: z.string() });
+
+export const FindOptionsOutput = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("missing"), missing: z.array(MissingFieldSchema) }),
+  z.object({
+    status: z.literal("ok"),
+    constraints: FindOptionsInput,
+    matches: z.array(FoundOptionSchema),
+    /** Only when nothing matches: the closest cars and by how much each misses. */
+    nearest: z.array(FoundOptionSchema),
+    notEligible: z.array(FoundOptionSchema),
+    /** The matches (or the nearest) as a compareOptions output, for the comparison table. Absent when there are none. */
+    comparison: CompareOptionsOutput.optional(),
+  }),
+]);
+
 // ---------- askRepresentative ----------
 
 /**
