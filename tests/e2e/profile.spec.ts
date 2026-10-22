@@ -61,7 +61,7 @@ test.describe("profile and options (desktop)", () => {
   test("editing today's participation recomputes: today's net drops by exactly the change", async ({ page }) => {
     await startE001(page);
     const panel = page.getByTestId("profile-panel");
-    await expect(panel.getByTestId("profile-baseSalary")).toHaveValue(String(e1.profile.baseSalary));
+    await expect(panel.getByTestId("profile-baseSalary")).toHaveValue(e1.profile.baseSalary.toLocaleString("en-US"));
     await expect(panel.getByTestId("profile-pensionPct")).toHaveValue("6");
     await panel.getByTestId("profile-current-participation").fill(String(current.participation + 100));
     await panel.getByTestId("profile-save").click();
@@ -72,7 +72,7 @@ test.describe("profile and options (desktop)", () => {
 
     // reload keeps it
     await page.reload();
-    await expect(page.getByTestId("profile-panel").getByTestId("profile-current-participation")).toHaveValue(String(current.participation + 100));
+    await expect(page.getByTestId("profile-panel").getByTestId("profile-current-participation")).toHaveValue((current.participation + 100).toLocaleString("en-US"));
     await expect(page.getByTestId("row-today").getByTestId("net")).toHaveText(`${fmt(e1.expected.netToday - 100)} ₪`);
   });
 

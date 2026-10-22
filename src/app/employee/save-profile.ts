@@ -1,9 +1,10 @@
+import { parseNumberInput } from "@/lib/format/amounts";
 import type { ProfileField } from "@/lib/agent/schemas";
 import { PAYSLIP_FIELDS, type PayslipField } from "@/lib/payslip/schema";
 
 /** The payslip card's save (F6): only the six payslip fields, only those with a value. An empty field is not saved. */
 export function confirmedUpdates(values: Partial<Record<string, string>>): { field: PayslipField; value: number }[] {
-  return PAYSLIP_FIELDS.filter((f) => (values[f] ?? "").trim() !== "" && Number.isFinite(Number(values[f]))).map((f) => ({ field: f, value: Number(values[f]) }));
+  return PAYSLIP_FIELDS.filter((f) => Number.isFinite(parseNumberInput(values[f] ?? ""))).map((f) => ({ field: f, value: parseNumberInput(values[f]!) }));
 }
 
 export type ProfileSave = { ok: true; conversationId: string } | { ok: false; message: string };

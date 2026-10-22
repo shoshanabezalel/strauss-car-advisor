@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ProfileField } from "@/lib/agent/schemas";
 import type { ProfileView } from "@/lib/chat/profile-view";
+import { formatNumberInput, parseNumberInput } from "@/lib/format/amounts";
 import { INPUT, NUMBER_FIELDS } from "./form-fields";
 import { FIELD_LABELS } from "./labels";
 import { PayslipButton } from "./payslip";
@@ -18,7 +19,7 @@ type Form = Record<string, string>;
 
 /** Strings for the inputs: the server already gives values as the employee says them (percents ×100). */
 function toForm(v: ProfileView["values"]): Form {
-  const s = (n: number | undefined) => (n === undefined ? "" : String(n));
+  const s = (n: number | undefined) => (n === undefined ? "" : formatNumberInput(String(n)));
   const current = v.current;
   return {
     occupation: v.occupation ?? "",
@@ -62,12 +63,13 @@ export function ProfilePanel({
   const locked = new Set(profile.locked);
   const missing = new Set<string>(profile.missing);
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const blur = (k: string) => (e: React.FocusEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: formatNumberInput(e.target.value) }));
 
   function updates(): { field: ProfileField; value: unknown }[] {
     const out: { field: ProfileField; value: unknown }[] = [];
     for (const k of ["occupation", "group"] as const) if (form[k] && form[k] !== initial[k]) out.push({ field: k, value: form[k] });
     for (const { field } of NUMBER_FIELDS) {
-      if (form[field] !== "" && form[field] !== initial[field]) out.push({ field, value: Number(form[field]) });
+      if (form[field] !== "" && form[field] !== initial[field]) out.push({ field, value: parseNumberInput(form[field]) });
     }
     const carChanged = form.currentCar !== initial.currentCar || form.currentParticipation !== initial.currentParticipation;
     if (form.currentCar && carChanged) {
@@ -76,7 +78,7 @@ export function ProfilePanel({
         value:
           form.currentCar === WAIVER
             ? { kind: "waiver" }
-            : { kind: "car", carId: form.currentCar, ...(form.currentParticipation !== "" ? { participation: Number(form.currentParticipation) } : {}) },
+            : { kind: "car", carId: form.currentCar, ...(form.currentParticipation !== "" ? { participation: parseNumberInput(form.currentParticipation) } : {}) },
       });
     }
     return out.filter((u) => !locked.has(u.field));
@@ -154,20 +156,19 @@ export function ProfilePanel({
             </select>,
           )}
           <div className="grid grid-cols-2 gap-3">
-            {NUMBER_FIELDS.map(({ field: f, label, step }) => (
+            {NUMBER_FIELDS.map(({ field: f, label }) => (
               <div key={f} className={f === "childrenUnder23" ? "col-span-2" : undefined}>
                 {field(
                   f,
                   label,
                   <input
                     className={INPUT}
-                    type="number"
+                    type="text"
                     inputMode="decimal"
-                    min={0}
-                    step={step}
                     dir="ltr"
                     value={form[f]}
                     onChange={set(f)}
+                    onBlur={blur(f)}
                     disabled={busy || locked.has(f)}
                     aria-invalid={missing.has(f)}
                     data-testid={`profile-${f}`}
@@ -194,13 +195,12 @@ export function ProfilePanel({
               השתתפות עצמית היום (₪)
               <input
                 className={INPUT}
-                type="number"
+                type="text"
                 inputMode="numeric"
-                min={0}
-                step={1}
                 dir="ltr"
                 value={form.currentParticipation}
                 onChange={set("currentParticipation")}
+                onBlur={blur("currentParticipation")}
                 disabled={busy || locked.has("current")}
                 data-testid="profile-current-participation"
               />
@@ -219,3 +219,4 @@ export function ProfilePanel({
     </Card>
   );
 }
+

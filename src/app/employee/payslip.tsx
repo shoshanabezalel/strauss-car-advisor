@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PAYSLIP_FIELDS, type PayslipField, type PayslipFields, type PayslipNote, type PayslipNotes } from "@/lib/payslip/schema";
 import { MAX_PAYSLIP_BYTES, type PayslipResponse } from "@/lib/payslip/upload";
+import { formatNumberInput } from "@/lib/format/amounts";
 import { INPUT, NUMBER_FIELDS } from "./form-fields";
 import { confirmedUpdates, saveProfile } from "./save-profile";
 
@@ -119,7 +120,7 @@ export function PayslipFlow({ payslip, conversationId, disabled, onSaved }: { pa
 
 function ConfirmForm({ fields, notes, conversationId, disabled, onCancel, onSaved }: { fields: PayslipFields; notes: PayslipNotes; conversationId?: string; disabled: boolean; onCancel: () => void; onSaved: (id: string) => void }) {
   const [values, setValues] = useState<Record<PayslipField, string>>(
-    () => Object.fromEntries(PAYSLIP_FIELDS.map((f) => [f, fields[f] === null ? "" : String(fields[f])])) as Record<PayslipField, string>,
+    () => Object.fromEntries(PAYSLIP_FIELDS.map((f) => [f, fields[f] === null ? "" : formatNumberInput(String(fields[f]))])) as Record<PayslipField, string>,
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,13 +149,12 @@ function ConfirmForm({ fields, notes, conversationId, disabled, onCancel, onSave
               {LABELS[f].label}
               <input
                 className={INPUT}
-                type="number"
+                type="text"
                 inputMode="decimal"
-                min={0}
-                step={LABELS[f].step === 1 ? "any" : LABELS[f].step}
                 dir="ltr"
                 value={values[f]}
                 onChange={(e) => setValues((v) => ({ ...v, [f]: e.target.value }))}
+                onBlur={(e) => setValues((v) => ({ ...v, [f]: formatNumberInput(e.target.value) }))}
                 disabled={busy}
                 aria-invalid={unread && values[f] === ""}
                 data-testid={`payslip-${f}`}

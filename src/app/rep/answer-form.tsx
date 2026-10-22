@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { RepAnswer } from "@/lib/agent/schemas";
 import type { RepQuestionView } from "@/lib/chat/rep-view";
 import type { RepOptions } from "./rep-queue";
+import { formatNumberInput, parseNumberInput } from "@/lib/format/amounts";
 
 const FIELD =
   "w-full min-w-0 min-h-11 rounded-lg border border-input bg-card px-3 py-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive md:text-sm dark:bg-input/30";
@@ -24,8 +25,8 @@ export function AnswerForm({ q, options, onAnswered }: { q: RepQuestionView; opt
   const [sending, setSending] = useState(false);
 
   function build(): RepAnswer | string {
-    const value = Number(amount);
-    const validAmount = amount.trim() !== "" && Number.isFinite(value) && value >= 0;
+    const value = parseNumberInput(amount);
+    const validAmount = Number.isFinite(value) && value >= 0;
     switch (q.field) {
       case "participation":
         if (!q.car) return "חסר רכב לשאלה.";
@@ -103,13 +104,11 @@ export function AnswerForm({ q, options, onAnswered }: { q: RepQuestionView; opt
           השתתפות עצמית חודשית (₪)
           <input
             className={FIELD}
-            type="number"
+            type="text"
             inputMode="numeric"
-            min={0}
-            max={q.field === "participation" ? q.car?.maxParticipation : undefined}
-            step={1}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
+            onBlur={(e) => setAmount(formatNumberInput(e.target.value))}
             aria-invalid={Boolean(error)}
             data-testid="answer-amount"
             dir="ltr"

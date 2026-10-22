@@ -14,7 +14,7 @@ test.describe("payslip upload", () => {
     await upload(page, "payslip.png");
 
     const card = page.getByTestId("payslip-confirm");
-    await expect(card.getByTestId("payslip-baseSalary")).toHaveValue(String(e1.baseSalary));
+    await expect(card.getByTestId("payslip-baseSalary")).toHaveValue(e1.baseSalary.toLocaleString("en-US"));
     await expect(card.getByTestId("payslip-pensionPct")).toHaveValue("6");
     await expect(card.getByTestId("payslip-studyFundPct")).toHaveValue("2.5");
     await expect(card.getByTestId("payslip-bonus")).toHaveValue("");
@@ -32,9 +32,9 @@ test.describe("payslip upload", () => {
 
     await expect(page.getByTestId("payslip-card")).toBeHidden();
     await expect(page.getByTestId("msg-assistant").last()).toContainText("עדכנתי");
-    await expect(panel.getByTestId("profile-baseSalary")).toHaveValue(String(e1.baseSalary));
-    await expect(panel.getByTestId("profile-bonus")).toHaveValue(String(e1.bonus));
-    await expect(panel.getByTestId("profile-creditPoints")).toHaveValue(String(e1.creditPoints));
+    await expect(panel.getByTestId("profile-baseSalary")).toHaveValue(e1.baseSalary.toLocaleString("en-US"));
+    await expect(panel.getByTestId("profile-bonus")).toHaveValue(e1.bonus.toLocaleString("en-US"));
+    await expect(panel.getByTestId("profile-creditPoints")).toHaveValue(e1.creditPoints.toLocaleString("en-US"));
     // Not on a payslip: never filled from it.
     await expect(panel.getByTestId("profile-childrenUnder23")).toHaveValue("");
   });

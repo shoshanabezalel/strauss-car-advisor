@@ -1,6 +1,7 @@
 import { generateText, isStepCount, type LanguageModel, type ModelMessage } from "ai";
 import type { Config } from "@/lib/config";
 import type { AgentEventSink } from "./events";
+import { groupShekelAmounts } from "@/lib/format/amounts";
 import { checkNumbers, type GuardResult } from "./number-guard";
 import { deriveNotices, type Notice, type ToolOutput } from "./notices";
 import { loadSystemPrompt } from "./system-prompt";
@@ -105,8 +106,9 @@ export async function runAgentTurn({ model, messages, deps, maxSteps = 8, maxRet
     onEvent?.({ type: "status", status: "checking" });
     guard = checkNumbers(text, { toolOutputs: toolOutputs.map((o) => o.output), profile: deps.state.profile, ignoreNames });
     if (guard.ok && text) {
+      const shown = groupShekelAmounts(text);
       return {
-        text,
+        text: shown,
         blocked: false,
         attempts: attempt,
         toolCalls,
@@ -114,7 +116,7 @@ export async function runAgentTurn({ model, messages, deps, maxSteps = 8, maxRet
         toolErrors,
         notices: deriveNotices(toolOutputs),
         guard,
-        responseMessages: [...carried, { role: "assistant", content: text }],
+        responseMessages: [...carried, { role: "assistant", content: shown }],
       };
     }
     note = correctionNote(guard, !text);

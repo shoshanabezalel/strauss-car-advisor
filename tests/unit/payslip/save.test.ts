@@ -34,6 +34,13 @@ describe("confirmedUpdates", () => {
     ]);
   });
 
+  it("reads thousands separators back as numbers", () => {
+    expect(confirmedUpdates({ baseSalary: "18,500", bonus: "1,200.5" })).toEqual([
+      { field: "baseSalary", value: 18500 },
+      { field: "bonus", value: 1200.5 },
+    ]);
+  });
+
   it("never anything outside the six fields", () => {
     expect(confirmedUpdates({ childrenUnder23: "2", occupation: "x", idNumber: "000000000", bonus: "100" })).toEqual([{ field: "bonus", value: 100 }]);
   });
