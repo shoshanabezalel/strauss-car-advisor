@@ -78,17 +78,20 @@ test.describe("profile and options (desktop)", () => {
   test("swapping cars: EV3, then back to ATTO 3 at the sheet's net; adding waiver adds a row", async ({ page }) => {
     await startE001(page);
     const picker = page.getByTestId("option-picker");
+    await page.getByTestId("picker-open").click();
     await picker.getByTestId("option-select").selectOption(ev3.id);
     await picker.getByTestId("option-replace").click();
     await expect(page.getByTestId("card-option-0")).toContainText(ev3.model);
     const ev3Net = shekels(await page.getByTestId("card-option-0").getByTestId("net").innerText());
     expect(ev3Net).toBeGreaterThan(0);
 
+    await page.getByTestId("picker-open").click();
     await picker.getByTestId("option-select").selectOption(atto.id);
     await picker.getByTestId("option-replace").click();
     await expect(page.getByTestId("card-option-0")).toContainText(atto.model);
     await expect(page.getByTestId("card-option-0").getByTestId("net")).toHaveText(`${fmt(e1.expected.netAlt)} ₪`);
 
+    await page.getByTestId("picker-open").click();
     await picker.getByTestId("option-select").selectOption("waiver");
     await picker.getByTestId("option-add").click();
     await expect(page.getByTestId("card-option-1")).toContainText("ויתור");
@@ -96,6 +99,7 @@ test.describe("profile and options (desktop)", () => {
 
     await page.reload();
     await expect(page.getByTestId("card-option-1")).toContainText("ויתור");
+    await page.getByTestId("picker-open").click();
     await picker.getByTestId("option-remove-1").click();
     await expect(page.getByTestId("card-option-1")).toHaveCount(0);
   });

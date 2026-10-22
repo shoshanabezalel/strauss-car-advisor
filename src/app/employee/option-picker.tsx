@@ -15,7 +15,10 @@ const MAX_OPTIONS = 3;
 
 type Option = { kind: "car"; carId: string } | { kind: "waiver" };
 
-/** The options to compare (F5): swap the car, add one (up to three), remove one. POST /api/compare recomputes. */
+/**
+ * The options to compare (F5): swap the car, add one (up to three), remove one. POST /api/compare recomputes.
+ * Shown in a dialog (employee-chat.tsx).
+ */
 export function OptionPicker({
   conversationId,
   comparison,
@@ -65,7 +68,7 @@ export function OptionPicker({
   const canAdd = picked && current.length < MAX_OPTIONS && !plain.some((o) => same(o, picked));
 
   return (
-    <section aria-label="בחירת אפשרויות להשוואה" className="flex flex-col gap-2 rounded-lg border p-3" data-testid="option-picker">
+    <section aria-label="בחירת אפשרויות להשוואה" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <span className="text-muted-foreground">משווים:</span>
         {current.length === 0 && <span className="text-muted-foreground">עדיין לא נבחרה אפשרות</span>}

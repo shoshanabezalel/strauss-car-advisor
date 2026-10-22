@@ -38,7 +38,7 @@ export const EMPLOYEE_TOUR: TourStep[] = [
   },
   {
     id: "options",
-    selector: testId("option-picker"),
+    selector: testId("picker-open"),
     text: "כאן בוחרים רכבים או ויתור על הרכב, ומשווים ביניהם.",
     fallback: "אחרי שכל הפרטים ימולאו, יופיע מקום לבחור רכבים או ויתור ולהשוות ביניהם.",
   },

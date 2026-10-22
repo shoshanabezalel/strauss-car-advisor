@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, LoaderCircle, Menu, Send, X } from "lucide-react";
+import { CarFront, Check, LoaderCircle, Menu, Send, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { TopBar } from "@/components/top-bar";
 import { TourHelpButton, useTour } from "@/components/tour/tour";
@@ -60,6 +61,8 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
   const [drawer, setDrawer] = useState(false);
   /** "איך זה מחושב?" panel: the option whose lines it shows. */
   const [explain, setExplain] = useState<string | null>(null);
+  /** The catalog picker opens as a dialog from the button under the input bar. */
+  const [picker, setPicker] = useState(false);
   // The Realtime topic is an HMAC of the id that only the owner gets from the API (M7), so it arrives with the first load.
   const [topic, setTopic] = useState<string | undefined>();
   const endRef = useRef<HTMLDivElement>(null);
@@ -354,20 +357,40 @@ export function EmployeeChat({ mock, demoPrompts, carLabels, emptyProfile }: Pro
                 <Send className="rtl:-scale-x-100" />
               </Button>
             </form>
+            {conversationId && profile.missing.length === 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0 self-start rounded-full"
+                disabled={pending}
+                onClick={() => setPicker(true)}
+                data-testid="picker-open"
+              >
+                <CarFront /> הוספת רכב להשוואה
+              </Button>
+            )}
           </section>
 
-          {conversationId && profile.missing.length === 0 && (
+
+        </div>
+      </div>
+      {conversationId && (
+        <Dialog open={picker} onOpenChange={setPicker}>
+          <DialogContent title="הוספת רכב להשוואה" data-testid="option-picker">
             <OptionPicker
               conversationId={conversationId}
               comparison={comparison}
               choices={profile.choices}
               disabled={pending}
-              onChanged={() => onDirectChange(conversationId)}
+              onChanged={() => {
+                setPicker(false);
+                onDirectChange(conversationId);
+              }}
             />
-          )}
-
-        </div>
-      </div>
+          </DialogContent>
+        </Dialog>
+      )}
       {comparison && explain && <ExplainPanel view={comparison} selected={explain} onSelect={setExplain} onClose={() => setExplain(null)} />}
       {tour.node}
     </div>

@@ -40,7 +40,7 @@ describe("tour steps", () => {
       '[data-tour="chat-input"]',
       '[data-tour="payslip-chat"]',
       '[data-testid="profile-panel"]',
-      '[data-testid="option-picker"]',
+      '[data-testid="picker-open"]',
       '[data-tour="comparison"]',
       '[data-tour="tour-help"]',
     ]);
