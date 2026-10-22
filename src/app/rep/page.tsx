@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "יועץ הרכב – צוות הר�
 
 export default function RepPage() {
   return (
-    <main className="flex flex-1 flex-col">
+    <main className="flex flex-1 flex-col [&_[data-slot=card]]:rounded-2xl [&_[data-slot=card]]:shadow-sm">
       <TopBar title="צוות הרכב" subtitle="שאלות של עובדים ופערי מידע" />
       {/* cookies() is request data: with Cache Components it must sit inside a Suspense boundary. */}
       <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">טוען…</p>}>

@@ -33,7 +33,7 @@ export function RepScreen({ mock, options }: { mock: boolean; options: RepOption
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 pt-4">
-      <nav className="flex items-center justify-between gap-2 border-b" aria-label="מסכי צוות הרכב" data-tour="rep-welcome">
+      <nav className="flex items-center justify-between gap-2 rounded-2xl bg-card p-2 shadow-sm" aria-label="מסכי צוות הרכב" data-tour="rep-welcome">
         <div className="flex gap-1" role="tablist">
           {TABS.map((t) => (
             <button
@@ -43,8 +43,8 @@ export function RepScreen({ mock, options }: { mock: boolean; options: RepOption
               aria-selected={tab === t.id}
               onClick={() => select(t.id)}
               data-testid={`rep-tab-${t.id}`}
-              className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${
-                tab === t.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+              className={`min-h-11 rounded-full px-4 text-sm font-medium ${
+                tab === t.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
               {t.label}
